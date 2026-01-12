@@ -16,27 +16,36 @@ NodeGuarder is a lightweight server monitoring solution for Linux servers.
 - Docker and Docker Compose
 - Linux servers to monitor
 
-### 2. Backend & Dashboard Setup (On-Premise)
+### 2. Backend & Dashboard Setup
 
-We provide helper scripts to get you up and running quickly with Docker Compose.
+You can install NodeGuarder using our pre-built Docker images, either via our Registry or an Offline Package.
 
-**Linux / macOS:**
-```bash
-cd deploy
-./deploy.sh
-```
+#### Option A: Online Installation (Recommended)
+1.  Pull the image from our registry:
+    ```bash
+    docker pull ghcr.io/nodeguarder/nodeguarder:1.0.0
+    ```
+2.  Use the `deploy/docker-compose.customer.yml` template (rename to `docker-compose.yml`) and run:
+    ```bash
+    docker compose up -d
+    ```
 
-**Windows (PowerShell):**
-```powershell
-cd deploy
-.\deploy.ps1
-```
+#### Option B: Offline Installation (Air-Gapped)
+1.  Download the **Offline Package** (`nodeguarder-offline-vX.X.X.zip`) from our [GitHub Releases](https://github.com/nodeguarder/nodeguarder/releases).
+2.  Unzip the package on your server.
+3.  Load the docker image:
+    ```bash
+    docker load -i nodeguarder-1.0.0.tar
+    ```
+4.  Start the services:
+    ```bash
+    docker compose up -d
+    ```
 
-These scripts will handling the building, certificate generation, and starting of the services.
-
+#### Accessing the Dashboard
 - **URL**: `https://localhost:8443`
 - **Default User**: `admin`
-- **Default Password**: `admin` (You will be forced to change this on first login)
+- **Default Password**: `change-me-immediately` (See docker-compose.yml to configure)
 
 ### 3. Agent Installation
 
@@ -60,7 +69,7 @@ This project uses the following open-source libraries:
 
 All third-party dependencies are permissive (MIT, Apache 2.0, or BSD) and are commercially friendly.
 
-### ⚠️ Disclaimer of Liability
+### Disclaimer of Liability
 **THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.**
 
 By using this software, you agree that the authors and copyright holders shall **NOT** be liable for any claim, damages, or other liability, whether in an action of contract, tort, or otherwise, arising from, out of, or in connection with the software or the use or other dealings in the software.

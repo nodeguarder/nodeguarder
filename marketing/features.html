@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Features - NodeGuarder</title>
+    <meta name="description"
+        content="Explore NodeGuarder's deep Linux observability features: eBPF Cron Monitoring, Real-time Health Metrics, and Configuration Drift Detection.">
+    <style>
+        :root {
+            --background: #f3f4f6;
+            --foreground: #1f2937;
+            --primary: #111827;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --card-bg: #ffffff;
+            --text-light: #9ca3af;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            color: var(--foreground);
+            background-color: var(--background);
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: var(--primary);
+            font-weight: 700;
+            margin-top: 0;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+            color: white;
+        }
+
+        h2 {
+            font-size: 2.25rem;
+            margin-bottom: 1.5rem;
+        }
+
+        h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        p {
+            margin-bottom: 1.5rem;
+            color: #4b5563;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        /* Navbar */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 70px;
+            background: rgba(17, 24, 39, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+        }
+
+        .navbar .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 100%;
+            width: 100%;
+            max-width: none;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: white;
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+
+        .nav-brand img {
+            height: 32px;
+            width: auto;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: #d1d5db;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: white;
+        }
+
+        .nav-links .btn-sm {
+            padding: 0.5rem 1.25rem;
+            font-size: 0.875rem;
+            background: var(--accent);
+            color: white;
+            border-radius: 99px;
+        }
+
+        /* Header */
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 10rem 0 6rem;
+            text-align: center;
+        }
+
+        /* Feature Sections */
+        section {
+            padding: 6rem 0;
+        }
+
+        section:nth-child(even) {
+            background: white;
+        }
+
+        .feature-block {
+            display: flex;
+            align-items: flex-start;
+            gap: 4rem;
+            margin-bottom: 4rem;
+        }
+
+        .feature-content {
+            flex: 1;
+        }
+
+        .feature-visual {
+            flex: 1;
+            background: #1f2937;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            color: #e5e7eb;
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 0.9rem;
+            border: 1px solid #374151;
+        }
+
+        .window-header {
+            background: #111827;
+            padding: 12px 16px;
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid #374151;
+        }
+
+        .window-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .window-content {
+            padding: 1.5rem;
+        }
+
+        /* Dot Colors */
+        .dot-red {
+            background: #ef4444;
+        }
+
+        .dot-yellow {
+            background: #f59e0b;
+        }
+
+        .dot-green {
+            background: #10b981;
+        }
+
+        .highlight-box {
+            background: #eff6ff;
+            border-left: 4px solid var(--accent);
+            padding: 1.5rem;
+            margin: 2rem 0;
+            border-radius: 4px;
+        }
+
+        ul.feature-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        ul.feature-list li {
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        ul.feature-list li::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 4px;
+            width: 16px;
+            height: 16px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+
+        footer {
+            background: var(--primary);
+            color: #9ca3af;
+            padding: 4rem 0;
+            text-align: center;
+            border-top: 1px solid #374151;
+        }
+
+        footer a {
+            color: white;
+            opacity: 0.8;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav class="navbar">
+        <div class="container">
+            <a href="index.html" class="nav-brand">
+                <img src="small_logo.png" alt="NodeGuarder">
+                <span>nodeguarder.com</span>
+            </a>
+            <div class="nav-links">
+                <a href="features.html" style="color: white;">Features</a>
+                <a href="docs.html">Documentation</a>
+                <a href="contact.html">Contact</a>
+                <a href="https://github.com/yourusername/nodeguarder/releases" class="btn-sm">Download</a>
+            </div>
+        </div>
+    </nav>
+
+    <header>
+        <div class="container">
+            <h1>Platform Features</h1>
+            <p style="color: #d1d5db; font-size: 1.25rem;">Everything you need to sleep soundly knowing your servers are
+                healthy.</p>
+        </div>
+    </header>
+
+    <!-- Cron Monitoring -->
+    <section>
+        <div class="container">
+            <div class="feature-block">
+                <div class="feature-content">
+                    <h2>eBPF Cron Monitoring</h2>
+                    <p>Stop guessing if your backups actually ran. NodeGuarder uses eBPF to hook directly into the
+                        kernel, detecting cron job executions, exit codes, and timeouts without <b>any</b> wrapper
+                        scripts.</p>
+
+                    <ul class="feature-list">
+                        <li><b>Zero Touch</b>: No need to modify crontab or use `curl` pings.</li>
+                        <li><b>Precise Detection</b>: Captures exact exit codes via `sched_process_exit`.</li>
+                        <li><b>Timeout Alerts</b>: Know instantly if a job hangs (Long Running).</li>
+                        <li><b>Auto-Discovery</b>: Automatically finds and tracks new cron jobs.</li>
+                    </ul>
+
+                    <div class="highlight-box">
+                        <strong>Why eBPF?</strong><br>
+                        Legacy tools rely on parsing log files, which is brittle and slow. eBPF allows us to observe the
+                        actual process execution in real-time with zero overhead.
+                    </div>
+                </div>
+                <div class="feature-visual">
+                    <div class="window-header">
+                        <div class="window-dot dot-red"></div>
+                        <div class="window-dot dot-yellow"></div>
+                        <div class="window-dot dot-green"></div>
+                    </div>
+                    <div class="window-content">
+                        <div style="color: #60a5fa; margin-bottom: 1rem;">// Dashboard View</div>
+                        <div>
+                            <div style="display:flex; justify-content:space-between;">
+                                <strong>backup.sh</strong>
+                                <span style="color:#6b7280; font-size: 0.85em; font-family: monospace;">PID: 1042</span>
+                            </div>
+                            <span style="color: #ef4444;">● Failed (Exit Code 1)</span><br>
+                            <small style="color: #9ca3af;">Ran: 04:00:01 - 04:00:03 (2s)</small>
+                        </div>
+                        <hr style="border-color: #374151; margin: 1rem 0;">
+                        <div>
+                            <div style="display:flex; justify-content:space-between;">
+                                <strong>cleanup.py</strong>
+                                <span style="color:#6b7280; font-size: 0.85em; font-family: monospace;">PID: 2155</span>
+                            </div>
+                            <span style="color: #10b981;">● Success (Exit Code 0)</span><br>
+                            <small style="color: #9ca3af;">Ran: 04:05:00 - 04:05:45 (45s)</small>
+                        </div>
+                        <hr style="border-color: #374151; margin: 1rem 0;">
+                        <div>
+                            <div style="display:flex; justify-content:space-between;">
+                                <strong>sync_db.sh</strong>
+                                <span style="color:#6b7280; font-size: 0.85em; font-family: monospace;">PID: 3402</span>
+                            </div>
+                            <span style="color: #f59e0b;">● Timeout (> 300s limit)</span><br>
+                            <small style="color: #9ca3af;">Started: 04:10:00 (Running for 12m 30s...)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Health Monitoring -->
+    <section>
+        <div class="container">
+            <div class="feature-block">
+                <div class="feature-visual">
+                    <div class="window-header">
+                        <div class="window-dot dot-red"></div>
+                        <div class="window-dot dot-yellow"></div>
+                        <div class="window-dot dot-green"></div>
+                    </div>
+                    <div class="window-content">
+                        <div style="color: #60a5fa; margin-bottom: 1rem;">// Metrics collected</div>
+                        CPU Usage: 42% (Normalizing)<br>
+                        Memory: 4.2GB / 16GB<br>
+                        Disk: 45% used<br>
+                        Load Avg: 0.95, 1.10, 0.85<br>
+                        Uptime: 45 days<br>
+                        <br>
+                        <span style="color: #818cf8;">Status: Recovering (Window: 20s remaining)</span><br>
+                        <span style="color: #6b7280; font-size: 0.8em; margin-left: 2px;">&darr;</span><br>
+                        <span style="color: #34d399;">Status: Healthy</span>
+                    </div>
+                </div>
+                <div class="feature-content">
+                    <h2>Health & Performance</h2>
+                    <p>Keep a finger on the pulse of your infrastructure. We track valid metrics and alert you when
+                        sustained pressure threatens stability.</p>
+
+                    <ul class="feature-list">
+                        <li><b>Smart Thresholds</b>: Define Warning & Critical levels for CPU, RAM, and Disk.</li>
+                        <li><b>False Positive Protection</b>: "Sustain Duration" ensures transient spikes don't wake you
+                            up at 3 AM.</li>
+                        <li><b>Smart Recovery</b>: Configurable "Stability Window" prevents flapping alerts by ensuring
+                            a
+                            server is truly healthy before sending a "Resolved" notification.</li>
+                        <li><b>Offline Watchdog</b>: Instant alerts if a server stops hearbeating for more than 2
+                            minutes (default, configurable).</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Drift Detection -->
+    <section>
+        <div class="container">
+            <div class="feature-block">
+                <div class="feature-content">
+                    <h2>Configuration Drift (FIM)</h2>
+                    <p>Unplanned changes are the root cause of most outages. NodeGuarder monitors your `/etc` directory
+                        (or any path) for unauthorized modifications.</p>
+
+                    <ul class="feature-list">
+                        <li><b>File Integrity</b>: Checksum-based tracking of config files.</li>
+                        <li><b>Granular Control</b>: Ignore temporary files (`*.tmp`, `*.bak`) to reduce noise.</li>
+                        <li><b>Audit Trail</b>: Know exactly when a file changed.</li>
+                    </ul>
+                </div>
+                <div class="feature-visual">
+                    <div class="window-header">
+                        <div class="window-dot dot-red"></div>
+                        <div class="window-dot dot-yellow"></div>
+                        <div class="window-dot dot-green"></div>
+                    </div>
+                    <div class="window-content">
+                        <div class="window-content">
+                            <div style="color: #60a5fa; margin-bottom: 1rem;">// Alert: Drift Detected</div>
+
+                            <!-- Modified -->
+                            <div style="margin-bottom: 1rem;">
+                                <strong>/etc/nginx/nginx.conf</strong><br>
+                                <span style="color: #f59e0b;">● MODIFIED</span><br>
+                                <small style="color: #9ca3af;">Time: 14:02:23 (Checksum mismatch)</small>
+                            </div>
+                            <hr style="border-color: #374151; margin: 1rem 0;">
+
+                            <!-- Created -->
+                            <div style="margin-bottom: 1rem;">
+                                <strong>/etc/cron.d/backdoor</strong><br>
+                                <span style="color: #ef4444;">● CREATED</span><br>
+                                <small style="color: #9ca3af;">Time: 14:05:01 (New file detected)</small>
+                            </div>
+                            <hr style="border-color: #374151; margin: 1rem 0;">
+
+                            <!-- Deleted -->
+                            <div>
+                                <strong>/etc/hosts.allow</strong><br>
+                                <span style="color: #ef4444;">● DELETED</span><br>
+                                <small style="color: #9ca3af;">Time: 14:10:15 (File removed)</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Notifications -->
+    <section>
+        <div class="container">
+            <div class="feature-block">
+                <div class="feature-visual">
+                    <div class="window-header">
+                        <div class="window-dot dot-red"></div>
+                        <div class="window-dot dot-yellow"></div>
+                        <div class="window-dot dot-green"></div>
+                    </div>
+                    <div class="window-content">
+                        <div style="color: #60a5fa; margin-bottom: 1rem;">// #alerts-channel</div>
+
+                        <!-- Slack Style -->
+                        <div style="display: flex; gap: 10px; margin-bottom: 1.5rem;">
+                            <div
+                                style="width: 30px; height: 30px; background: #E01E5A; border-radius: 4px; flex-shrink: 0;">
+                            </div>
+                            <div>
+                                <strong style="color: #fff;">NodeGuarder Bot</strong> <span
+                                    style="color: #6b7280; font-size: 0.8rem;">10:42 AM</span><br>
+                                <span style="color: #ef4444;">[CRITICAL] Server 'prod-db-01' High CPU Load (98%)</span>
+                            </div>
+                        </div>
+
+                        <!-- Discord Style -->
+                        <div style="display: flex; gap: 10px; margin-bottom: 1.5rem;">
+                            <div
+                                style="width: 30px; height: 30px; background: #5865F2; border-radius: 50%; flex-shrink: 0;">
+                            </div>
+                            <div>
+                                <strong style="color: #fff;">NodeGuarder</strong> <span
+                                    style="background: #5865F2; color: white; padding: 2px 4px; border-radius: 3px; font-size: 0.7rem;">BOT</span><br>
+                                <span style="color: #f59e0b;">[WARN] Cron job 'backup.sh' timed out (> 300s)</span>
+                            </div>
+                        </div>
+
+                        <!-- Teams Style -->
+                        <div style="display: flex; gap: 10px;">
+                            <div
+                                style="width: 30px; height: 30px; background: #6264A7; border-radius: 4px; flex-shrink: 0;">
+                            </div>
+                            <div>
+                                <strong style="color: #fff;">NodeGuarder</strong><br>
+                                <span style="color: #10b981;">[RESOLVED] Server 'web-02' is back online.</span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="feature-content">
+                    <h2>Automatic notification of alerts</h2>
+                    <p>Don't stare at dashboards all day. NodeGuarder integrates with the tools you already use, sending
+                        instant notifications when something needs your attention.</p>
+
+                    <ul class="feature-list">
+                        <li><b>Multi-Channel Support</b>: Seamless integration with <b>Slack</b>, <b>Microsoft
+                                Teams</b>, and <b>Discord</b>.</li>
+                        <li><b>Email Alerts</b>: Robust SMTP support (including StartTLS) for traditional email
+                            notifications.</li>
+                        <li><b>Smart Routing</b>: Configure different alert severities (Critical, Warning) to trigger
+                            different notification channels.</li>
+                        <li><b>No More Flapping</b>: "Resolved" notifications are only sent after the server has
+                            initialized
+                            and remained stable for a configurable duration.</li>
+                        <li><b>Rich Context</b>: Alerts include the server name, error details, and relevant metrics so
+                            you can act immediately.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Final CTA -->
+        <section style="background: white; text-align: center;">
+            <div class="container">
+                <h2 style="margin-bottom: 1rem;">Ready to take control?</h2>
+                <p style="margin-bottom: 2rem; max-width: 600px; margin-left: auto; margin-right: auto;">
+                    Join the community of sysadmins who sleep properly at night.
+                </p>
+                <a href="https://github.com/yourusername/nodeguarder/releases"
+                    style="background: var(--accent); color: white; padding: 1rem 2.5rem; border-radius: 99px; text-decoration: none; font-weight: 600; font-size: 1.1rem; display: inline-block;">
+                    Get Started Now
+                </a>
+            </div>
+        </section>
+
+        <footer>
+            <div class="container">
+                <p>&copy; 2025 NodeGuarder. All rights reserved.</p>
+                <p>
+                    <a href="#">GitHub</a>
+                    <a href="#">Twitter</a>
+                    <a href="privacy.html">Privacy</a>
+                    <a href="terms.html">Terms</a>
+                </p>
+            </div>
+        </footer>
+
+</body>
+
+</html>

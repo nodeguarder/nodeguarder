@@ -1,0 +1,87 @@
+# Docker Compose template for customers running NodeGuarder
+# Copy this file to docker-compose.yml and update as needed
+#
+# Usage:
+#   1. Ensure you have Docker and Docker Compose installed
+#   2. Update the image version if needed
+#   3. Run: docker compose up -d
+#
+# The service will be available at: https://localhost:8443
+# Default credentials: admin / (value of ADMIN_PASSWORD)
+
+name: nodeguarder
+
+
+
+services:
+  # NodeGuarder Backend & Frontend
+  app:
+    # Use the customer image (License Generator disabled)
+    image: nodeguarder:1.0.0
+    
+    # For local registry or self-hosted:
+    # image: your-registry.com/nodeguarder:1.0.0
+    
+    ports:
+      - "8080:8080"
+    
+    environment:
+      # Database location
+      DB_PATH: /data/nodeguarder.db
+
+      # Server port
+      PORT: "8080"
+      
+      # Admin Password (REQUIRED)
+      # Replace this with a secure password!
+      ADMIN_PASSWORD: "change-me-immediately"
+      
+      # Optional: License encryption key (only if using encrypted licenses)
+      # LICENSE_ENCRYPTION_KEY: "your-base64-encoded-32-byte-key"
+      
+      # License file location
+      LICENSE_PATH: /app/license.yaml
+    
+    volumes:
+      # Persist database and logs
+      - ./data:/data
+      
+      # Mount license file (required before first run!)
+      # Before starting: copy your license.yaml to ./license.yaml
+      - ./license.yaml:/app/license.yaml:ro
+    
+    restart: unless-stopped
+    
+    networks:
+      - nodeguarder
+    
+    # Health check
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Nginx Reverse Proxy (HTTPS)
+  nginx:
+    image: nginx:alpine
+    container_name: nodeguarder-nginx
+    ports:
+      - "8443:443"
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - nodeguarder
+
+networks:
+  nodeguarder:
+    driver: bridge
+
+# Data volume for persistence
+volumes:
+  data:
+    driver: local

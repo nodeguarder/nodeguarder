@@ -1,0 +1,77 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+health-agent
+agent/health-agent
+
+# Go
+*.test
+*.out
+go.work
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+
+# Data and configs
+*.db
+*.sqlite
+*.sqlite3
+data/
+*.log
+
+# Secrets
+*.pem
+*.key
+*.crt
+deploy/certs/
+.env
+.env.local
+license.yaml
+deploy/license_data/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+
+# React build
+dashboard/frontend/dist/
+dashboard/frontend/build/
+
+# Docker
+*.pid
+login.json
+login_payload.json
+
+# Internal/Proprietary
+dashboard/backend/handlers/license_generator.go
+deploy/license_tool/
+
+# Temp scripts & leftovers
+gen_hash.go
+get_token.py
+mvp_plan
+*.log
+*.tmp
+temp/
+tmp/
+agent-binaries/
+

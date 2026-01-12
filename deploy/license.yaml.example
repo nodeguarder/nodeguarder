@@ -1,0 +1,4 @@
+max_servers: 5
+expires: "2099-12-31T23:59:59Z"
+license_id: "free-5-servers-001"
+signature: "sha256:abc123def456..."

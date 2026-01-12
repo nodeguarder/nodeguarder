@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NodeGuarder - Private Linux Server Monitoring</title>
+    <meta name="description"
+        content="Enterprise-grade eBPF observability for Linux. Self-hosted, private, and installed in minutes. Monitor health, cron jobs, and file drift without external dependencies.">
+    <meta name="keywords"
+        content="linux monitoring, server health, eBPF observability, cron monitoring, drift detection, self-hosted, open source, devops, sysadmin">
+    <meta name="author" content="NodeGuarder">
+
+    <!-- Open Graph / Social Media -->
+    <meta property="og:title" content="NodeGuarder - Powerful, Private Linux Monitoring">
+    <meta property="og:description"
+        content="Deploy enterprise-grade observability in minutes. Zero-touch configuration, eBPF-powered, and 100% self-hosted.">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="dashboard.png">
+    <meta property="twitter:card" content="summary_large_image">
+
+    <!-- Structured Data (JSON-LD) for Google & AI -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "NodeGuarder",
+      "operatingSystem": "Linux",
+      "applicationCategory": "DevOpsTool",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "description": "A lightweight, self-hosted Linux server monitoring agent using eBPF for deep observability of cron jobs, system health, and configuration drift.",
+      "featureList": "eBPF Cron Monitoring, File Integrity Monitoring, Real-time Health Alerts"
+    }
+    </script>
+    <style>
+        :root {
+            /* Dashboard Theme Colors */
+            --background: #f3f4f6;
+            --foreground: #1f2937;
+            /* Gray-800 */
+            --primary: #111827;
+            /* Gray-900 (Header/Footer) */
+            --accent: #3b82f6;
+            /* Blue-500 (Buttons/Links) */
+            --accent-hover: #2563eb;
+            --card-bg: #ffffff;
+            --text-light: #9ca3af;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            color: var(--foreground);
+            background-color: var(--background);
+        }
+
+        /* Typography */
+        h1,
+        h2,
+        h3 {
+            color: var(--primary);
+            font-weight: 700;
+            line-height: 1.2;
+            margin-top: 0;
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            letter-spacing: -0.05em;
+            color: white;
+            margin-bottom: 1.5rem;
+        }
+
+        h2 {
+            font-size: 2.25rem;
+            margin-bottom: 3rem;
+            text-align: center;
+            color: var(--primary);
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
+        }
+
+        p {
+            margin-bottom: 1.5rem;
+            color: #4b5563;
+        }
+
+        /* Layout */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        section {
+            padding: 6rem 0;
+        }
+
+        /* Navbar */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 70px;
+            background: rgba(17, 24, 39, 0.95);
+            /* Dark background with slight transparency */
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+        }
+
+        .navbar .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 100%;
+            width: 100%;
+            /* Ensure container fills navbar */
+            max-width: none;
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: white;
+            font-weight: 700;
+            font-size: 1.5rem;
+        }
+
+        .nav-brand img {
+            height: 32px;
+            width: auto;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: #d1d5db;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: white;
+        }
+
+        .comparison-table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            background: white;
+            border: 1px solid #e5e7eb;
+            /* Ensure shadow scrolling context */
+            background: linear-gradient(to right, white 30%, rgba(255, 255, 255, 0)),
+                linear-gradient(to right, rgba(255, 255, 255, 0), white 70%) 0 100%,
+                radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, .2), rgba(0, 0, 0, 0)),
+                radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, .2), rgba(0, 0, 0, 0)) 0 100%;
+            background-repeat: no-repeat;
+            background-color: white;
+            background-size: 40px 100%, 40px 100%, 14px 100%, 14px 100%;
+            background-position: 0 0, 100% 0, 0 0, 100% 0;
+            background-attachment: local, local, scroll, scroll;
+        }
+
+        table.comparison-table {
+            width: 100%;
+            min-width: 700px;
+            /* Force scroll on mobile to prevent squashing */
+            border-collapse: separate;
+            border-spacing: 0;
+            text-align: center;
+        }
+
+        /* Sticky First Column */
+        .comparison-table td:first-child,
+        .comparison-table th:first-child {
+            position: sticky;
+            left: 0;
+            background: white;
+            z-index: 2;
+            border-right: 1px solid #f3f4f6;
+            box-shadow: 2px 0 5px -2px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Adjust z-index for the highlighted header to stay above sticky column if needed,
+           or ensure sticky column is above. Sticky column needs highest Z. */
+
+
+        @media (max-width: 768px) {
+
+            /* Simplify the lifted card on mobile to prevent clipping/layering issues */
+            .comparison-table th.highlight,
+            .comparison-table td.highlight {
+                box-shadow: none !important;
+                border-radius: 0 !important;
+                border: none !important;
+                border-bottom: 1px solid #dbeafe !important;
+                /* Keep the background color */
+                background: #eff6ff !important;
+            }
+
+            .comparison-table th.highlight {
+                background: var(--accent) !important;
+                color: white !important;
+                border-top: none !important;
+                padding-top: 1rem !important;
+            }
+
+            /* Fix sticky column background for highlighting row */
+            .comparison-table tr:hover td:first-child {
+                background: white;
+            }
+        }
+
+        /* Mobile Menu Toggle (Checkbox Hack) */
+        .menu-toggle {
+            display: none;
+            flex-direction: column;
+            cursor: pointer;
+            gap: 5px;
+        }
+
+        .menu-toggle span {
+            width: 25px;
+            height: 3px;
+            background-color: white;
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+
+        #menu-checkbox {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .navbar .container {
+                position: relative;
+            }
+
+            .menu-toggle {
+                display: flex;
+            }
+
+            .nav-links {
+                display: none;
+                flex-direction: column;
+                position: absolute;
+                top: 70px;
+                left: 0;
+                width: 100%;
+                background: #111827;
+                padding: 1rem 0;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                animation: slideDown 0.3s ease-out forwards;
+            }
+
+            .nav-links a {
+                padding: 1rem 2rem;
+                width: 100%;
+                box-sizing: border-box;
+                display: block;
+            }
+
+            .nav-links .btn-sm {
+                margin: 0 2rem 1rem;
+                display: inline-block;
+                width: calc(100% - 4rem);
+                text-align: center;
+            }
+
+            #menu-checkbox:checked~.nav-links {
+                display: flex;
+            }
+
+            /* Hamburger Animation */
+            #menu-checkbox:checked~.menu-toggle span:nth-child(1) {
+                transform: rotate(45deg) translate(5px, 6px);
+            }
+
+            #menu-checkbox:checked~.menu-toggle span:nth-child(2) {
+                opacity: 0;
+            }
+
+            #menu-checkbox:checked~.menu-toggle span:nth-child(3) {
+                transform: rotate(-45deg) translate(5px, -6px);
+            }
+
+            h1 {
+                font-size: 2.5rem;
+            }
+
+            h2 {
+                font-size: 1.75rem;
+            }
+
+            .comparison-table th,
+            .comparison-table td {
+                padding: 1rem 0.5rem;
+                font-size: 0.9rem;
+            }
+
+            section {
+                padding: 4rem 0;
+            }
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Header / Hero */
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 10rem 0 8rem;
+            /* Increased top padding for navbar */
+            text-align: center;
+            clip-path: polygon(0 0, 100% 0, 100% 90%, 0 100%);
+        }
+
+        header p.subtitle {
+            font-size: 1.25rem;
+            color: #d1d5db;
+            max-width: 600px;
+            margin: 0 auto 3rem;
+            font-weight: 300;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.875rem 2rem;
+            border-radius: 99px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            margin: 0 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            border: 2px solid var(--accent);
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-outline:hover {
+            border-color: white;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+
+
+        /* Features */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            border: 1px solid #e5e7eb;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .feature-icon-wrapper {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 3rem;
+            height: 3rem;
+            border-radius: 8px;
+            background: #eff6ff;
+            color: var(--accent);
+            margin-bottom: 1.5rem;
+        }
+
+        /* Pricing */
+        .pricing-section {
+            background: white;
+        }
+
+        .pricing-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            align-items: stretch;
+            margin-top: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            .pricing-cards {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .pricing-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .pricing-card {
+            padding: 1.5rem;
+            border-radius: 16px;
+            border: 1px solid #e5e7eb;
+            background: var(--background);
+            display: flex;
+            flex-direction: column;
+            transition: all 0.3s ease;
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        .pricing-card.highlight {
+            background: linear-gradient(145deg, #ffffff 0%, #f3f4f6 100%);
+            border: 2px solid var(--accent);
+            box-shadow: 0 25px 50px -12px rgba(37, 99, 235, 0.15);
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        .pricing-card.highlight:hover {
+            transform: scale(1.05) translateY(-5px);
+            box-shadow: 0 35px 60px -15px rgba(37, 99, 235, 0.25);
+        }
+
+        .pricing-card h3 {
+            margin-top: 0;
+            font-size: 1.5rem;
+            color: #111827;
+        }
+
+        .price {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin: 1rem 0;
+            line-height: 1;
+        }
+
+        .price span {
+            font-size: 1rem;
+            color: #6b7280;
+            font-weight: normal;
+        }
+
+        ul.checklist {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 2rem;
+        }
+
+        ul.checklist li {
+            margin-bottom: 0.75rem;
+            color: #4b5563;
+            display: flex;
+            align-items: center;
+        }
+
+        ul.checklist li::before {
+            content: "";
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E");
+            margin-right: 0.75rem;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--primary);
+            color: #9ca3af;
+            padding: 4rem 0;
+            text-align: center;
+            font-size: 0.9rem;
+            border-top: 1px solid #374151;
+        }
+
+        footer a {
+            color: white;
+            text-decoration: none;
+            opacity: 0.8;
+            margin: 0 10px;
+        }
+
+        footer a:hover {
+            opacity: 1;
+            text-decoration: underline;
+        }
+
+        /* Code Block */
+        .code-block {
+            background: #111827;
+            color: #e5e7eb;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            border: 1px solid #374151;
+            margin-top: 1rem;
+            text-align: left;
+        }
+
+        .logo {
+            height: 60px;
+            width: auto;
+            margin-bottom: 0.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Carousel */
+        .browser-window {
+            background: #1f2937;
+            /* Dark window frame */
+            border-radius: 12px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            max-width: 900px;
+            /* Smaller width as requested */
+            margin: 0 auto;
+            border: 1px solid #374151;
+        }
+
+        .browser-header {
+            padding: 12px 16px;
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid #374151;
+            background: #111827;
+        }
+
+        .browser-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .browser-dot.red {
+            background: #ef4444;
+        }
+
+        .browser-dot.yellow {
+            background: #f59e0b;
+        }
+
+        .browser-dot.green {
+            background: #10b981;
+        }
+
+        .carousel-container {
+            position: relative;
+            width: 100%;
+            /* aspect-ratio: 16/9;  Removed fixed aspect ratio to let image dictate height */
+            background: #000;
+        }
+
+        .carousel-slide {
+            display: none;
+            width: 100%;
+        }
+
+        .carousel-slide.active {
+            display: block;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        .carousel-slide img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* Navigation Arrows */
+        .carousel-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            padding: 1rem;
+            cursor: pointer;
+            z-index: 10;
+            transition: background 0.3s;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 1rem;
+        }
+
+        .carousel-nav:hover {
+            background: rgba(0, 0, 0, 0.8);
+        }
+
+        .carousel-nav.prev {
+            left: 0;
+        }
+
+        .carousel-nav.next {
+            right: 0;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0.8;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* Comparison Table */
+        .comparison-section {
+            background: #f9fafb;
+            padding: 6rem 0;
+            border-top: 1px solid #e5e7eb;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .comparison-table-wrapper {
+            overflow-x: auto;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            background: white;
+            border: 1px solid #e5e7eb;
+        }
+
+        table.comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .comparison-table th {
+            background: #f3f4f6;
+            color: #374151;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+        }
+
+        .comparison-table th.highlight {
+            background: var(--accent);
+            color: white;
+            border-bottom: 1px solid #2563eb;
+        }
+
+        .comparison-table td {
+            color: #4b5563;
+        }
+
+        .comparison-table td.highlight {
+            background: #eff6ff;
+            color: #1f2937;
+            font-weight: 600;
+            border-bottom: 1px solid #dbeafe;
+        }
+
+        .check {
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        .cross {
+            color: #ef4444;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Top Navbar -->
+    <nav class="navbar">
+        <div class="container">
+            <input type="checkbox" id="menu-checkbox">
+            <a href="index.html" class="nav-brand">
+                <img src="small_logo.png" alt="NodeGuarder">
+                <span>nodeguarder.com</span>
+            </a>
+            <label for="menu-checkbox" class="menu-toggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </label>
+            <div class="nav-links">
+                <a href="features.html">Features</a>
+                <a href="docs.html">Documentation</a>
+                <a href="contact.html">Contact</a>
+                <a href="https://github.com/yourusername/nodeguarder/releases"
+                    class="btn btn-primary btn-sm">Download</a>
+            </div>
+        </div>
+    </nav>
+
+    <header>
+        <div class="container">
+            <h1>Powerful, Lightweight, Private Linux Monitoring.</h1>
+            <p class="subtitle">eBPF observability with zero-touch configuration.<br>Fully self-hosted.
+                Installed in minutes.</p>
+            <div>
+                <a href="https://github.com/yourusername/nodeguarder/releases" class="btn btn-primary">Download Free
+                    (GitHub)</a>
+                <a href="features.html" class="btn btn-outline">Explore Features</a>
+            </div>
+
+            <br><br><br>
+
+            <!-- Browser Window Carousel -->
+            <div class="browser-window">
+                <div class="browser-header">
+                    <div class="browser-dot red"></div>
+                    <div class="browser-dot yellow"></div>
+                    <div class="browser-dot green"></div>
+                </div>
+                <div class="carousel-container">
+                    <button class="carousel-nav prev" onclick="moveSlide(-1)">&#10094;</button>
+                    <button class="carousel-nav next" onclick="moveSlide(1)">&#10095;</button>
+
+                    <div class="carousel-slide active">
+                        <img src="dashboard.png" alt="Dashboard Overview">
+                    </div>
+                    <div class="carousel-slide">
+                        <img src="healthconf.png" alt="Health Configuration">
+                    </div>
+                    <div class="carousel-slide">
+                        <img src="cronconf.png" alt="Cron Configuration">
+                    </div>
+                    <div class="carousel-slide">
+                        <img src="driftconf.png" alt="Drift Configuration">
+                    </div>
+                    <div class="carousel-slide">
+                        <img src="notifications.png" alt="Notification Settings">
+                    </div>
+                    <div class="carousel-slide">
+                        <img src="nodeevents.png" alt="Node Events & Logs">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </header>
+
+
+
+    <section>
+        <div class="container">
+            <h2>Advanced Observability. Simply Deployed.</h2>
+            <div class="features-grid">
+                <!-- Card 1 -->
+                <div class="feature-card">
+                    <div class="feature-icon-wrapper">
+                        <!-- Terminal Icon -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="4 17 10 11 4 5"></polyline>
+                            <line x1="12" y1="19" x2="20" y2="19"></line>
+                        </svg>
+                    </div>
+                    <h3>Effortless Deployment</h3>
+                    <p>Deploy the full stack with a single Docker command. Advanced capabilities, zero
+                        configuration headaches.</p>
+                    <div class="code-block">docker compose up -d</div>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="feature-card">
+                    <div class="feature-icon-wrapper">
+                        <!-- Shield/Lock Icon -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        </svg>
+                    </div>
+                    <h3>100% Private</h3>
+                    <p>Your data never leaves your server. NodeGuarder is fully self-hosted, ensuring complete privacy
+                        and compliance with no external dependencies.</p>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="feature-card">
+                    <div class="feature-icon-wrapper">
+                        <!-- Activity/Pulse Icon -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                        </svg>
+                    </div>
+                    <h3>Real-Time Health</h3>
+                    <p>Monitor CPU, RAM, Disk usage, and Load Averages with sub-second precision. Get alerts only when
+                        it matters.</p>
+                </div>
+
+                <!-- Card 4 -->
+                <div class="feature-card">
+                    <div class="feature-icon-wrapper">
+                        <!-- Clock Icon -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                    </div>
+                    <h3>Cron Monitoring</h3>
+                    <p>Forget wrapper scripts. Using eBPF, we detect cron job failures and timeouts at the kernel level
+                        automatically.</p>
+                </div>
+
+                <!-- Card 5 -->
+                <div class="feature-card">
+                    <div class="feature-icon-wrapper">
+                        <!-- File/Drift Icon -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <line x1="10" y1="9" x2="8" y2="9"></line>
+                        </svg>
+                    </div>
+                    <h3>Drift Detection</h3>
+                    <p>Track unauthorized changes to your configuration files (`/etc`). Know exactly what changed and
+                        when.</p>
+                </div>
+
+                <!-- Card 6 -->
+                <div class="feature-card">
+                    <div class="feature-icon-wrapper">
+                        <!-- Bell Icon -->
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                    </div>
+                    <h3>Multi-Channel Alerts</h3>
+                    <p>Instant notifications via Slack, Microsoft Teams, Discord, or Email. Stay informed wherever you
+                        are.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+
+    <section class="comparison-section">
+        <div class="container">
+            <h2>The Monitoring Sweet Spot.</h2>
+
+
+            <div class="comparison-table-wrapper">
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th style="vertical-align: bottom;">FEATURES</th>
+                            <th style="vertical-align: bottom;">Ping Monitors</th>
+                            <th style="vertical-align: bottom;">Enterprise APMs</th>
+                            <th class="highlight">NodeGuarder</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Cron Exit Codes</td>
+                            <td><span class="cross">×</span></td>
+                            <td>Complex Setup</td>
+                            <td class="highlight"><span class="check">✓</span> Zero Touch eBPF</td>
+                        </tr>
+                        <tr>
+                            <td>Server Health</td>
+                            <td><span class="cross">×</span></td>
+                            <td><span class="check">✓</span></td>
+                            <td class="highlight"><span class="check">✓</span> Real-Time</td>
+                        </tr>
+                        <tr>
+                            <td>Drift Detection</td>
+                            <td><span class="cross">×</span></td>
+                            <td>$$$ Add-on</td>
+                            <td class="highlight"><span class="check">✓</span> Built-in</td>
+                        </tr>
+                        <tr>
+                            <td>Data Privacy</td>
+                            <td>Cloud Hosted</td>
+                            <td>Third Party</td>
+                            <td class="highlight"><span class="check">✓</span> 100% Self-Hosted</td>
+                        </tr>
+                        <tr>
+                            <td>Complexity</td>
+                            <td>Medium</td>
+                            <td>High</td>
+                            <td class="highlight"><span class="check">✓</span> Low (1-Line Docker and Agent)</td>
+                        </tr>
+
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <section class="pricing-section">
+        <div class="container">
+            <h2>Transparent Pricing</h2>
+            <div class="pricing-cards">
+                <!-- Community -->
+                <div class="pricing-card highlight">
+                    <div class="pricing-header">
+                        <h3>Community</h3>
+                        <div class="price">Free</div>
+                        <p>Private monitoring for startups or homelabs.</p>
+                    </div>
+                    <ul class="checklist" style="flex-grow: 1;">
+                        <li><strong>Full Feature Set</strong></li>
+                        <li>Up to 5 Servers</li>
+                        <li>Community Support</li>
+                        <li>Self-Hosted</li>
+                    </ul>
+                    <a href="https://github.com/yourusername/nodeguarder/releases" class="btn btn-primary"
+                        style="width: 100%; box-sizing: border-box;">Download</a>
+                </div>
+
+                <!-- Pro -->
+                <div class="pricing-card">
+                    <h3>Pro</h3>
+                    <div class="price">$99 <span>/ year</span></div>
+                    <p>For small businesses and teams.</p>
+                    <ul class="checklist" style="flex-grow: 1;">
+                        <li>Full Feature Set</li>
+                        <li><strong>30</strong>&nbsp;Servers</li>
+                        <li>Email&nbsp;Support</li>
+                        <li>Commercial License</li>
+                        <li>Self-Hosted</li>
+                    </ul>
+                    <a href="contact.html" class="btn btn-outline"
+                        style="width: 100%; box-sizing: border-box; border-color: #d1d5db; color: #374151;">Contact
+                        Us</a>
+                </div>
+
+                <!-- Pro+ -->
+                <div class="pricing-card">
+                    <h3>Pro+</h3>
+                    <div class="price">$299 <span>/ year</span></div>
+                    <p>For growing infrastructure.</p>
+                    <ul class="checklist" style="flex-grow: 1;">
+                        <li>Full Feature Set</li>
+                        <li><strong>100</strong>&nbsp;Servers</li>
+                        <li>Priority&nbsp;Support</li>
+                        <li>Commercial License</li>
+                        <li>Self-Hosted</li>
+                    </ul>
+                    <a href="contact.html" class="btn btn-outline"
+                        style="width: 100%; box-sizing: border-box; border-color: #d1d5db; color: #374151;">Contact
+                        Us</a>
+                </div>
+
+                <!-- Enterprise -->
+                <div class="pricing-card">
+                    <h3>Enterprise</h3>
+                    <div class="price">Custom</div>
+                    <p>For large organizations.</p>
+                    <ul class="checklist" style="flex-grow: 1;">
+                        <li>Full Feature Set</li>
+                        <li><strong>Unlimited</strong>&nbsp;Servers</li>
+                        <li>Dedicated Support</li>
+                        <li>Custom Integrations</li>
+                        <li>Self-Hosted</li>
+                    </ul>
+                    <a href="contact.html" class="btn btn-outline"
+                        style="border-color: #d1d5db; color: #374151; width: 100%; box-sizing: border-box;">Contact
+                        Us</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 NodeGuarder. All rights reserved.</p>
+            <p>
+                <a href="#">GitHub</a>
+                <a href="#">Twitter</a>
+                <a href="privacy.html">Privacy</a>
+                <a href="terms.html">Terms</a>
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        let currentIndex = 0;
+        let intervalId;
+        const slides = document.querySelectorAll('.carousel-slide');
+
+        // Show specific slide
+        function showSlide(index) {
+            slides.forEach(s => s.classList.remove('active'));
+            slides[index].classList.add('active');
+            currentIndex = index;
+        }
+
+        // Next/Prev navigation
+        function moveSlide(n) {
+            let next = currentIndex + n;
+            if (next >= slides.length) next = 0;
+            if (next < 0) next = slides.length - 1;
+
+            clearInterval(intervalId); // Pause auto-play on interaction
+            showSlide(next);
+            startAutoPlay(); // Restart timer
+        }
+
+        function nextSlide() {
+            moveSlide(1);
+        }
+
+        function startAutoPlay() {
+            if (intervalId) clearInterval(intervalId);
+            intervalId = setInterval(() => {
+                let next = currentIndex + 1;
+                if (next >= slides.length) next = 0;
+                showSlide(next);
+            }, 5000); // 5 seconds per slide
+        }
+
+        // Start
+        startAutoPlay();
+    </script>
+</body>
+
+</html>

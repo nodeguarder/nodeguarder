@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to NodeGuarder! This document will help you get started with the development environment.
 
-## 🚀 Quick Start
+## Quick Start
 
 The easiest way to get the full stack running locally (Backend + Frontend + Database) is using our helper scripts. These scripts handle certificate generation, database setup, and Docker Compose execution.
 
@@ -25,15 +25,14 @@ cd deploy
 4.  Build the application from source (`deploy/Dockerfile`).
 5.  Start the services at **https://localhost:8443**.
 
-## 🛠️ Development Workflow
+## Development Workflow
 
 1.  **Backend**: Located in `dashboard/backend`. Written in Go (Fiber).
-    *   To enable the License Generator locally, the `deploy/docker-compose.yml` mounts your local `deploy/license_tool/private.key`.
 2.  **Frontend**: Located in `dashboard/frontend`. Written in React (Vite).
     *   Changes to frontend code will require a rebuild of the container unless you run the frontend separately with `npm run dev`.
 3.  **Agent**: Located in `agent/`. Written in Go (eBPF).
 
-## 🧪 Testing
+## Testing
 
 We have a comprehensive test suite that runs in WSL/Linux:
 ```bash
@@ -41,7 +40,7 @@ cd tests
 ./wsl_test.sh
 ```
 
-## 📝 Submitting Changes
+## Submitting Changes
 
 1.  Fork the repository.
 2.  Create a feature branch (`git checkout -b feature/amazing-feature`).

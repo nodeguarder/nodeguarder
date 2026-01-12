@@ -1,5 +1,0 @@
-max_servers: 500
-expires: "2026-12-31T23:59:59Z"
-license_id: "enterprise-500-servers-001"
-signature: "sha256:enterprise_license_signature_hash_here"
-company: "Your Company"

@@ -84,3 +84,7 @@ copilot-instructions.md
 
 tests/nodeguarder-agent
 docs/distribution.md
+
+deploy/licenses/enterprise.yaml
+deploy/licenses/pro.yaml
+deploy/licenses/pro_plus.yaml

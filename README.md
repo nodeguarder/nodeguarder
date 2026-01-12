@@ -49,13 +49,11 @@ You can install NodeGuarder using our pre-built Docker images, either via our Re
 
 ### 3. Agent Installation
 
-Download the agent binary from your dashboard or build it manually:
+To install the monitoring agent on your servers:
 
-```bash
-cd agent
-go build -o nodeguarder-agent .
-./nodeguarder-agent --connect https://your-dashboard-url --token <REGISTRATION_TOKEN>
-```
+1.  Log in to your NodeGuarder Dashboard (e.g., `https://localhost:8443`).
+2.  Navigate to the **Agent Distribution** page.
+3.  Follow the instructions provided there to download and install the agent.
 
 ## Security & Licensing
 

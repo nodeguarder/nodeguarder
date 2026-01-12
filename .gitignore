@@ -81,3 +81,6 @@ marketing/
 docs/licensing.md
 docs/testing.md
 copilot-instructions.md
+
+tests/nodeguarder-agent
+docs/distribution.md

@@ -21,26 +21,51 @@ NodeGuarder is a lightweight server monitoring solution for Linux servers.
 You can install NodeGuarder using our pre-built Docker images, either via our Registry or an Offline Package.
 
 #### Option A: Online Installation (Recommended)
-1.  Pull the image from our registry:
+
+1.  Clone the NodeGuarder repository to get the required configuration files:
+    ```bash
+    git clone https://github.com/nodeguarder/nodeguarder.git <installation-directory>
+    cd <installation-directory>
+    ```
+2.  Pull the Docker image from the registry:
     ```bash
     docker pull ghcr.io/nodeguarder/nodeguarder:1.0.0
     ```
-2.  Use the `deploy/docker-compose.customer.yml` template (rename to `docker-compose.yml`) and run:
+3.  Configure your deployment:
+    - Copy `deploy/docker-compose.customer.yml` to `docker-compose.yml`
+    - Edit `docker-compose.yml` with your custom settings (ports, volumes, environment variables, etc.)
+4.  Start the services:
     ```bash
     docker compose up -d
     ```
 
 #### Option B: Offline Installation (Air-Gapped)
-1.  Download the **Offline Package** (`nodeguarder-offline-vX.X.X.zip`) from our [GitHub Releases](https://github.com/nodeguarder/nodeguarder/releases).
-2.  Unzip the package on your server.
-3.  Load the docker image:
+
+1.  Download the **Offline Package** (`nodeguarder-offline-v1.0.0.zip`) from our [GitHub Releases](https://github.com/nodeguarder/nodeguarder/releases).
+2.  Transfer the package to your server and extract it:
+    ```bash
+    # Windows
+    Expand-Archive -Path nodeguarder-offline-v1.0.0.zip -DestinationPath <installation-directory>
+    cd <installation-directory>
+
+    # Linux
+    unzip nodeguarder-offline-v1.0.0.zip -d <installation-directory>
+    cd <installation-directory>
+    ```
+3.  Load the Docker image:
     ```bash
     docker load -i nodeguarder-1.0.0.tar
     ```
-4.  Start the services:
+4.  Configure your deployment:
+    - Copy `deploy/docker-compose.customer.yml` to `docker-compose.yml`
+    - Edit `docker-compose.yml` with your custom settings (ports, volumes, environment variables, etc.)
+5.  Start the services:
     ```bash
     docker compose up -d
     ```
+
+> [!NOTE]
+> Replace `<installation-directory>` with your desired installation path.
 
 #### Accessing the Dashboard
 - **URL**: `https://localhost:8443`

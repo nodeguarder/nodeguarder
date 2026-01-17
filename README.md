@@ -6,7 +6,7 @@ NodeGuarder is a lightweight server monitoring solution for Linux servers.
 
 - **Real-time Monitoring**: CPU, Memory, Disk, and Load averages.
 - **Drift Detection**: Tracks changes to system files (`/etc`, `/bin`, etc.) and alerts on modifications.
-- **Cron Monitoring**: Auto-discovers and monitors cron jobs, alerting on failures.
+- **Cron Monitoring**: Auto-discovers and monitors cron jobs using **eBPF** technology, alerting on failures.
 - **Agent Architecture**: Lightweight Go agent that pushes data to a centralized dashboard.
 - **Modern Dashboard**: React/Vite frontend for visualizing infrastructure health.
 

@@ -22,39 +22,33 @@ You can install NodeGuarder using our pre-built Docker images, either via our Re
 
 #### Option A: Online Installation (Recommended)
 
-1.  Clone the NodeGuarder repository to get the required configuration files:
-    ```bash
-    git clone https://github.com/nodeguarder/nodeguarder.git <installation-directory>
-    cd <installation-directory>
-    ```
-2.  Pull the Docker image from the registry:
-    ```bash
-    docker pull ghcr.io/nodeguarder/nodeguarder:1.0.0
-    ```
-3.  Configure your deployment:
-    - Copy `deploy/docker-compose.customer.yml` to `docker-compose.yml`
-    - Edit `docker-compose.yml` with your custom settings (ports, volumes, environment variables, etc.)
-4.  Start the services:
+1.  Download the **Deployment Package** (`nodeguarder-deploy-v1.0.1.zip`) from our [GitHub Releases](https://github.com/nodeguarder/nodeguarder/releases).
+2.  Extract the package and navigate to the directory.
+3.  Start NodeGuarder (this will pull the image automatically):
     ```bash
     docker compose up -d
     ```
 
+> [!TIP]
+> Alternatively, you can clone the repository to get the same configuration files:
+> `git clone https://github.com/nodeguarder/nodeguarder.git`
+
 #### Option B: Offline Installation (Air-Gapped)
 
-1.  Download the **Offline Package** (`nodeguarder-offline-v1.0.0.zip`) from our [GitHub Releases](https://github.com/nodeguarder/nodeguarder/releases).
+1.  Download the **Offline Package** (`nodeguarder-offline-v1.0.1.zip`) from our [GitHub Releases](https://github.com/nodeguarder/nodeguarder/releases).
 2.  Transfer the package to your server and extract it:
     ```bash
     # Windows
-    Expand-Archive -Path nodeguarder-offline-v1.0.0.zip -DestinationPath <installation-directory>
+    Expand-Archive -Path nodeguarder-offline-v1.0.1.zip -DestinationPath <installation-directory>
     cd <installation-directory>
 
     # Linux
-    unzip nodeguarder-offline-v1.0.0.zip -d <installation-directory>
+    unzip nodeguarder-offline-v1.0.1.zip -d <installation-directory>
     cd <installation-directory>
     ```
 3.  Load the Docker image:
     ```bash
-    docker load -i nodeguarder-1.0.0.tar
+    docker load -i nodeguarder-1.0.1.tar
     ```
 4.  Configure your deployment:
     - Copy `deploy/docker-compose.customer.yml` to `docker-compose.yml`

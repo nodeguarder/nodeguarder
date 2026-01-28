@@ -107,7 +107,8 @@ FULL_CONFIG_DEFAULT='{
   "cron_enabled": true,
   "cron_auto_discover": true,
   "health_enabled": true,
-  "health_sustain_duration": 30
+  "health_sustain_duration": 30,
+  "stability_window": 120
 }'
 curl -s -X POST -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json" \

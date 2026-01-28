@@ -17,7 +17,7 @@ services:
   # NodeGuarder Backend & Frontend
   app:
     # Use the customer image (License Generator disabled)
-    image: nodeguarder:1.0.0
+    image: nodeguarder:1.0.1
     
     # For local registry or self-hosted:
     # image: your-registry.com/nodeguarder:1.0.0

@@ -830,7 +830,7 @@ func GetAgentVersion(c *fiber.Ctx) error {
 	// Version is injected at build time into the container env
 	version := os.Getenv("AGENT_VERSION")
 	if version == "" {
-		version = "1.1.0" // Fallback
+		version = "1.0.1" // Fallback
 	}
 	return c.JSON(fiber.Map{
 		"version": version,

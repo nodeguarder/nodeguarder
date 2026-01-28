@@ -1,7 +1,7 @@
 # Customer image for NodeGuarder
 # Build with: docker build -t nodeguarder:latest .
 
-ARG VERSION=1.1.0
+ARG VERSION=1.0.1
 
 # Agent Build Stage
 FROM golang:1.21-alpine AS agent-builder

@@ -5,7 +5,6 @@ import ChangePassword from './pages/ChangePassword';
 import Dashboard from './pages/Dashboard';
 import ServerDetail from './pages/ServerDetail';
 import Servers from './pages/Servers';
-import Configuration from './pages/Configuration';
 import Settings from './pages/Settings';
 import AgentDistribution from './pages/AgentDistribution';
 import LicenseGenerator from './pages/LicenseGenerator';
@@ -91,10 +90,6 @@ const router = createBrowserRouter([
       {
         path: "notifications",
         element: <Notifications />,
-      },
-      {
-        path: "configuration",
-        element: <Configuration />,
       },
       {
         path: "settings",

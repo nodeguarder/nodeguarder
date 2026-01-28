@@ -132,21 +132,26 @@ func UpdateServerHealth(serverID string) (string, string, string, string, error)
 
 	// Stability Window Logic
 	if newStatus == StatusHealthy {
-		if oldStatus == StatusOffline || oldStatus == StatusCritical {
-			// Initial entry into recovery
-			newStatus = StatusRecovering
-			reason = fmt.Sprintf("Recovering from (%s)", oldStatus)
-		} else if oldStatus == StatusRecovering {
-			// Check stability window
-			stabilityWindow := int64(120) // Default
-			var val string
-			if err := database.DB.QueryRow("SELECT value FROM settings WHERE key = 'stability_window'").Scan(&val); err == nil {
-				var sVal int64
-				if _, err := fmt.Sscanf(val, "%d", &sVal); err == nil && sVal > 0 {
-					stabilityWindow = sVal
-				}
+		// Fetch settings
+		stabilityWindow := int64(120) // Default
+		var val string
+		if err := database.DB.QueryRow("SELECT value FROM settings WHERE key = 'stability_window'").Scan(&val); err == nil {
+			var sVal int64
+			if _, err := fmt.Sscanf(val, "%d", &sVal); err == nil && sVal >= 0 {
+				stabilityWindow = sVal
 			}
+		}
 
+		if (oldStatus == StatusOffline || oldStatus == StatusCritical) {
+			if stabilityWindow > 0 {
+				// Initial entry into recovery
+				newStatus = StatusRecovering
+				reason = fmt.Sprintf("Recovering from (%s)", oldStatus)
+				log.Printf("[DEBUG] Server %s moving from %s to %s (stability window: %ds)", serverID, oldStatus, newStatus, stabilityWindow)
+			} else {
+				log.Printf("[DEBUG] Server %s skipping recovery state (stability window: 0s)", serverID)
+			}
+		} else if oldStatus == StatusRecovering {
 			timeInState := time.Now().Unix() - lastStatusChange
 			if timeInState < stabilityWindow {
 				// Not stable yet, stay recovering
@@ -156,8 +161,13 @@ func UpdateServerHealth(serverID string) (string, string, string, string, error)
 				} else {
 					reason = "Stabilizing..."
 				}
+				log.Printf("[DEBUG] Server %s remains in %s (time in state: %ds < window: %ds)", serverID, newStatus, timeInState, stabilityWindow)
+			} else {
+				log.Printf("[DEBUG] Server %s stability window passed (%ds >= %ds), transitioning to healthy", serverID, timeInState, stabilityWindow)
 			}
 		}
+	} else if newStatus != oldStatus {
+		log.Printf("[DEBUG] Server %s status change: %s -> %s (Reason: %s)", serverID, oldStatus, newStatus, reason)
 	}
 
 	// Update DB
@@ -247,7 +257,7 @@ func GetHealthMetricsForServer(serverID string) (*HealthMetrics, error) {
 	var timeoutVal string
 	if err := database.DB.QueryRow("SELECT value FROM settings WHERE key = 'offline_timeout'").Scan(&timeoutVal); err == nil {
 		var val int64
-		if _, err := fmt.Sscanf(timeoutVal, "%d", &val); err == nil && val > 0 {
+		if _, err := fmt.Sscanf(timeoutVal, "%d", &val); err == nil {
 			maxStaleSeconds = val
 		}
 	}

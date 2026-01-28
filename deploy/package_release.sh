@@ -19,7 +19,8 @@ else
 fi
 
 # Create temp dir
-rm -rf dist
+mkdir -p dist
+rm -rf "dist/$PACKAGE_NAME"
 mkdir -p "dist/$PACKAGE_NAME"
 
 # Copy files

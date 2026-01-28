@@ -22,7 +22,6 @@ export default function Sidebar() {
         { path: '/drift-detection', icon: FileWarning, label: 'Drift Detection' },
         { path: '/nodes', icon: Server, label: 'Nodes' },
         { path: '/notifications', icon: Bell, label: 'Notifications' },
-        { path: '/configuration', icon: Sliders, label: 'Agent Config' },
         { path: '/agent-distribution', icon: Package, label: 'Distribute Agent' },
     ];
 

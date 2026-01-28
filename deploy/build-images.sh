@@ -13,7 +13,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Default version
-VERSION="${1:-1.0.0}"
+VERSION="${1:-1.0.1}"
 
 echo -e "${BLUE}🔨 Building NodeGuarder Docker Images${NC}"
 echo -e "${BLUE}================================================${NC}"

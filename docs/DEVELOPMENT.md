@@ -155,22 +155,26 @@ We have automated scripts to handle versioning and packaging.
     ```
 
 3.  **Package for Distribution**:
-    Create the zip file for GitHub Releases (contains config + free license):
+    Create the zip files for GitHub Releases (Online and Offline):
     ```bash
     ./deploy/package_release.sh 1.2.0
+    ./deploy/package_release.sh 1.2.0 --offline
     ```
-    *Output*: `dist/nodeguarder-deploy-1.2.0.zip`
+    *Output*: 
+    - `dist/nodeguarder-deploy-1.2.0.zip` (Online)
+    - `dist/nodeguarder-offline-1.2.0.zip` (Offline)
 
-4.  **Commit & Push**:
+4.  **Commit, Tag & Push**:
     ```bash
     git commit -am "Bump version to 1.2.0"
-    git push
+    git tag v1.2.0
+    git push origin master --tags
     ```
 
 5.  **Publish**:
-    *   Upload `nodeguarder-deploy-1.2.0.zip` to the GitHub Release.
-    *   Push the Docker image:
+    *   Create a GitHub Release for tag `v1.2.0`.
+    *   Upload **both** `.zip` files from the `dist/` directory.
+    *   Push the Docker image to GHCR:
         ```bash
-        docker push registry.example.com/nodeguarder:1.2.0
+        ./deploy/push_registry.sh 1.2.0
         ```
-    *   (Optional) If you have a paid customer, generate their specific license using `deploy/license_tool`.

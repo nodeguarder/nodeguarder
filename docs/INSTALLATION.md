@@ -21,8 +21,8 @@ This guide covers the installation of the NodeGuarder dashboard and agents.
 ### 1. Deploy the Dashboard
 ```bash
 # 1. Get the deployment files
-git clone https://github.com/yourusername/health-dashboard.git
-cd health-dashboard/deploy
+git clone https://github.com/nodeguarder/nodeguarder.git
+cd nodeguarder/deploy
 
 # 2. Start services (Dev/HTTP)
 docker compose up -d
@@ -38,8 +38,8 @@ For production environments, we utilize Nginx for HTTPS termination.
 
 1.  **Prepare Directory**:
     ```bash
-    mkdir health-dashboard
-    cd health-dashboard
+    mkdir nodeguarder
+    cd nodeguarder
     # Copy docker-compose.customer.yml as docker-compose.yml
     cp /path/to/deploy/docker-compose.customer.yml docker-compose.yml
     # Copy nginx.customer.conf

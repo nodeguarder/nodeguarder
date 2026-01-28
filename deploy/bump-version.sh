@@ -50,6 +50,28 @@ CUSTOMER_COMPOSE="$PROJECT_ROOT/deploy/docker-compose.customer.yml"
 echo "👉 Updating Customer Compose ($CUSTOMER_COMPOSE)..."
 sedi "s/image: nodeguarder:.*/image: nodeguarder:$NEW_VERSION/" "$CUSTOMER_COMPOSE"
 
+# 6. Update Backend Fallback Version (dashboard/backend/handlers/agent.go)
+BACKEND_AGENT_FILE="$PROJECT_ROOT/dashboard/backend/handlers/agent.go"
+echo "👉 Updating Backend Fallback Version ($BACKEND_AGENT_FILE)..."
+sedi "s/version = \".*\" \/\/ Fallback/version = \"$NEW_VERSION\" \/\/ Fallback/" "$BACKEND_AGENT_FILE"
+
+# 7. Update Dockerfile (deploy/Dockerfile)
+DOCKERFILE="$PROJECT_ROOT/deploy/Dockerfile"
+echo "👉 Updating Dockerfile ($DOCKERFILE)..."
+sedi "s/ARG VERSION=.*/ARG VERSION=$NEW_VERSION/" "$DOCKERFILE"
+
+# 8. Update README (README.md)
+README_FILE="$PROJECT_ROOT/README.md"
+echo "👉 Updating README ($README_FILE)..."
+# Update pull command
+sedi "s/ghcr.io\/nodeguarder\/nodeguarder:.*/ghcr.io\/nodeguarder\/nodeguarder:$NEW_VERSION/" "$README_FILE"
+# Update offline zip mentions
+sedi "s/nodeguarder-offline-v.*\.zip/nodeguarder-offline-v$NEW_VERSION.zip/g" "$README_FILE"
+# Update deployment zip mentions
+sedi "s/nodeguarder-deploy-v.*\.zip/nodeguarder-deploy-v$NEW_VERSION.zip/g" "$README_FILE"
+# Update tar mentions
+sedi "s/nodeguarder-.*\.tar/nodeguarder-$NEW_VERSION.tar/g" "$README_FILE"
+
 echo ""
 echo "✅ Version bumped to $NEW_VERSION successfully!"
 echo ""
@@ -57,3 +79,6 @@ echo "Next steps:"
 echo "  1. git commit -am \"Bump version to $NEW_VERSION\""
 echo "  2. ./deploy/build-images.sh $NEW_VERSION"
 echo "  3. ./deploy/package_release.sh $NEW_VERSION"
+echo "  4. ./deploy/package_release.sh $NEW_VERSION --offline"
+echo "  5. git tag v$NEW_VERSION"
+echo "  6. git push origin master --tags"

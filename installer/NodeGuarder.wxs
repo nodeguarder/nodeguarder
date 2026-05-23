@@ -93,6 +93,13 @@
             </Directory>
         </Directory>
 
+        <!-- Kill running agent before upgrade to prevent file-in-use errors -->
+        <CustomAction Id="KillAgent"
+                      Directory="INSTALLDIR"
+                      ExeCommand="taskkill /f /im nodeguarder-agent.exe 2&gt;NUL"
+                      Execute="immediate"
+                      Return="ignore" />
+
         <CustomAction Id="LaunchAgent"
                       Directory="INSTALLDIR"
                       ExeCommand="cmd.exe /C start &quot;&quot; nodeguarder-agent.exe"
@@ -101,6 +108,7 @@
                       Return="asyncNoWait" />
 
         <InstallExecuteSequence>
+            <Custom Action="KillAgent" Before="InstallInitialize" />
             <Custom Action="LaunchAgent" After="InstallFinalize" />
         </InstallExecuteSequence>
 

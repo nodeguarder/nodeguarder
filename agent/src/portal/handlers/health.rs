@@ -46,7 +46,7 @@ async fn health_check(
         "status": if db_ok { "healthy" } else { "degraded" },
         "uptime": format_uptime(start_time().elapsed().as_secs()),
         "database": db_ok,
-        "version": "1.0.0",
+        "version": env!("CARGO_PKG_VERSION"),
     }))
 }
 

@@ -147,6 +147,6 @@ pub fn build_tray() -> (TrayIcon, TrayMenuIds) {
 pub fn update_tray_tooltip(tray: &TrayIcon, port: u16, enrolled: bool, update_available: bool) {
     let mode = if enrolled { "Enterprise Enrolled" } else { "Local Mode" };
     let update_text = if update_available { " | Update Available!" } else { "" };
-    let tooltip = format!("NodeGuarder Local v1.0.0 | http://127.0.0.1:{} | {}{}", port, mode, update_text);
+    let tooltip = format!("NodeGuarder Local v{} | http://127.0.0.1:{} | {}{}", env!("CARGO_PKG_VERSION"), port, mode, update_text);
     let _ = tray.set_tooltip(Some(tooltip));
 }

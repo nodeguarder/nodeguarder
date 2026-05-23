@@ -246,7 +246,7 @@ impl SyncEngine {
             // Pull Policy
             let policy_req = tonic::Request::new(PolicyRequest {
                 agent_uuid: uuid,
-                current_version: "1.0.0".to_string(),
+                current_version: env!("CARGO_PKG_VERSION").to_string(),
             });
             
             match client.get_policy(policy_req).await {

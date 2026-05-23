@@ -819,7 +819,7 @@ pub fn spawn_settings_window(
                 <div class="card" style="border-left: 4px solid var(--accent);">
                     <div class="card-title">About NodeGuarder</div>
                     <div style="font-size: 13px; color: var(--text-muted); line-height: 1.8;">
-                        Version <span style="color: var(--text); font-weight: 600;">1.0.0</span> &middot;
+                        Version <span style="color: var(--text); font-weight: 600;">{version}</span> &middot;
                         ONNX Runtime <span style="color: var(--text);">1.24.2</span> &middot;
                         DeBERTa-v3 semantic engine
                     </div>
@@ -1294,6 +1294,7 @@ pub fn spawn_settings_window(
     </html>
     "#,
         port = port,
+        version = env!("CARGO_PKG_VERSION"),
         allowlist_json = allowlist_json,
         enforce_redaction = config.enforce_redaction,
         logs_json = logs_json,

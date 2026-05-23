@@ -195,7 +195,7 @@ impl AgentController for AgentControllerImpl {
                 .unwrap_or_default();
 
             PolicyResponse {
-                policy_version: "1.0.0".to_string(),
+                policy_version: env!("CARGO_PKG_VERSION").to_string(),
                 enforcement: Some(PolicyEnforcement {
                     redaction_enforced: p.1,
                     upstream_url_enforced: p.2.is_some(),
@@ -279,7 +279,7 @@ impl AgentController for AgentControllerImpl {
 
         Ok(Response::new(HeartbeatResponse {
             policy_updated: false,
-            latest_policy_version: "1.0.0".to_string(),
+            latest_policy_version: env!("CARGO_PKG_VERSION").to_string(),
             agent_revoked: revoked,
         }))
     }

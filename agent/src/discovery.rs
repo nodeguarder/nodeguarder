@@ -566,7 +566,7 @@ mod tests {
             is_set: true,
             value_prefix: "sk-proj-...".to_string(),
         }];
-        let (url, key, suggestions, _) = build_suggestions(&[], &env_vars, &[], 51820);
+        let (_url, key, suggestions, _) = build_suggestions(&[], &env_vars, &[], 51820);
         assert!(key.is_some());
         assert_eq!(key.unwrap(), "OPENAI_API_KEY");
         assert!(suggestions.iter().any(|s| s.category == "api_key"));

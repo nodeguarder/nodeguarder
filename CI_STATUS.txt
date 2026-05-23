@@ -1,0 +1,3 @@
+Waiting for CI to complete... Check: https://github.com/nodeguarder/nodeguarder/actions
+
+Once done, the MSI will appear at: https://github.com/nodeguarder/releases/releases

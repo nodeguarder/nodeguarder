@@ -43,6 +43,9 @@
                                       Advertise="no" />
                         </File>
                         <RemoveFolder Id="RemoveINSTALLDIR" On="uninstall" />
+                    </Component>
+
+                    <Component Id="InstallDirReg" Guid="*">
                         <RegistryValue Root="HKLM"
                                        Key="Software\NodeGuarder\Agent"
                                        Name="InstallDir"
@@ -88,6 +91,7 @@
                  Level="1"
                  ConfigurableDirectory="INSTALLDIR">
             <ComponentRef Id="MainExe" />
+            <ComponentRef Id="InstallDirReg" />
             <ComponentRef Id="OrtDll" />
             <ComponentRef Id="AtrRules" />
             <ComponentRef Id="StartMenuShortcuts" />

@@ -216,6 +216,21 @@ pub fn compile_allowlist(patterns: &[String]) -> Vec<Regex> {
     patterns.iter().filter_map(|p| Regex::new(p).ok()).collect()
 }
 
+fn normalize_atr_category(raw: &str) -> &str {
+    match raw {
+        "prompt-injection" => "injection",
+        "agent-manipulation" => "social_engineering",
+        "context-exfiltration" => "code_execution",
+        "tool-poisoning" => "code_execution",
+        "privilege-escalation" => "code_execution",
+        "model-abuse" | "model-security" => "model_abuse",
+        "excessive-autonomy" => "excessive_autonomy",
+        "data-poisoning" => "data_poisoning",
+        "skill-compromise" => "skill_compromise",
+        _ => raw,
+    }
+}
+
 pub fn load_atr_engine() -> AtEngine {
     // Prefer external file (updated by background check), fall back to embedded
     let appdata = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
@@ -226,7 +241,12 @@ pub fn load_atr_engine() -> AtEngine {
             return engine;
         }
     }
-    AtEngine::from_json(include_str!("../atr_rules.json"))
+    let mut engine = AtEngine::from_json(include_str!("../atr_rules.json"));
+    // Normalize ATR category names to match internal detection config
+    for rule in &mut engine.rules {
+        rule.meta.category = normalize_atr_category(&rule.meta.category).to_string();
+    }
+    engine
 }
 
 pub fn scan_and_redact(

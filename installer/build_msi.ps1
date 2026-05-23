@@ -66,12 +66,12 @@ if (-not $exeVersion) {
 Write-Host "Agent version: $exeVersion" -ForegroundColor Green
 
 # Generate icon.ico from assets/logo.png
+Add-Type -AssemblyName System.Drawing
 $repoRoot = Resolve-Path (Join-Path $InstallerDir "..")
 $pngPath = Join-Path $repoRoot "assets" "logo.png"
 $icoPath = Join-Path $SourceDir "icon.ico"
 if (Test-Path $pngPath) {
     Write-Host "Generating icon.ico from logo.png..." -ForegroundColor Yellow
-    Add-Type -AssemblyName System.Drawing
     $img = [System.Drawing.Image]::FromFile((Resolve-Path $pngPath))
     $ico = [System.Drawing.Icon]::FromHandle($img.GetHicon())
     $fs = New-Object System.IO.FileStream $icoPath, ([System.IO.FileMode]::Create)
@@ -81,7 +81,20 @@ if (Test-Path $pngPath) {
     $img.Dispose()
     Write-Host "Icon created: $icoPath" -ForegroundColor Green
 } else {
-    Write-Warning "assets/logo.png not found at $pngPath — MSI will have no app icon"
+    Write-Warning "assets/logo.png not found at $pngPath — generating fallback icon"
+    # Create a minimal transparent icon as fallback so WiX linking doesn't fail
+    $bmp = New-Object System.Drawing.Bitmap(32, 32)
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.Clear([System.Drawing.Color]::Transparent)
+    $g.Dispose()
+    $hIcon = $bmp.GetHicon()
+    $ico = [System.Drawing.Icon]::FromHandle($hIcon)
+    $fs = New-Object System.IO.FileStream($icoPath, [System.IO.FileMode]::Create)
+    $ico.Save($fs)
+    $fs.Close()
+    $ico.Dispose()
+    $bmp.Dispose()
+    Write-Host "Fallback icon created: $icoPath" -ForegroundColor Yellow
 }
 
 # Build WiX object

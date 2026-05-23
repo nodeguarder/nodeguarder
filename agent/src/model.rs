@@ -107,6 +107,10 @@ fn convert_atr_tarball(tarball: &[u8], atr_dir: &std::path::Path) -> Result<usiz
     Ok(rules.len())
 }
 
+fn set_gpu_active(active: bool) {
+    *GPU_MODEL_ACTIVE.get_or_init(|| Arc::new(RwLock::new(false))).write().unwrap() = active;
+}
+
 fn map_category(atr_category: &str) -> &str {
     match atr_category {
         "prompt-injection" => "injection",
@@ -261,26 +265,65 @@ pub mod semantic {
             }
         }
 
-        // Load model into an ORT session (CPU execution)
+        // Load model into an ORT session. Prefer DirectML GPU; fall back to CPU.
         info!("Loading DeBERTa-v3 model into ORT session...");
         let session = {
-            match Session::builder() {
-                Ok(builder) => {
-                    match builder.commit_from_file(&model_path) {
+            let dml_builder = Session::builder();
+            if let Ok(builder) = dml_builder {
+                use ort::ep::ExecutionProviderDispatch;
+                let providers: Vec<ExecutionProviderDispatch> = vec![
+                    ort::ep::DirectML::default().into(),
+                ];
+                match builder.with_execution_providers(providers) {
+                    Ok(b) => match b.commit_from_file(&model_path) {
                         Ok(s) => {
-                            tracing::info!("DeBERTa-v3 session created with CPU");
+                            set_gpu_active(true);
+                            tracing::info!("DeBERTa-v3 session created with DirectML GPU");
                             Some(s)
                         }
                         Err(e) => {
-                            warn!("CPU session commit_from_file failed: {}", e);
-                            None
+                            warn!("DirectML commit_from_file failed: {} — falling back to CPU", e);
+                            match Session::builder() {
+                                Ok(cpu_builder) => match cpu_builder.commit_from_file(&model_path) {
+                                    Ok(s) => {
+                                        tracing::info!("DeBERTa-v3 session created with CPU fallback");
+                                        Some(s)
+                                    }
+                                    Err(e2) => {
+                                        error!("CPU fallback commit_from_file also failed: {}", e2);
+                                        None
+                                    }
+                                },
+                                Err(e2) => {
+                                    error!("CPU fallback session builder failed: {}", e2);
+                                    None
+                                }
+                            }
+                        }
+                    },
+                    Err(e) => {
+                        warn!("DirectML with_execution_providers failed: {} — falling back to CPU", e);
+                        match Session::builder() {
+                            Ok(cpu_builder) => match cpu_builder.commit_from_file(&model_path) {
+                                Ok(s) => {
+                                    tracing::info!("DeBERTa-v3 session created with CPU fallback");
+                                    Some(s)
+                                }
+                                Err(e2) => {
+                                    error!("CPU fallback commit_from_file also failed: {}", e2);
+                                    None
+                                }
+                            },
+                            Err(e2) => {
+                                error!("CPU fallback session builder failed: {}", e2);
+                                None
+                            }
                         }
                     }
                 }
-                Err(e) => {
-                    warn!("ORT session builder failed: {}", e);
-                    None
-                }
+            } else {
+                warn!("ORT session builder failed");
+                None
             }
         };
 

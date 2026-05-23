@@ -29,8 +29,8 @@ fn main() {
 
     println!("cargo:warning=Downloading ONNX Runtime 1.24.2 for Windows x64...");
 
-    let url = "https://github.com/microsoft/onnxruntime/releases/download/v1.24.2/onnxruntime-win-x64-1.24.2.zip";
-    let zip_path = target_dir.join("onnxruntime-win-x64-1.24.2.zip");
+    let url = "https://github.com/microsoft/onnxruntime/releases/download/v1.24.2/onnxruntime-win-x64-directml-1.24.2.zip";
+    let zip_path = target_dir.join("onnxruntime-win-x64-directml-1.24.2.zip");
 
     let status = std::process::Command::new("powershell.exe")
         .args([
@@ -62,7 +62,7 @@ fn main() {
         panic!("Failed to extract ONNX Runtime zip. Try downloading manually from {} and place onnxruntime.dll in {}", url, target_dir.display());
     }
 
-    let inner_dir = extract_dir.join("onnxruntime-win-x64-1.24.2");
+    let inner_dir = extract_dir.join("onnxruntime-win-x64-directml-1.24.2");
     let source_dll = inner_dir.join("lib").join("onnxruntime.dll");
 
     if !source_dll.exists() {

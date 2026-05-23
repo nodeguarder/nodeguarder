@@ -31,7 +31,7 @@ jobs:
 
       - name: Build agent (release)
         working-directory: agent
-        run: cargo build --release --features "semantic,enterprise"
+        run: cargo build --release --features "semantic,enterprise,gui"
 
       - name: Stage build artifacts
         shell: pwsh
@@ -45,7 +45,7 @@ jobs:
 
       - name: Run tests
         working-directory: agent
-        run: cargo test --features "test-utils,semantic,enterprise"
+        run: cargo test --features "test-utils,semantic,enterprise,gui"
         continue-on-error: true
 
       - name: Install WiX Toolset

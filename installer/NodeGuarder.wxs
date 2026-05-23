@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Product Id="*"
-             Name="NodeGuarder Agent"
+             Name="NodeGuarder"
              Language="1033"
              Version="$(var.Version)"
              Manufacturer="NodeGuarder"
@@ -14,12 +14,12 @@
                  Description="AI Security Gateway – Local semantic firewall for LLM interactions"
                  Platform="x64" />
 
-        <MajorUpgrade DowngradeErrorMessage="A newer version of NodeGuarder Agent is already installed."
+        <MajorUpgrade DowngradeErrorMessage="A newer version of NodeGuarder is already installed."
                       AllowSameVersionUpgrades="yes" />
 
         <MediaTemplate EmbedCab="yes" />
 
-        <Icon Id="AppIcon" SourceFile="$(var.SourceDir)nodeguarder-agent.exe" />
+        <Icon Id="AppIcon" SourceFile="$(var.SourceDir)icon.ico" />
 
         <Property Id="ARPPRODUCTICON" Value="AppIcon" />
         <Property Id="ARPHELPLINK" Value="https://nodeguarder.com" />
@@ -39,7 +39,7 @@
 
                     <Component Id="InstallDirReg" Guid="*">
                         <RegistryValue Root="HKLM"
-                                       Key="Software\NodeGuarder\Agent"
+                                       Key="Software\NodeGuarder"
                                        Name="InstallDir"
                                        Type="string"
                                        Value="[INSTALLDIR]"
@@ -59,6 +59,15 @@
                               Source="$(var.SourceDir)atr_rules.json"
                               KeyPath="yes" />
                     </Component>
+
+                    <Component Id="AutoStartRun" Guid="*">
+                        <RegistryValue Root="HKLM"
+                                       Key="Software\Microsoft\Windows\CurrentVersion\Run"
+                                       Name="NodeGuarder"
+                                       Type="string"
+                                       Value="[INSTALLDIR]nodeguarder-agent.exe"
+                                       KeyPath="yes" />
+                    </Component>
                 </Directory>
             </Directory>
 
@@ -67,13 +76,13 @@
                     <Component Id="StartMenuShortcuts" Guid="*">
                         <Shortcut Id="StartMenuShortcut"
                                   Directory="AppProgramMenuFolder"
-                                  Name="NodeGuarder Agent"
+                                  Name="NodeGuarder"
                                   Description="AI Security Gateway"
                                   WorkingDirectory="INSTALLDIR"
                                   Icon="AppIcon"
                                   Advertise="no" />
                         <RegistryValue Root="HKCU"
-                                       Key="Software\NodeGuarder\Agent"
+                                       Key="Software\NodeGuarder"
                                        Name="ShortcutInstalled"
                                        Type="integer"
                                        Value="1"
@@ -84,8 +93,19 @@
             </Directory>
         </Directory>
 
+        <CustomAction Id="LaunchAgent"
+                      Directory="INSTALLDIR"
+                      ExeCommand="cmd.exe /C start &quot;&quot; nodeguarder-agent.exe"
+                      Execute="immediate"
+                      Impersonate="yes"
+                      Return="asyncNoWait" />
+
+        <InstallExecuteSequence>
+            <Custom Action="LaunchAgent" After="InstallFinalize" />
+        </InstallExecuteSequence>
+
         <Feature Id="MainFeature"
-                 Title="NodeGuarder Agent"
+                 Title="NodeGuarder"
                  Description="AI security gateway executable and runtime components"
                  Level="1"
                  ConfigurableDirectory="INSTALLDIR">
@@ -93,6 +113,7 @@
             <ComponentRef Id="InstallDirReg" />
             <ComponentRef Id="OrtDll" />
             <ComponentRef Id="AtrRules" />
+            <ComponentRef Id="AutoStartRun" />
             <ComponentRef Id="StartMenuShortcuts" />
         </Feature>
     </Product>

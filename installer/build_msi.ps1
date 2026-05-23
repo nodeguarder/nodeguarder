@@ -65,6 +65,25 @@ if (-not $exeVersion) {
 }
 Write-Host "Agent version: $exeVersion" -ForegroundColor Green
 
+# Generate icon.ico from assets/logo.png
+$repoRoot = Resolve-Path (Join-Path $InstallerDir "..")
+$pngPath = Join-Path $repoRoot "assets" "logo.png"
+$icoPath = Join-Path $SourceDir "icon.ico"
+if (Test-Path $pngPath) {
+    Write-Host "Generating icon.ico from logo.png..." -ForegroundColor Yellow
+    Add-Type -AssemblyName System.Drawing
+    $img = [System.Drawing.Image]::FromFile((Resolve-Path $pngPath))
+    $ico = [System.Drawing.Icon]::FromHandle($img.GetHicon())
+    $fs = New-Object System.IO.FileStream $icoPath, ([System.IO.FileMode]::Create)
+    $ico.Save($fs)
+    $fs.Close()
+    $ico.Dispose()
+    $img.Dispose()
+    Write-Host "Icon created: $icoPath" -ForegroundColor Green
+} else {
+    Write-Warning "assets/logo.png not found at $pngPath — MSI will have no app icon"
+}
+
 # Build WiX object
 $wxsFile = Join-Path $InstallerDir "NodeGuarder.wxs"
 $wixobjFile = Join-Path $OutputDir "NodeGuarder.wixobj"

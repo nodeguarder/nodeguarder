@@ -58,16 +58,15 @@ $light = Join-Path $wixPath "light.exe"
 
 Write-Host "WiX Toolset found at: $wixPath" -ForegroundColor Green
 
-# Get version from the executable
-$exeVersion = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $SourceDir "nodeguarder-agent.exe")).FileVersion
-if (-not $exeVersion) {
-    $exeVersion = "1.0.0"
-}
-Write-Host "Agent version: $exeVersion" -ForegroundColor Green
+# Get version from Cargo.toml (canonical source)
+$repoRoot = Resolve-Path (Join-Path $InstallerDir "..")
+$cargoToml = Join-Path $repoRoot "agent" "Cargo.toml"
+$versionLine = Select-String -Path $cargoToml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1
+$exeVersion = if ($versionLine) { $versionLine.Matches.Groups[1].Value } else { "1.0.0" }
+Write-Host "Agent version: $exeVersion (from Cargo.toml)" -ForegroundColor Green
 
 # Generate icon.ico from assets/logo.png
 Add-Type -AssemblyName System.Drawing
-$repoRoot = Resolve-Path (Join-Path $InstallerDir "..")
 $pngPath = Join-Path $repoRoot "assets" "logo.png"
 $icoPath = Join-Path $SourceDir "icon.ico"
 if (Test-Path $pngPath) {

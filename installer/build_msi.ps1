@@ -19,8 +19,11 @@ if (-not $OutputDir) {
     $OutputDir = Join-Path $InstallerDir "output"
 }
 
-# Resolve to absolute paths
+# Resolve to absolute paths and ensure trailing backslash for WiX preprocessor
 $SourceDir = Resolve-Path $SourceDir
+if (-not $SourceDir.EndsWith('\')) {
+    $SourceDir = $SourceDir + '\'
+}
 $OutputDir = New-Item -ItemType Directory -Path $OutputDir -Force | Select-Object -ExpandProperty FullName
 $InstallerDir = Resolve-Path $InstallerDir
 

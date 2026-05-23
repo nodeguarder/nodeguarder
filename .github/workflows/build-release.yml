@@ -32,8 +32,6 @@ jobs:
       - name: Build agent (release)
         working-directory: agent
         run: cargo build --release --features "semantic,enterprise"
-        env:
-          RUSTFLAGS: -C target-feature=+crt-static
 
       - name: Stage build artifacts
         shell: pwsh
@@ -51,7 +49,8 @@ jobs:
         continue-on-error: true
 
       - name: Install WiX Toolset
-        uses: wixtoolset/setup-wix@v1
+        shell: pwsh
+        run: choco install wixtoolset -y --no-progress
 
       - name: Build MSI installer
         shell: pwsh

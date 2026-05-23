@@ -74,14 +74,29 @@ if (-not (Test-Path $pngPath)) {
 $icoPath = Join-Path $SourceDir "icon.ico"
 if (Test-Path $pngPath) {
     Write-Host "Generating icon.ico from logo.png..." -ForegroundColor Yellow
-    # Prefer ImageMagick for proper multi-resolution icon (installed via choco in CI)
+    Add-Type -AssemblyName System.Drawing
+    
+    # Load PNG and remove neon green background (same logic as tray.rs)
+    $bmp = [System.Drawing.Bitmap]::FromFile((Resolve-Path $pngPath))
+    for ($y = 0; $y -lt $bmp.Height; $y++) {
+        for ($x = 0; $x -lt $bmp.Width; $x++) {
+            $pixel = $bmp.GetPixel($x, $y)
+            if ($pixel.G -gt 180 -and $pixel.G -gt $pixel.R -and $pixel.G -gt $pixel.B) {
+                $bmp.SetPixel($x, $y, [System.Drawing.Color]::FromArgb(0, 0, 0, 0))
+            }
+        }
+    }
+    $tempPng = [System.IO.Path]::GetTempFileName() + ".png"
+    $bmp.Save($tempPng, [System.Drawing.Imaging.ImageFormat]::Png)
+    $bmp.Dispose()
+
+    # Create multi-resolution .ico via ImageMagick (installed via choco in CI)
     $magick = Get-Command "magick" -ErrorAction SilentlyContinue
     if ($magick) {
-        & $magick.Source convert (Resolve-Path $pngPath) -define icon:auto-resize=16,32,48,64,128,256 $icoPath 2>&1
+        & $magick.Source $tempPng -define icon:auto-resize=16,32,48,64,128,256 $icoPath 2>&1
         Write-Host "Multi-resolution icon created via ImageMagick: $icoPath" -ForegroundColor Green
     } else {
-        Add-Type -AssemblyName System.Drawing
-        $img = [System.Drawing.Image]::FromFile((Resolve-Path $pngPath))
+        $img = [System.Drawing.Image]::FromFile($tempPng)
         $ico = [System.Drawing.Icon]::FromHandle($img.GetHicon())
         $fs = New-Object System.IO.FileStream $icoPath, ([System.IO.FileMode]::Create)
         $ico.Save($fs)
@@ -90,6 +105,23 @@ if (Test-Path $pngPath) {
         $img.Dispose()
         Write-Host "Icon created via System.Drawing: $icoPath" -ForegroundColor Green
     }
+    Remove-Item $tempPng -Force -ErrorAction SilentlyContinue
+} else {
+    Write-Warning "assets/logo.png not found at $pngPath — generating fallback icon"
+    Add-Type -AssemblyName System.Drawing
+    $bmp = New-Object System.Drawing.Bitmap(32, 32)
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.Clear([System.Drawing.Color]::Transparent)
+    $g.Dispose()
+    $hIcon = $bmp.GetHicon()
+    $ico = [System.Drawing.Icon]::FromHandle($hIcon)
+    $fs = New-Object System.IO.FileStream $icoPath, ([System.IO.FileMode]::Create)
+    $ico.Save($fs)
+    $fs.Close()
+    $ico.Dispose()
+    $bmp.Dispose()
+    Write-Host "Fallback icon created: $icoPath" -ForegroundColor Yellow
+}
 } else {
     Write-Warning "assets/logo.png not found at $pngPath — generating fallback icon"
     Add-Type -AssemblyName System.Drawing

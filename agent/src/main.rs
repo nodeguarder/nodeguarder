@@ -38,7 +38,7 @@ fn main() {
     let _ = std::fs::create_dir_all(&log_dir);
     let file_appender = tracing_appender::rolling::never(&log_dir, "nodeguarder.log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-    tracing_subscriber::fmt().with_writer(non_blocking).init();
+    tracing_subscriber::fmt().with_writer(non_blocking).with_ansi(false).init();
 
     // Check for portal mode (--portal flag)
     let is_portal = std::env::args().any(|a| a == "--portal");
@@ -169,13 +169,18 @@ fn run_agent() {
                         let current_config = config_lock_ui.read().unwrap().clone();
                         let port = *bound_port_ui.lock().unwrap();
                         
-                        let webview_pair = ui::windows::spawn_settings_window(
-                            event_loop_window_target, 
-                            ui_proxy.clone(),
-                            &current_config,
-                            port,
-                        );
-                        windows.push((webview_pair.0.id(), webview_pair));
+                        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                            ui::windows::spawn_settings_window(
+                                event_loop_window_target, 
+                                ui_proxy.clone(),
+                                &current_config,
+                                port,
+                            )
+                        }));
+                        match result {
+                            Ok(webview_pair) => windows.push((webview_pair.0.id(), webview_pair)),
+                            Err(e) => error!("Settings window creation failed: {:?}", e),
+                        }
                     }
                     UiEvent::CopyToClipboard(text) => {
                         let _ = clipboard.set_text(text);

@@ -487,6 +487,7 @@ const FP_CODE_REVIEW: &[&str] = &[
 const FP_PLACEHOLDER_VALUES: &[&str] = &[
     "localhost", "127.0.0.1", "0.0.0.0",
     "user@example.com", "your@email.com",
+    "your own", "your secret", "your-key", "your-api",
     "password123", "changeme", "letmein",
     "****", "••••",
 ];

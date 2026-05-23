@@ -3,21 +3,31 @@ param(
     [string]$SourceDir,
 
     [Parameter(Mandatory = $false)]
-    [string]$OutputDir = (Join-Path $PSScriptRoot "output"),
+    [string]$OutputDir = "",
 
     [Parameter(Mandatory = $false)]
-    [string]$InstallerDir = $PSScriptRoot
+    [string]$InstallerDir = ""
 )
 
 $ErrorActionPreference = "Stop"
 
-# Resolve paths
+# Resolve defaults relative to this script's location
+if (-not $InstallerDir) {
+    $InstallerDir = Split-Path -Parent $PSCommandPath
+}
+if (-not $OutputDir) {
+    $OutputDir = Join-Path $InstallerDir "output"
+}
+
+# Resolve to absolute paths
 $SourceDir = Resolve-Path $SourceDir
 $OutputDir = New-Item -ItemType Directory -Path $OutputDir -Force | Select-Object -ExpandProperty FullName
+$InstallerDir = Resolve-Path $InstallerDir
 
 Write-Host "Building NodeGuarder Agent MSI..." -ForegroundColor Cyan
 Write-Host "  Source: $SourceDir"
 Write-Host "  Output: $OutputDir"
+Write-Host "  Installer: $InstallerDir"
 
 # Verify required files exist
 $requiredFiles = @(
@@ -33,37 +43,14 @@ foreach ($file in $requiredFiles) {
     }
 }
 
-# Find WiX Toolset
-$wixPath = $null
-$possiblePaths = @(
-        Join-Path ${env:ProgramFiles} "WiX Toolset v3\bin",
-        Join-Path ${env:ProgramFiles(x86)} "WiX Toolset v3\bin",
-        Join-Path ${env:ProgramFiles} "WiX Toolset v4\bin",
-        Join-Path ${env:ProgramFiles(x86)} "WiX Toolset v4\bin",
-        Join-Path ${env:ProgramFiles} "WiX Toolset\bin",
-        Join-Path ${env:ProgramFiles(x86)} "WiX Toolset\bin"
-    )
-
-# Also check PATH
-$candleInPath = (Get-Command "candle.exe" -ErrorAction SilentlyContinue)
-if ($candleInPath) {
-    $wixPath = Split-Path $candleInPath.Source -Parent
-}
-else {
-    foreach ($p in $possiblePaths) {
-        if (Test-Path (Join-Path $p "candle.exe")) {
-            $wixPath = $p
-            break
-        }
-    }
-}
-
-if (-not $wixPath) {
-    Write-Error "WiX Toolset not found. Please install WiX Toolset v3 from https://wixtoolset.org/"
+# Find WiX Toolset (candle.exe must be on PATH)
+$candlePath = (Get-Command "candle.exe" -ErrorAction SilentlyContinue)
+if (-not $candlePath) {
+    Write-Error "WiX Toolset not found. Install via: choco install wixtoolset"
     exit 1
 }
-
-$candle = Join-Path $wixPath "candle.exe"
+$wixPath = Split-Path $candlePath.Source -Parent
+$candle = $candlePath.Source
 $light = Join-Path $wixPath "light.exe"
 
 Write-Host "WiX Toolset found at: $wixPath" -ForegroundColor Green
@@ -79,12 +66,12 @@ Write-Host "Agent version: $exeVersion" -ForegroundColor Green
 $wxsFile = Join-Path $InstallerDir "NodeGuarder.wxs"
 $wixobjFile = Join-Path $OutputDir "NodeGuarder.wixobj"
 
-Write-Host "Compiling WiX source..." -ForegroundColor Yellow
+Write-Host "Compiling WiX source: $wxsFile" -ForegroundColor Yellow
 & $candle -arch x64 `
     -dSourceDir="$SourceDir" `
     -dVersion="$exeVersion" `
     -out "$wixobjFile" `
-    "$wxsFile"
+    "$wxsFile" 2>&1
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "WiX compilation failed with exit code $LASTEXITCODE"
@@ -98,7 +85,7 @@ Write-Host "Linking MSI package..." -ForegroundColor Yellow
 & $light -ext WixUIExtension `
     -cultures:en-us `
     -out "$msiFile" `
-    "$wixobjFile"
+    "$wixobjFile" 2>&1
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "WiX linking failed with exit code $LASTEXITCODE"

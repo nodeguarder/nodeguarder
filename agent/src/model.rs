@@ -275,7 +275,7 @@ pub mod semantic {
                     ort::ep::DirectML::default().into(),
                 ];
                 match builder.with_execution_providers(providers) {
-                    Ok(b) => match b.commit_from_file(&model_path) {
+                    Ok(mut b) => match b.commit_from_file(&model_path) {
                         Ok(s) => {
                             set_gpu_active(true);
                             tracing::info!("DeBERTa-v3 session created with DirectML GPU");
@@ -284,7 +284,7 @@ pub mod semantic {
                         Err(e) => {
                             warn!("DirectML commit_from_file failed: {} — falling back to CPU", e);
                             match Session::builder() {
-                                Ok(cpu_builder) => match cpu_builder.commit_from_file(&model_path) {
+                                Ok(mut cpu_builder) => match cpu_builder.commit_from_file(&model_path) {
                                     Ok(s) => {
                                         tracing::info!("DeBERTa-v3 session created with CPU fallback");
                                         Some(s)
@@ -304,7 +304,7 @@ pub mod semantic {
                     Err(e) => {
                         warn!("DirectML with_execution_providers failed: {} — falling back to CPU", e);
                         match Session::builder() {
-                            Ok(cpu_builder) => match cpu_builder.commit_from_file(&model_path) {
+                            Ok(mut cpu_builder) => match cpu_builder.commit_from_file(&model_path) {
                                 Ok(s) => {
                                     tracing::info!("DeBERTa-v3 session created with CPU fallback");
                                     Some(s)

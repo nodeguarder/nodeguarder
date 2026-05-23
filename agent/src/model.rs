@@ -7,10 +7,6 @@ pub fn is_gpu_active() -> bool {
     *GPU_MODEL_ACTIVE.get_or_init(|| Arc::new(RwLock::new(false))).read().unwrap()
 }
 
-fn set_gpu_active(active: bool) {
-    *GPU_MODEL_ACTIVE.get_or_init(|| Arc::new(RwLock::new(false))).write().unwrap() = active;
-}
-
 #[derive(Clone, PartialEq, Debug)]
 pub enum ModelStatus {
     NotDownloaded,
@@ -265,28 +261,26 @@ pub mod semantic {
             }
         }
 
-        // Load model into an ORT session. Prefer DirectML GPU; recover builder on failure and try CPU.
+        // Load model into an ORT session (CPU execution)
         info!("Loading DeBERTa-v3 model into ORT session...");
         let session = {
-            let dml_builder = Session::builder();
-            if let Ok(builder) = dml_builder {
-                use ort::ep::ExecutionProviderDispatch;
-                let providers: Vec<ExecutionProviderDispatch> = vec![
-                    ort::ep::DirectML::default().into(),
-                ];
-                let dml = builder.with_execution_providers(providers)
-                    .ok()
-                    .and_then(|mut b| b.commit_from_file(&model_path).ok());
-                if let Some(s) = dml {
-                    set_gpu_active(true);
-                    tracing::info!("DeBERTa-v3 session created with DirectML GPU");
-                    Some(s)
-                } else {
-                    tracing::info!("DirectML registration failed, falling back to CPU");
-                    Session::builder().ok().and_then(|mut b| b.commit_from_file(&model_path).ok())
+            match Session::builder() {
+                Ok(builder) => {
+                    match builder.commit_from_file(&model_path) {
+                        Ok(s) => {
+                            tracing::info!("DeBERTa-v3 session created with CPU");
+                            Some(s)
+                        }
+                        Err(e) => {
+                            warn!("CPU session commit_from_file failed: {}", e);
+                            None
+                        }
+                    }
                 }
-            } else {
-                None
+                Err(e) => {
+                    warn!("ORT session builder failed: {}", e);
+                    None
+                }
             }
         };
 

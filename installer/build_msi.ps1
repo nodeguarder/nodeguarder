@@ -65,9 +65,12 @@ $versionLine = Select-String -Path $cargoToml -Pattern '^version\s*=\s*"([^"]+)"
 $exeVersion = if ($versionLine) { $versionLine.Matches.Groups[1].Value } else { "1.0.0" }
 Write-Host "Agent version: $exeVersion (from Cargo.toml)" -ForegroundColor Green
 
-# Generate icon.ico from assets/logo.png
+# Generate icon.ico from logo.png (check agent/assets/ then assets/)
 Add-Type -AssemblyName System.Drawing
-$pngPath = Join-Path $repoRoot "assets" "logo.png"
+$pngPath = Join-Path $repoRoot "agent" "assets" "logo.png"
+if (-not (Test-Path $pngPath)) {
+    $pngPath = Join-Path $repoRoot "assets" "logo.png"
+}
 $icoPath = Join-Path $SourceDir "icon.ico"
 if (Test-Path $pngPath) {
     Write-Host "Generating icon.ico from logo.png..." -ForegroundColor Yellow

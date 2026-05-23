@@ -1,6 +1,6 @@
 [package]
 name = "nodeguarder-agent"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2021"
 
 [features]
@@ -54,7 +54,7 @@ rustls = { version = "0.23.38", features = ["ring"] }
 pdf-extract = "0.10.0"
 
 # Optional: ONNX inference via ort (Microsoft ONNX Runtime, DirectML GPU)
-ort = { version = "2.0.0-rc.12", features = ["load-dynamic", "directml"], optional = true }
+ort = { version = "2.0.0-rc.12", features = ["load-dynamic"], optional = true }
 ndarray = { version = "0.16", optional = true }
 tokenizers = { version = "0.20", optional = true }
 once_cell = { version = "1.21.4", optional = true }

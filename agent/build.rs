@@ -27,22 +27,22 @@ fn main() {
         return;
     }
 
-    println!("cargo:warning=Downloading ONNX Runtime 1.24.2 for Windows x64...");
+    println!("cargo:warning=Downloading ONNX Runtime 1.24.2 DirectML from NuGet...");
 
-    let url = "https://github.com/microsoft/onnxruntime/releases/download/v1.24.2/onnxruntime-win-x64-directml-1.24.2.zip";
-    let zip_path = target_dir.join("onnxruntime-win-x64-directml-1.24.2.zip");
+    let url = "https://www.nuget.org/api/v2/package/Microsoft.ML.OnnxRuntime.DirectML/1.24.2";
+    let nupkg_path = target_dir.join("Microsoft.ML.OnnxRuntime.DirectML.1.24.2.nupkg");
 
     let status = std::process::Command::new("powershell.exe")
         .args([
             "-NoProfile",
             "-Command",
-            &format!("Invoke-WebRequest -Uri '{}' -OutFile '{}'", url, zip_path.to_str().unwrap()),
+            &format!("Invoke-WebRequest -Uri '{}' -OutFile '{}'", url, nupkg_path.to_str().unwrap()),
         ])
         .status()
         .expect("Failed to execute PowerShell for download");
 
     if !status.success() {
-        panic!("Failed to download ONNX Runtime from {}", url);
+        panic!("Failed to download ONNX Runtime DirectML from {}", url);
     }
 
     println!("cargo:warning=Extracting onnxruntime.dll...");
@@ -52,21 +52,21 @@ fn main() {
         .args([
             "-NoProfile",
             "-Command",
-            &format!("Expand-Archive -Path '{}' -DestinationPath '{}' -Force", zip_path.to_str().unwrap(), extract_dir.to_str().unwrap()),
+            &format!("Expand-Archive -Path '{}' -DestinationPath '{}' -Force", nupkg_path.to_str().unwrap(), extract_dir.to_str().unwrap()),
         ])
         .status()
         .expect("Failed to execute PowerShell for extraction");
 
     if !status.success() {
-        let _ = std::fs::remove_file(&zip_path);
-        panic!("Failed to extract ONNX Runtime zip. Try downloading manually from {} and place onnxruntime.dll in {}", url, target_dir.display());
+        let _ = std::fs::remove_file(&nupkg_path);
+        panic!("Failed to extract ONNX Runtime NuGet package. Try downloading manually from {} and place onnxruntime.dll in {}", url, target_dir.display());
     }
 
-    let inner_dir = extract_dir.join("onnxruntime-win-x64-directml-1.24.2");
-    let source_dll = inner_dir.join("lib").join("onnxruntime.dll");
+    // NuGet package structure: runtimes/win-x64/native/onnxruntime.dll
+    let source_dll = extract_dir.join("runtimes").join("win-x64").join("native").join("onnxruntime.dll");
 
     if !source_dll.exists() {
-        let _ = std::fs::remove_file(&zip_path);
+        let _ = std::fs::remove_file(&nupkg_path);
         let _ = std::fs::remove_dir_all(&extract_dir);
         panic!("onnxruntime.dll not found in extracted archive at {:?}", source_dll);
     }
@@ -80,7 +80,7 @@ fn main() {
         let _ = std::fs::copy(&source_dll, &dll_in_deps);
     }
 
-    let _ = std::fs::remove_file(&zip_path);
+    let _ = std::fs::remove_file(&nupkg_path);
     let _ = std::fs::remove_dir_all(&extract_dir);
 
     println!("cargo:warning=onnxruntime.dll ready at {:?}", dll_path);

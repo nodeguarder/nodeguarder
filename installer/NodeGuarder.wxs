@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Product Id="*"
+             Name="NodeGuarder Agent"
+             Language="1033"
+             Version="!(bind.FileVersion.MainExe)"
+             Manufacturer="NodeGuarder"
+             UpgradeCode="cd1f4bab-51e9-4885-ae5f-fb5b08ccc479">
+
+        <Package InstallerVersion="200"
+                 Compressed="yes"
+                 InstallScope="perMachine"
+                 Manufacturer="NodeGuarder"
+                 Description="AI Security Gateway – Local semantic firewall for LLM interactions"
+                 Platform="x64" />
+
+        <MajorUpgrade DowngradeErrorMessage="A newer version of NodeGuarder Agent is already installed."
+                      AllowSameVersionUpgrades="yes" />
+
+        <MediaTemplate EmbedCab="yes" />
+
+        <Icon Id="AppIcon" SourceFile="$(var.SourceDir)nodeguarder-agent.exe" />
+
+        <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+        <Property Id="ARPHELPLINK" Value="https://nodeguarder.com" />
+        <Property Id="ARPNOREPAIR" Value="yes" />
+        <Property Id="ARPNOMODIFY" Value="yes" />
+
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="ProgramFiles64Folder">
+                <Directory Id="INSTALLDIR" Name="NodeGuarder">
+                    <Component Id="MainExe" Guid="*">
+                        <File Id="MainExe"
+                              Name="nodeguarder-agent.exe"
+                              Source="$(var.SourceDir)nodeguarder-agent.exe"
+                              KeyPath="yes">
+                            <Shortcut Id="StartMenuShortcut"
+                                      Directory="ProgramMenuFolder"
+                                      Name="NodeGuarder Agent"
+                                      Description="AI Security Gateway"
+                                      WorkingDirectory="INSTALLDIR"
+                                      Icon="AppIcon"
+                                      Advertise="no" />
+                        </File>
+                        <RemoveFolder Id="RemoveINSTALLDIR" On="uninstall" />
+                        <RegistryValue Root="HKLM"
+                                       Key="Software\NodeGuarder\Agent"
+                                       Name="InstallDir"
+                                       Type="string"
+                                       Value="[INSTALLDIR]"
+                                       KeyPath="yes" />
+                    </Component>
+
+                    <Component Id="OrtDll" Guid="*">
+                        <File Id="OrtDll"
+                              Name="onnxruntime.dll"
+                              Source="$(var.SourceDir)onnxruntime.dll"
+                              KeyPath="yes" />
+                    </Component>
+
+                    <Component Id="AtrRules" Guid="*">
+                        <File Id="AtrRules"
+                              Name="atr_rules.json"
+                              Source="$(var.SourceDir)atr_rules.json"
+                              KeyPath="yes" />
+                    </Component>
+                </Directory>
+            </Directory>
+
+            <Directory Id="ProgramMenuFolder">
+                <Directory Id="AppProgramMenuFolder" Name="NodeGuarder">
+                    <Component Id="StartMenuShortcuts" Guid="*">
+                        <RemoveFolder Id="RemoveAppProgramMenuFolder" On="uninstall" />
+                        <RegistryValue Root="HKCU"
+                                       Key="Software\NodeGuarder\Agent"
+                                       Name="StartMenuInstalled"
+                                       Type="integer"
+                                       Value="1"
+                                       KeyPath="yes" />
+                    </Component>
+                </Directory>
+            </Directory>
+        </Directory>
+
+        <Feature Id="MainFeature"
+                 Title="NodeGuarder Agent"
+                 Description="AI security gateway executable and runtime components"
+                 Level="1"
+                 ConfigurableDirectory="INSTALLDIR">
+            <ComponentRef Id="MainExe" />
+            <ComponentRef Id="OrtDll" />
+            <ComponentRef Id="AtrRules" />
+            <ComponentRef Id="StartMenuShortcuts" />
+        </Feature>
+
+        <CustomAction Id="CreateAppDataDir"
+                      Directory="INSTALLDIR"
+                      ExeCommand="cmd.exe /C if not exist &quot;%APPDATA%\NodeGuarder&quot; mkdir &quot;%APPDATA%\NodeGuarder&quot;"
+                      Return="check"
+                      Impersonate="no" />
+
+        <InstallExecuteSequence>
+            <Custom Action="CreateAppDataDir" Before="InstallFinalize" />
+        </InstallExecuteSequence>
+    </Product>
+</Wix>

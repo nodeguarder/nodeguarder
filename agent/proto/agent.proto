@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+package agent;
+
+service AgentController {
+  rpc RegisterAgent(RegisterRequest) returns (RegisterResponse);
+  rpc PushLogs(LogBatch) returns (LogAckResponse);
+  rpc GetPolicy(PolicyRequest) returns (PolicyResponse);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+}
+
+message RegisterRequest {
+  string agent_uuid = 1;
+  string hostname = 2;
+  string ip_address = 3;
+  bytes public_key = 4;
+  string enrollment_code = 5;
+  string agent_version = 6;
+}
+
+message RegisterResponse {
+  bytes certificate = 1;
+  string admin_grpc_endpoint = 2;
+  string org_id = 3;
+}
+
+message LogBatch {
+  string agent_uuid = 1;
+  repeated AuditLogEntry logs = 2;
+  int64 timestamp_ms = 3;
+}
+
+message AuditLogEntry {
+  string timestamp = 1;
+  string content_type = 2;
+  string action_taken = 3;
+  string preview = 4;
+  string severity = 5;
+  string detection_method = 6;
+  bool timeout_triggered = 7;
+  bool policy_enforced = 8;
+}
+
+message LogAckResponse {
+  bool success = 1;
+}
+
+message PolicyRequest {
+  string agent_uuid = 1;
+  string current_version = 2;
+}
+
+message PolicyEnforcement {
+  // Master toggle
+  bool redaction_enforced = 1;
+
+  // Upstream LLM override
+  bool upstream_url_enforced = 2;
+  string upstream_url = 3;
+  bool upstream_api_key_enforced = 4;
+  string upstream_api_key = 5;
+
+  // Port override
+  bool bind_port_enforced = 6;
+  int32 bind_port = 7;
+
+  // Feature toggles
+  bool ocr_enforced = 8;
+  bool enable_ocr = 9;
+  bool atr_auto_update_enforced = 10;
+  bool disable_atr_auto_update = 11;
+  bool allow_custom_allowlists = 12;
+
+  // Detection categories (empty = all enabled, only listed ones are active)
+  repeated string enabled_detection_categories = 13;
+
+  // Custom rules
+  repeated string custom_regex = 14;
+  repeated string allowlists = 15;
+
+  // Disconnect password (bcrypt hash, empty = no password required)
+  string disconnect_password_hash = 16;
+}
+
+message PolicyResponse {
+  string policy_version = 1;
+  PolicyEnforcement enforcement = 2;
+  bytes signature = 3;
+}
+
+message HeartbeatRequest {
+  string agent_uuid = 1;
+  string hostname = 2;
+  string ip_address = 3;
+  int64 timestamp_ms = 4;
+  // Optional environment report (JSON-serialized EnvironmentReport)
+  string environment_report_json = 5;
+}
+
+message HeartbeatResponse {
+  bool policy_updated = 1;
+  string latest_policy_version = 2;
+  bool agent_revoked = 3;
+}

@@ -1,0 +1,2 @@
+[target.x86_64-pc-windows-msvc]
+# No crt-static - let ort use load-dynamic to avoid CRT conflicts

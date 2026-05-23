@@ -1,0 +1,36 @@
+# Secrets and credentials
+.env
+*.pem
+*.key
+
+# Sensitive files
+pwd.jpg
+
+# OS files
+*.log
+*.err
+
+# IDE
+.vscode/
+.idea/
+
+# Rust build artifacts
+agent/target/
+
+# Node
+enterprise-portal/frontend/node_modules/
+enterprise-portal/frontend/dist/
+
+# Model cache
+model_cache/
+agent/model_cache/
+
+# Generated data
+data/
+agent/data/
+
+# Installer build artifacts
+installer/*.msi
+installer/*.wixobj
+installer/*.wixpdb
+installer/output/

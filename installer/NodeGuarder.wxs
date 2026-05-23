@@ -3,7 +3,7 @@
     <Product Id="*"
              Name="NodeGuarder Agent"
              Language="1033"
-             Version="!(bind.FileVersion.MainExe)"
+             Version="$(var.Version)"
              Manufacturer="NodeGuarder"
              UpgradeCode="cd1f4bab-51e9-4885-ae5f-fb5b08ccc479">
 

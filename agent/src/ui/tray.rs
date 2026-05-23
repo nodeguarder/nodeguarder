@@ -5,7 +5,7 @@ use tray_icon::{
 
 pub fn get_icon_rgba(target_size: u32) -> (Vec<u8>, u32, u32) {
     let icon_bytes = include_bytes!("../../assets/logo.png");
-    let img = image::load_from_memory(icon_bytes).expect("Failed to load icon from memory");
+    let img = image::load_from_memory(icon_bytes).expect("tray: failed to load logo.png from memory");
     let mut rgba_orig = img.to_rgba8();
 
     // 1. Remove Neon Green background FIRST (Before resize to prevent color bleed)
@@ -83,19 +83,19 @@ pub fn load_tray_icon() -> tray_icon::Icon {
 }
 
 pub fn load_window_icon() -> tao::window::Icon {
-    let (rgba, width, height) = get_icon_rgba(128); // 128x128 previously worked and showed up
-    tao::window::Icon::from_rgba(rgba, width, height).expect("Failed to create window icon")
+    let (rgba, width, height) = get_icon_rgba(128);
+    tao::window::Icon::from_rgba(rgba, width, height).expect("tray: from_rgba failed for window icon (128x128)")
 }
 
 pub fn load_icon_base64() -> String {
-    let (rgba_raw, width, height) = get_icon_rgba(128); // Standard web size
+    let (rgba_raw, width, height) = get_icon_rgba(128);
 
     let mut buffer = std::io::Cursor::new(Vec::new());
     let img_buffer: image::ImageBuffer<image::Rgba<u8>, Vec<u8>> =
-        image::ImageBuffer::from_raw(width, height, rgba_raw).unwrap();
+        image::ImageBuffer::from_raw(width, height, rgba_raw).expect("tray: ImageBuffer::from_raw failed");
     img_buffer
         .write_to(&mut buffer, image::ImageFormat::Png)
-        .unwrap();
+        .expect("tray: PNG write_to failed");
     base64::Engine::encode(&base64::engine::general_purpose::STANDARD, buffer.get_ref())
 }
 

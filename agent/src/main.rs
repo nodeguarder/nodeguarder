@@ -179,7 +179,16 @@ fn run_agent() {
                         }));
                         match result {
                             Ok(webview_pair) => windows.push((webview_pair.0.id(), webview_pair)),
-                            Err(e) => error!("Settings window creation failed: {:?}", e),
+                            Err(e) => {
+                                let msg = if let Some(s) = e.downcast_ref::<&str>() {
+                                    s.to_string()
+                                } else if let Some(s) = e.downcast_ref::<String>() {
+                                    s.clone()
+                                } else {
+                                    format!("{:?}", e)
+                                };
+                                error!("Settings window creation failed: {}", msg);
+                            }
                         }
                     }
                     UiEvent::CopyToClipboard(text) => {

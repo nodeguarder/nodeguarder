@@ -218,12 +218,12 @@ pub fn spawn_settings_window(
         .with_window_icon(Some(crate::ui::tray::load_window_icon()))
         .with_taskbar_icon(Some(crate::ui::tray::load_window_icon()))
         .build(event_loop)
-        .unwrap();
+        .expect("settings: WindowBuilder::build failed");
 
     let window_id = window.id();
     let logo_base64 = crate::ui::tray::load_icon_base64();
 
-    let model_status = crate::model::model_status().read().unwrap().clone();
+    let model_status = crate::model::model_status().read().expect("settings: model_status lock poisoned").clone();
     let status_str = match model_status {
         crate::model::ModelStatus::Loaded => "Semantic model loaded".to_string(),
         crate::model::ModelStatus::Downloading { progress, message } => format!("{} {}%", message, progress),
@@ -1389,7 +1389,7 @@ pub fn spawn_settings_window(
             }
         })
         .build(&window)
-        .unwrap();
+        .expect("settings: WebViewBuilder::build failed");
     window.set_visible(true);
 
     (window, webview)

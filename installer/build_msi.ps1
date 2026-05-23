@@ -74,17 +74,25 @@ if (-not (Test-Path $pngPath)) {
 $icoPath = Join-Path $SourceDir "icon.ico"
 if (Test-Path $pngPath) {
     Write-Host "Generating icon.ico from logo.png..." -ForegroundColor Yellow
-    $img = [System.Drawing.Image]::FromFile((Resolve-Path $pngPath))
-    $ico = [System.Drawing.Icon]::FromHandle($img.GetHicon())
-    $fs = New-Object System.IO.FileStream $icoPath, ([System.IO.FileMode]::Create)
-    $ico.Save($fs)
-    $fs.Close()
-    $ico.Dispose()
-    $img.Dispose()
-    Write-Host "Icon created: $icoPath" -ForegroundColor Green
+    # Prefer ImageMagick for proper multi-resolution icon (installed via choco in CI)
+    $magick = Get-Command "magick" -ErrorAction SilentlyContinue
+    if ($magick) {
+        & $magick.Source convert (Resolve-Path $pngPath) -define icon:auto-resize=16,32,48,64,128,256 $icoPath 2>&1
+        Write-Host "Multi-resolution icon created via ImageMagick: $icoPath" -ForegroundColor Green
+    } else {
+        Add-Type -AssemblyName System.Drawing
+        $img = [System.Drawing.Image]::FromFile((Resolve-Path $pngPath))
+        $ico = [System.Drawing.Icon]::FromHandle($img.GetHicon())
+        $fs = New-Object System.IO.FileStream $icoPath, ([System.IO.FileMode]::Create)
+        $ico.Save($fs)
+        $fs.Close()
+        $ico.Dispose()
+        $img.Dispose()
+        Write-Host "Icon created via System.Drawing: $icoPath" -ForegroundColor Green
+    }
 } else {
     Write-Warning "assets/logo.png not found at $pngPath — generating fallback icon"
-    # Create a minimal transparent icon as fallback so WiX linking doesn't fail
+    Add-Type -AssemblyName System.Drawing
     $bmp = New-Object System.Drawing.Bitmap(32, 32)
     $g = [System.Drawing.Graphics]::FromImage($bmp)
     $g.Clear([System.Drawing.Color]::Transparent)

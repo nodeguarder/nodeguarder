@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 mod config;
 mod proxy;
 mod detector;
@@ -30,7 +32,13 @@ use tao::event_loop::{EventLoopBuilder, ControlFlow};
 use arboard::Clipboard;
 
 fn main() {
-    tracing_subscriber::fmt::init();
+    // Write logs to file (no console window for end users)
+    let appdata = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
+    let log_dir = std::path::PathBuf::from(&appdata).join("NodeGuarder").join("logs");
+    let _ = std::fs::create_dir_all(&log_dir);
+    let file_appender = tracing_appender::rolling::never(&log_dir, "nodeguarder.log");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+    tracing_subscriber::fmt().with_writer(non_blocking).init();
 
     // Check for portal mode (--portal flag)
     let is_portal = std::env::args().any(|a| a == "--portal");

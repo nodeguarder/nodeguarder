@@ -49,9 +49,9 @@ jobs:
         run: cargo test --features "test-utils,semantic,enterprise,gui"
         continue-on-error: true
 
-      - name: Install WiX Toolset
+      - name: Install WiX Toolset & ImageMagick
         shell: pwsh
-        run: choco install wixtoolset -y --no-progress
+        run: choco install wixtoolset imagemagick.app -y --no-progress
 
       - name: Build MSI installer
         shell: pwsh

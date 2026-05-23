@@ -122,22 +122,6 @@ if (Test-Path $pngPath) {
     $bmp.Dispose()
     Write-Host "Fallback icon created: $icoPath" -ForegroundColor Yellow
 }
-} else {
-    Write-Warning "assets/logo.png not found at $pngPath — generating fallback icon"
-    Add-Type -AssemblyName System.Drawing
-    $bmp = New-Object System.Drawing.Bitmap(32, 32)
-    $g = [System.Drawing.Graphics]::FromImage($bmp)
-    $g.Clear([System.Drawing.Color]::Transparent)
-    $g.Dispose()
-    $hIcon = $bmp.GetHicon()
-    $ico = [System.Drawing.Icon]::FromHandle($hIcon)
-    $fs = New-Object System.IO.FileStream($icoPath, [System.IO.FileMode]::Create)
-    $ico.Save($fs)
-    $fs.Close()
-    $ico.Dispose()
-    $bmp.Dispose()
-    Write-Host "Fallback icon created: $icoPath" -ForegroundColor Yellow
-}
 
 # Build WiX object
 $wxsFile = Join-Path $InstallerDir "NodeGuarder.wxs"

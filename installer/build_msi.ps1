@@ -128,7 +128,7 @@ $wxsFile = Join-Path $InstallerDir "NodeGuarder.wxs"
 $wixobjFile = Join-Path $OutputDir "NodeGuarder.wixobj"
 
 Write-Host "Compiling WiX source: $wxsFile" -ForegroundColor Yellow
-& $candle -arch x64 `
+& $candle -arch x64 -ext WixUtilExtension `
     -dSourceDir="$SourceDir" `
     -dVersion="$exeVersion" `
     -out "$wixobjFile" `

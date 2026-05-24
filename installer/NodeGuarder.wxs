@@ -99,6 +99,13 @@
                                CloseMessage="no"
                                RebootPrompt="no" />
 
+        <CustomAction Id="KillAgentDeferred"
+                      Directory="INSTALLDIR"
+                      ExeCommand="taskkill /f /im nodeguarder-agent.exe"
+                      Execute="deferred"
+                      Impersonate="no"
+                      Return="ignore" />
+
         <CustomAction Id="RemoveAppData"
                       Script="vbscript"
                       Execute="immediate"
@@ -121,6 +128,7 @@
                       Return="asyncNoWait" />
 
         <InstallExecuteSequence>
+            <Custom Action="KillAgentDeferred" Before="RemoveFiles">REMOVE="ALL"</Custom>
             <Custom Action="RemoveAppData" After="InstallValidate">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE</Custom>
             <Custom Action="LaunchAgent" After="InstallFinalize" />
         </InstallExecuteSequence>

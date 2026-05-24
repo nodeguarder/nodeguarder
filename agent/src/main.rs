@@ -1,5 +1,6 @@
 #![windows_subsystem = "windows"]
 
+#[cfg(any(feature = "agent", feature = "gui"))]
 mod config;
 #[cfg(feature = "agent")]
 mod proxy;
@@ -28,10 +29,15 @@ mod ocr;
 #[cfg(feature = "enterprise")]
 mod portal;
 
+#[cfg(feature = "gui")]
 use std::sync::{Arc, Mutex, RwLock};
+#[cfg(feature = "gui")]
 use std::thread;
+#[cfg(feature = "gui")]
 use tokio::net::TcpListener;
+#[cfg(feature = "gui")]
 use tokio::runtime::Runtime;
+#[cfg(feature = "gui")]
 use tracing::{info, error};
 #[cfg(feature = "agent")]
 use proxy::AppState;

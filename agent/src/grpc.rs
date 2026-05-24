@@ -3,7 +3,7 @@ pub mod agent {
     tonic::include_proto!("agent");
 }
 
-#[cfg(feature = "enterprise")]
+#[cfg(feature = "agent")]
 pub use agent::agent_controller_client::AgentControllerClient;
-#[cfg(feature = "enterprise")]
+#[cfg(feature = "agent")]
 pub use agent::*;

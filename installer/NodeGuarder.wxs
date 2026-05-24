@@ -97,7 +97,6 @@
         <util:CloseApplication Id="CloseAgent"
                                Target="nodeguarder-agent.exe"
                                CloseMessage="no"
-                               Terminate="yes"
                                RebootPrompt="no" />
 
         <CustomAction Id="RemoveAppData"

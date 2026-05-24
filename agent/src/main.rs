@@ -1,20 +1,29 @@
 #![windows_subsystem = "windows"]
 
 mod config;
+#[cfg(feature = "agent")]
 mod proxy;
+#[cfg(feature = "agent")]
 mod detector;
+#[cfg(feature = "agent")]
 mod model;
+#[cfg(feature = "agent")]
 mod ui;
+#[cfg(feature = "agent")]
 mod audit;
+#[cfg(feature = "agent")]
 mod discovery;
 #[cfg(feature = "enterprise")]
 mod grpc;
 #[cfg(feature = "gui")]
 mod sync;
+#[cfg(feature = "agent")]
 mod crypto;
+#[cfg(feature = "agent")]
 mod scrubber;
+#[cfg(feature = "agent")]
 mod provisioning;
-#[cfg(windows)]
+#[cfg(all(feature = "agent", windows))]
 mod ocr;
 #[cfg(feature = "enterprise")]
 mod portal;
@@ -24,7 +33,9 @@ use std::thread;
 use tokio::net::TcpListener;
 use tokio::runtime::Runtime;
 use tracing::{info, error};
+#[cfg(feature = "agent")]
 use proxy::AppState;
+#[cfg(feature = "agent")]
 use ui::UiEvent;
 #[cfg(feature = "gui")]
 use tao::event_loop::{EventLoopBuilder, ControlFlow};
@@ -257,7 +268,8 @@ fn run_agent() {
                         }
                         let port = *bound_port_ui.lock().unwrap();
                         let enrolled = config_lock_ui.read().unwrap().enrolled_admin.is_some();
-                        crate::ui::tray::update_tray_tooltip(&tray_icon, port, enrolled, false);
+                        let connected = sync_engine_ui.is_connected();
+                        crate::ui::tray::update_tray_tooltip(&tray_icon, port, enrolled, connected, false);
                     }
                     UiEvent::UpdateLogsInUI(json) => {
                         let script = format!("if(window.updateLogs) {{ window.updateLogs({}); }}", json);
@@ -303,7 +315,8 @@ fn run_agent() {
                     UiEvent::UpdateTray => {
                         let port = *bound_port_ui.lock().unwrap();
                         let enrolled = config_lock_ui.read().unwrap().enrolled_admin.is_some();
-                        crate::ui::tray::update_tray_tooltip(&tray_icon, port, enrolled, false);
+                        let connected = sync_engine_ui.is_connected();
+                        crate::ui::tray::update_tray_tooltip(&tray_icon, port, enrolled, connected, false);
                     }
                     UiEvent::ExportLogs => {
                         info!("Exporting logs...");
@@ -323,15 +336,6 @@ fn run_agent() {
                                 let _ = webview.evaluate_script(&script);
                             }
                         }
-                    }
-                    UiEvent::ClearCache => {
-                        info!("Clearing cache and restarting...");
-                        let appdata = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
-                        let path = std::path::PathBuf::from(appdata).join("NodeGuarder");
-                        let _ = std::fs::remove_dir_all(path.join("logs"));
-                        let _ = std::fs::remove_dir_all(path.join("atr"));
-                        let _ = std::fs::remove_dir_all(path.join("models"));
-                        *control_flow = ControlFlow::Exit;
                     }
                     UiEvent::ExitApp => {
                         *control_flow = ControlFlow::Exit;

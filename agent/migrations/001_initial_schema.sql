@@ -104,11 +104,11 @@ CREATE TABLE enrollment_codes (
 CREATE INDEX idx_codes_org_id ON enrollment_codes(org_id);
 CREATE INDEX idx_codes_code ON enrollment_codes(code);
 
--- Seed default organization and admin user (password: admin123)
-INSERT INTO organizations (id, name) VALUES ('00000000-0000-0000-0000-000000000001', 'Default Organization');
+-- Seed default organization and admin user (password: NodeGuarder#DM1n)
+INSERT INTO organizations (id, name) VALUES (uuid_generate_v4(), 'Default Organization');
 
--- Password is bcrypt hash of 'admin123'
+-- Password is bcrypt hash of 'NodeGuarder#DM1n'
 INSERT INTO users (org_id, email, password_hash, display_name, role)
-VALUES ('00000000-0000-0000-0000-000000000001', 'admin@nodeguarder.local',
-        '$2b$12$IKwfE3mzO2FAIh3g/yG61OnJtZRg7Bj7U7TEVWJ9/odrxeMHFieN.',
+VALUES ((SELECT id FROM organizations WHERE name = 'Default Organization'), 'admin@nodeguarder.local',
+        '$2b$12$5JciT5xMjB6hMjLbUi0btectaqd.OBWdTkmp7aZcS.xWBwTcNIdZC',
         'Admin', 'ADMIN');

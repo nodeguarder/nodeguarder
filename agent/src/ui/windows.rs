@@ -367,6 +367,7 @@ pub fn spawn_settings_window(
             .status-indicator {{ display: flex; align-items: center; gap: 8px; font-size: 13px; }}
             .dot {{ width: 8px; height: 8px; border-radius: 50%; }}
             .dot-online {{ background-color: #10b981; box-shadow: 0 0 8px #10b981; }}
+            .dot-warning {{ background-color: #f59e0b; box-shadow: 0 0 8px #f59e0b; }}
             .dot-offline {{ background-color: #94a3b8; }}
 
             /* Switch Styles */
@@ -697,14 +698,25 @@ pub fn spawn_settings_window(
                 
                 <div class="card">
                     <div class="card-title">Connection Status</div>
-                    <div id="enrolledStatus" style="display: none;">
+                    <div id="enrolledConnectedStatus" style="display: none;">
                         <div class="status-indicator" style="margin-bottom: 20px;">
                             <div class="dot dot-online"></div>
-                            <span style="color: #10b981; font-weight: 700;">ENROLLED & MANAGED</span>
+                            <span style="color: #10b981; font-weight: 700;">ENROLLED & CONNECTED</span>
                         </div>
                         <div class="label">Organization ID</div>
-                        <div class="value-row"><span class="value" id="orgId">--</span></div>
+                        <div class="value-row"><span class="value" id="orgIdConnected">--</span></div>
                         <p style="font-size: 13px; color: var(--text-muted); margin-top: 15px;">Hardware identity and mTLS certificates are managed by the platform.</p>
+                        <button class="action danger" onclick="disconnect()" style="margin-top: 20px;">DISCONNECT AGENT</button>
+                    </div>
+
+                    <div id="enrolledDisconnectedStatus" style="display: none;">
+                        <div class="status-indicator" style="margin-bottom: 20px;">
+                            <div class="dot dot-warning"></div>
+                            <span style="color: #f59e0b; font-weight: 700;">ENROLLED — DISCONNECTED</span>
+                        </div>
+                        <div class="label">Organization ID</div>
+                        <div class="value-row"><span class="value" id="orgIdDisconnected">--</span></div>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-top: 15px;">Connection to the Admin Platform is currently unavailable. The agent will automatically reconnect.</p>
                         <button class="action danger" onclick="disconnect()" style="margin-top: 20px;">DISCONNECT AGENT</button>
                     </div>
 
@@ -816,13 +828,6 @@ pub fn spawn_settings_window(
                         </label>
                     </div>
 
-                    <div class="maint-row">
-                        <div>
-                            <div class="maint-label">Reset Agent</div>
-                            <div class="maint-desc">Clears model cache, audit history, and resets to defaults</div>
-                        </div>
-                        <button class="action danger" onclick="showResetModal()">CLEAR &amp; RESET</button>
-                    </div>
                 </div>
 
                 <!-- Card 4: About -->
@@ -837,20 +842,6 @@ pub fn spawn_settings_window(
             </div>
         </div>
     </div>
-
-        <!-- Reset Modal -->
-        <div id="resetModal" class="modal-overlay">
-            <div class="modal-card">
-                <div class="modal-title">Clear Cache & Reset?</div>
-                <div class="modal-body">
-                    This will clear the model cache (~17MB), downloaded ATR rules, and your local encrypted audit history. The agent will close after reset.
-                </div>
-                <div class="modal-buttons">
-                    <button class="action ghost" onclick="hideResetModal()">CANCEL</button>
-                    <button class="action danger" onclick="confirmReset()">RESET AGENT</button>
-                </div>
-            </div>
-        </div>
 
         <!-- Custom Modal Overlay -->
         <div id="disconnectModal" class="modal-overlay">
@@ -894,6 +885,7 @@ pub fn spawn_settings_window(
                 enforce_redaction: {enforce_redaction},
                 logs: {logs_json},
                 enrolled: {enrolled},
+                connected: false,
                 orgId: "{org_id}",
                 enable_ocr: {enable_ocr},
                 upstream_url: "{upstream_url}",
@@ -1060,19 +1052,6 @@ pub fn spawn_settings_window(
                 hideModal();
             }}
 
-            function showResetModal() {{
-                document.getElementById('resetModal').classList.add('active');
-            }}
-
-            function hideResetModal() {{
-                document.getElementById('resetModal').classList.remove('active');
-            }}
-
-            function confirmReset() {{
-                window.ipc.postMessage('CLEAR_CACHE');
-                hideResetModal();
-            }}
-
             function renderRules() {{
                 const body = document.getElementById('rulesBody');
                 body.innerHTML = '';
@@ -1124,11 +1103,19 @@ pub fn spawn_settings_window(
 
             function renderEnterprise() {{
                 if(config.enrolled) {{
-                    document.getElementById('enrolledStatus').style.display = 'block';
                     document.getElementById('localStatus').style.display = 'none';
-                    document.getElementById('orgId').innerText = config.orgId;
+                    if(config.connected) {{
+                        document.getElementById('enrolledConnectedStatus').style.display = 'block';
+                        document.getElementById('enrolledDisconnectedStatus').style.display = 'none';
+                        document.getElementById('orgIdConnected').innerText = config.orgId || '--';
+                    }} else {{
+                        document.getElementById('enrolledConnectedStatus').style.display = 'none';
+                        document.getElementById('enrolledDisconnectedStatus').style.display = 'block';
+                        document.getElementById('orgIdDisconnected').innerText = config.orgId || '--';
+                    }}
                 }} else {{
-                    document.getElementById('enrolledStatus').style.display = 'none';
+                    document.getElementById('enrolledConnectedStatus').style.display = 'none';
+                    document.getElementById('enrolledDisconnectedStatus').style.display = 'none';
                     document.getElementById('localStatus').style.display = 'block';
                 }}
             }}
@@ -1384,8 +1371,6 @@ pub fn spawn_settings_window(
                 let _ = proxy.send_event(UiEvent::CloseWindow(window_id));
             } else if body == "EXPORT_LOGS" {
                 let _ = proxy.send_event(UiEvent::ExportLogs);
-            } else if body == "CLEAR_CACHE" {
-                let _ = proxy.send_event(UiEvent::ClearCache);
             } else if body.starts_with("SET_UPSTREAM_URL:") {
                 let url = body.strip_prefix("SET_UPSTREAM_URL:").unwrap().to_string();
                 let _ = proxy.send_event(UiEvent::UpdateUpstreamUrl(url));

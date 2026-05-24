@@ -51,7 +51,6 @@ pub enum UiEvent {
     DragWindow(tao::window::WindowId),
     UpdateTray,
     ExportLogs,
-    ClearCache,
     UpdateModelStatus(String),
     UpdateHardwareStatus(String),
     UpdateUpstreamUrl(String),

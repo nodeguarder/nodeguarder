@@ -41,7 +41,7 @@ NodeGuarder Enterprise Portal is not a separate codebase — it's the same `node
 ### Build portal binary
 ```powershell
 cd agent
-cargo build --release --features enterprise,semantic
+cargo build --release --features enterprise
 ```
 
 ### Run portal (development)
@@ -301,7 +301,7 @@ docker run -d --name ng-postgres -e POSTGRES_DB=nodeguarder -e POSTGRES_USER=ng_
 # 2. Run portal (migrations auto-run)
 $env:DATABASE_URL="postgres://ng_admin:ng_password@localhost:5433/nodeguarder"
 $env:JWT_SECRET="dev-secret"
-cd agent && cargo run --features enterprise,semantic -- --portal
+cd agent && cargo run --features enterprise -- --portal
 
 # 3. In another terminal, start frontend
 cd enterprise-portal/frontend && npm run dev

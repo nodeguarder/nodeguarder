@@ -135,8 +135,8 @@ function UsersTab() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [showInvite, setShowInvite] = useState(false)
-  const [inviteForm, setInviteForm] = useState({ email: '', password: '', display_name: '', role: 'SECURITYOPS' })
+  const [showCreate, setShowCreate] = useState(false)
+  const [createForm, setCreateForm] = useState({ email: '', password: '', display_name: '', role: 'SECURITYOPS' })
   const [saving, setSaving] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [resetPasswordFor, setResetPasswordFor] = useState<{ id: string; email: string } | null>(null)
@@ -155,13 +155,13 @@ function UsersTab() {
 
   useEffect(() => { fetchUsers() }, [])
 
-  const handleInvite = async () => {
-    if (!inviteForm.email || !inviteForm.password) return
+  const handleCreate = async () => {
+    if (!createForm.email || !createForm.password) return
     setSaving(true)
     try {
-      await createUser(inviteForm)
-      setShowInvite(false)
-      setInviteForm({ email: '', password: '', display_name: '', role: 'SECURITYOPS' })
+      await createUser(createForm)
+      setShowCreate(false)
+      setCreateForm({ email: '', password: '', display_name: '', role: 'SECURITYOPS' })
       fetchUsers()
     } catch (err: any) {
       alert(err.message)
@@ -218,9 +218,9 @@ function UsersTab() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <p className="text-sm text-portal-text-muted">{users.length} {users.length === 1 ? 'user' : 'users'}</p>
-        <button onClick={() => setShowInvite(true)} className="btn-primary flex items-center gap-2 text-xs">
+        <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-2 text-xs">
           <UserPlus className="w-4 h-4" />
-          Invite User
+          Create User
         </button>
       </div>
 
@@ -315,29 +315,29 @@ function UsersTab() {
         </table>
       </div>
 
-      {showInvite && (
-        <div className="modal-overlay" onClick={() => setShowInvite(false)}>
+      {showCreate && (
+        <div className="modal-overlay" onClick={() => setShowCreate(false)}>
           <div className="bg-portal-card border border-portal-border rounded-xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-portal-text">Invite User</h3>
-              <button onClick={() => setShowInvite(false)} className="text-portal-text-muted hover:text-portal-text"><X className="w-5 h-5" /></button>
+              <h3 className="text-lg font-semibold text-portal-text">Create User</h3>
+              <button onClick={() => setShowCreate(false)} className="text-portal-text-muted hover:text-portal-text"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-portal-text-muted mb-1.5 uppercase tracking-wider">Display Name</label>
-                <input type="text" value={inviteForm.display_name} onChange={(e) => setInviteForm({ ...inviteForm, display_name: e.target.value })} className="input-field" placeholder="John Doe" />
+                <input type="text" value={createForm.display_name} onChange={(e) => setCreateForm({ ...createForm, display_name: e.target.value })} className="input-field" placeholder="John Doe" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-portal-text-muted mb-1.5 uppercase tracking-wider">Email</label>
-                <input type="email" value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} className="input-field" placeholder="user@company.com" />
+                <input type="email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} className="input-field" placeholder="user@company.com" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-portal-text-muted mb-1.5 uppercase tracking-wider">Password</label>
-                <input type="password" value={inviteForm.password} onChange={(e) => setInviteForm({ ...inviteForm, password: e.target.value })} className="input-field" />
+                <input type="password" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} className="input-field" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-portal-text-muted mb-1.5 uppercase tracking-wider">Role</label>
-                <select value={inviteForm.role} onChange={(e) => setInviteForm({ ...inviteForm, role: e.target.value })} className="input-field">
+                <select value={createForm.role} onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })} className="input-field">
                   <option value="SECURITYOPS">Security Ops</option>
                   <option value="ADMIN">Admin</option>
                   <option value="AUDITOR">Auditor</option>
@@ -345,14 +345,14 @@ function UsersTab() {
               </div>
             </div>
             <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-portal-border">
-              <button onClick={() => setShowInvite(false)} className="btn-ghost">Cancel</button>
-              <button onClick={handleInvite} disabled={saving || !inviteForm.email || !inviteForm.password} className="btn-primary flex items-center gap-2">
+              <button onClick={() => setShowCreate(false)} className="btn-ghost">Cancel</button>
+              <button onClick={handleCreate} disabled={saving || !createForm.email || !createForm.password} className="btn-primary flex items-center gap-2">
                 {saving ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Inviting...
+                    Creating...
                   </>
-                ) : 'Invite User'}
+                ) : 'Create User'}
               </button>
             </div>
           </div>

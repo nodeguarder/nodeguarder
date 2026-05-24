@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, atomic::{AtomicBool, Ordering}};
 use std::time::Duration;
 use std::fs;
 use tokio::time::sleep;
@@ -19,11 +19,16 @@ use tonic::transport::Channel;
 pub struct SyncEngine {
     config: Arc<RwLock<AppConfig>>,
     ui_proxy: EventLoopProxy<UiEvent>,
+    connected: AtomicBool,
 }
 
 impl SyncEngine {
+    pub fn is_connected(&self) -> bool {
+        self.connected.load(Ordering::Relaxed)
+    }
+
     pub fn new(config: Arc<RwLock<AppConfig>>, ui_proxy: EventLoopProxy<UiEvent>) -> Self {
-        Self { config, ui_proxy }
+        Self { config, ui_proxy, connected: AtomicBool::new(false) }
     }
 
     pub async fn run(&self) {
@@ -65,12 +70,30 @@ impl SyncEngine {
 
             if enrolled {
                 if let Some(url) = admin_url {
-                    if let Err(e) = self.sync_heartbeat(&url).await {
-                        warn!("Sync heartbeat failed: {}. Re-trying in 1 minute...", e);
-                        sleep(Duration::from_secs(60)).await;
-                        continue;
+                    match self.sync_heartbeat(&url).await {
+                        Ok(_) => {
+                            if !self.connected.load(Ordering::Relaxed) {
+                                self.connected.store(true, Ordering::Relaxed);
+                                let _ = self.ui_proxy.send_event(UiEvent::UpdateConfigInUI(json!({
+                                    "connected": true,
+                                }).to_string()));
+                            }
+                        }
+                        Err(e) => {
+                            warn!("Sync heartbeat failed: {}. Re-trying in 1 minute...", e);
+                            if self.connected.load(Ordering::Relaxed) {
+                                self.connected.store(false, Ordering::Relaxed);
+                                let _ = self.ui_proxy.send_event(UiEvent::UpdateConfigInUI(json!({
+                                    "connected": false,
+                                }).to_string()));
+                            }
+                            sleep(Duration::from_secs(60)).await;
+                            continue;
+                        }
                     }
                 }
+            } else if self.connected.load(Ordering::Relaxed) {
+                self.connected.store(false, Ordering::Relaxed);
             }
             
             let wait = 30;
@@ -120,9 +143,12 @@ impl SyncEngine {
                         agent_id = cfg.uuid.clone();
                     }
                     
+                    self.connected.store(true, Ordering::Relaxed);
+
                     let _ = self.ui_proxy.send_event(UiEvent::UpdateConfigInUI(json!({
                         "enrolled": true,
-                        "orgId": res.org_id
+                        "orgId": res.org_id,
+                        "connected": true,
                     }).to_string()));
 
                     info!("Successfully enrolled with Admin Platform.");
@@ -153,9 +179,12 @@ impl SyncEngine {
         cfg.disconnect_password_hash = None;
         save_config(&cfg);
         
+        self.connected.store(false, Ordering::Relaxed);
+
         let _ = self.ui_proxy.send_event(UiEvent::UpdateConfigInUI(json!({
             "enrolled": false,
             "orgId": "N/A",
+            "connected": false,
             "redactionEnforced": false,
             "upstreamUrlEnforced": false,
             "upstreamApiKeyEnforced": false,

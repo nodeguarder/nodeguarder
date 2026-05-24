@@ -4,9 +4,10 @@ version = "1.0.8"
 edition = "2021"
 
 [features]
-default = ["store"]
-# Full-featured build for Windows Store distribution (semantic + enterprise + gui).
-store = ["semantic", "enterprise", "gui"]
+default = ["agent", "semantic", "enterprise", "gui"]
+# Enable local agent mode (proxy, detection engine, UI, audit, etc.).
+# Omit for headless/portal-only builds.
+agent = []
 # Enable desktop GUI (system tray, settings window, HITL modals).
 # Required for standalone agent mode on Windows. Omit for headless/portal builds.
 gui = ["dep:wry", "dep:tao", "dep:tray-icon", "dep:muda", "dep:arboard", "dep:image"]

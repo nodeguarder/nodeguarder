@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
     <Product Id="*"
              Name="NodeGuarder"
              Language="1033"
@@ -93,12 +94,11 @@
             </Directory>
         </Directory>
 
-        <!-- Kill running agent before upgrade to prevent file-in-use errors -->
-        <CustomAction Id="KillAgent"
-                      Directory="INSTALLDIR"
-                      ExeCommand="taskkill /f /im nodeguarder-agent.exe 2&gt;NUL"
-                      Execute="immediate"
-                      Return="ignore" />
+        <util:CloseApplication Id="CloseAgent"
+                               Target="nodeguarder-agent.exe"
+                               CloseMessage="no"
+                               Terminate="yes"
+                               RebootPrompt="no" />
 
         <CustomAction Id="RemoveAppData"
                       Script="vbscript"
@@ -122,7 +122,6 @@
                       Return="asyncNoWait" />
 
         <InstallExecuteSequence>
-            <Custom Action="KillAgent" Before="InstallInitialize" />
             <Custom Action="RemoveAppData" After="InstallValidate">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE</Custom>
             <Custom Action="LaunchAgent" After="InstallFinalize" />
         </InstallExecuteSequence>

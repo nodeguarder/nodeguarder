@@ -8,7 +8,7 @@ use tao::{
     platform::windows::WindowBuilderExtWindows,
     window::{UserAttentionType, Window, WindowBuilder},
 };
-use wry::{WebView, WebViewBuilder};
+use wry::{WebContext, WebView, WebViewBuilder};
 
 /// Escape HTML special characters to prevent XSS in the HITL modal.
 fn html_escape(s: &str) -> String {
@@ -17,6 +17,15 @@ fn html_escape(s: &str) -> String {
      .replace('>', "&gt;")
      .replace('"', "&quot;")
      .replace('\'', "&#39;")
+}
+
+fn create_web_context() -> WebContext {
+    let appdata = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
+    let webview_dir = std::path::PathBuf::from(&appdata)
+        .join("NodeGuarder")
+        .join("webview2");
+    std::fs::create_dir_all(&webview_dir).ok();
+    WebContext::new(Some(webview_dir))
 }
 
 pub fn spawn_hit_modal(
@@ -179,7 +188,8 @@ pub fn spawn_hit_modal(
         has_redact = hit.has_redact,
     );
 
-    let webview = WebViewBuilder::new()
+    let mut ctx = create_web_context();
+    let webview = WebViewBuilder::new_with_web_context(&mut ctx)
         .with_html(html)
         .with_background_color((11, 15, 26, 255))
         .with_ipc_handler(move |msg: Request<String>| {
@@ -1326,7 +1336,8 @@ pub fn spawn_settings_window(
         },
     );
 
-    let webview = WebViewBuilder::new()
+    let mut ctx = create_web_context();
+    let webview = WebViewBuilder::new_with_web_context(&mut ctx)
         .with_html(html)
         .with_background_color((11, 15, 26, 255))
         .with_ipc_handler(move |msg: Request<String>| {

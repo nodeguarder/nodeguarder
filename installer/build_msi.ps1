@@ -143,7 +143,7 @@ if ($LASTEXITCODE -ne 0) {
 $msiFile = Join-Path $OutputDir "NodeGuarder-Setup-$exeVersion.msi"
 
 Write-Host "Linking MSI package..." -ForegroundColor Yellow
-& $light -ext WixUIExtension `
+& $light -ext WixUIExtension -ext WixUtilExtension `
     -cultures:en-us `
     -out "$msiFile" `
     "$wixobjFile" 2>&1

@@ -23,6 +23,7 @@ use futures_util::StreamExt;
 use async_stream::stream;
 use serde_json::{Value, json};
 use base64::Engine;
+use uuid::Uuid;
 
 pub struct AppState {
     pub config: Arc<RwLock<AppConfig>>,
@@ -123,6 +124,7 @@ pub async fn chat_completions_handler(
     body: Bytes,
 ) -> impl IntoResponse {
     // 1. Authorization Check (Fetch config under read lock)
+    let session_id = Uuid::new_v4().to_string();
     let (bearer_token, allowlists_regex, detection_config, upstream_url, upstream_api_key) = {
         let cfg = state.config.read().unwrap();
         (cfg.bearer_token.clone(), cfg.allowlists_regex.clone(), DetectionConfig::from_config(&cfg), cfg.upstream_url.clone(), cfg.upstream_api_key.clone())
@@ -190,7 +192,7 @@ pub async fn chat_completions_handler(
                 let hit = DetectionHit {
                     flagged_text: extracted.clone(),
                     content_type: check.content_type.clone().unwrap_or_else(|| "SECRET".to_string()),
-                    severity: "CRITICAL".to_string(),
+                    severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
                     enforce_redaction: enforce,
                     has_redact: !has_attachment,
                     redaction_resolver: tx,
@@ -202,11 +204,12 @@ pub async fn chat_completions_handler(
                             audit::log_event(audit::AuditLog {
                                 timestamp: chrono::Utc::now().to_rfc3339(),
                                 agent_uuid: uuid,
-                                content_type: "PROMPT_INTERCEPTION".to_string(),
+                                content_type: check.content_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
                                 action_taken: "ALLOW".to_string(),
                                 preview: check.scrubbed_text.clone(),
-                                severity: "MEDIUM".to_string(),
-                                detection_method: "REGEX".to_string(),
+                                severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
+                                detection_method: check.detection_method.clone(),
+                                session_id: session_id.clone(),
                             });
                         }
                         crate::ui::events::InterventionDecision::Block => {
@@ -214,11 +217,12 @@ pub async fn chat_completions_handler(
                             audit::log_event(audit::AuditLog {
                                 timestamp: chrono::Utc::now().to_rfc3339(),
                                 agent_uuid: uuid,
-                                content_type: "PROMPT_INTERCEPTION".to_string(),
+                                content_type: check.content_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
                                 action_taken: "BLOCK".to_string(),
                                 preview: check.scrubbed_text.clone(),
-                                severity: "MEDIUM".to_string(),
-                                detection_method: "REGEX".to_string(),
+                                severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
+                                detection_method: check.detection_method.clone(),
+                                session_id: session_id.clone(),
                             });
                             return (StatusCode::FORBIDDEN, "Request blocked by user").into_response();
                         }
@@ -227,11 +231,12 @@ pub async fn chat_completions_handler(
                             audit::log_event(audit::AuditLog {
                                 timestamp: chrono::Utc::now().to_rfc3339(),
                                 agent_uuid: uuid,
-                                content_type: "PROMPT_INTERCEPTION".to_string(),
+                                content_type: check.content_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
                                 action_taken: "REDACT".to_string(),
                                 preview: check.scrubbed_text.clone(),
-                                severity: "MEDIUM".to_string(),
-                                detection_method: "REGEX".to_string(),
+                                severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
+                                detection_method: check.detection_method.clone(),
+                                session_id: session_id.clone(),
                             });
                             replace_content(msg, &check.scrubbed_text);
                         }
@@ -246,11 +251,12 @@ pub async fn chat_completions_handler(
                             audit::log_event(audit::AuditLog {
                                 timestamp: chrono::Utc::now().to_rfc3339(),
                                 agent_uuid: uuid,
-                                content_type: "PROMPT_INTERCEPTION".to_string(),
+                                content_type: check.content_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
                                 action_taken: "ALLOW".to_string(),
                                 preview: check.scrubbed_text.clone(),
-                                severity: "MEDIUM".to_string(),
-                                detection_method: "REGEX".to_string(),
+                                severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
+                                detection_method: check.detection_method.clone(),
+                                session_id: session_id.clone(),
                             });
                         }
                         Ok(Ok(InterventionDecision::Block)) => {
@@ -258,11 +264,12 @@ pub async fn chat_completions_handler(
                             audit::log_event(audit::AuditLog {
                                 timestamp: chrono::Utc::now().to_rfc3339(),
                                 agent_uuid: uuid,
-                                content_type: "PROMPT_INTERCEPTION".to_string(),
+                                content_type: check.content_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
                                 action_taken: "BLOCK".to_string(),
                                 preview: check.scrubbed_text.clone(),
-                                severity: "MEDIUM".to_string(),
-                                detection_method: "REGEX".to_string(),
+                                severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
+                                detection_method: check.detection_method.clone(),
+                                session_id: session_id.clone(),
                             });
                             return (StatusCode::FORBIDDEN, "Request blocked by user").into_response();
                         }
@@ -271,11 +278,12 @@ pub async fn chat_completions_handler(
                             audit::log_event(audit::AuditLog {
                                 timestamp: chrono::Utc::now().to_rfc3339(),
                                 agent_uuid: uuid,
-                                content_type: "PROMPT_INTERCEPTION".to_string(),
+                                content_type: check.content_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
                                 action_taken: "REDACT".to_string(),
                                 preview: check.scrubbed_text.clone(),
-                                severity: "MEDIUM".to_string(),
-                                detection_method: "REGEX".to_string(),
+                                severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
+                                detection_method: check.detection_method.clone(),
+                                session_id: session_id.clone(),
                             });
                             replace_content(msg, &check.scrubbed_text);
                         }
@@ -386,11 +394,12 @@ pub async fn chat_completions_handler(
                                                 audit::log_event(audit::AuditLog {
                                                     timestamp: chrono::Utc::now().to_rfc3339(),
                                                     agent_uuid: uuid,
-                                                    content_type: "RESPONSE_INTERCEPTION".to_string(),
+                                                    content_type: check.content_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
                                                     action_taken: "REDACT".to_string(),
                                                     preview: check.scrubbed_text.clone(),
-                                                severity: "MEDIUM".to_string(),
-                                                detection_method: "REGEX".to_string(),
+                                                    severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
+                                                    detection_method: check.detection_method.clone(),
+                                                    session_id: session_id.clone(),
                                                 });
                                                 choice["delta"]["content"] = json!(check.scrubbed_text);
                                             }
@@ -425,6 +434,7 @@ pub async fn files_handler(
     mut multipart: Multipart,
 ) -> impl IntoResponse {
     // 1. Authorization Check
+    let session_id = Uuid::new_v4().to_string();
     let (bearer_token, allowlists_regex, enable_ocr, detection_config, upstream_url, upstream_api_key) = {
         let cfg = state.config.read().unwrap();
         (cfg.bearer_token.clone(), cfg.allowlists_regex.clone(), cfg.enable_ocr, DetectionConfig::from_config(&cfg), cfg.upstream_url.clone(), cfg.upstream_api_key.clone())
@@ -477,11 +487,12 @@ pub async fn files_handler(
                         audit::log_event(audit::AuditLog {
                             timestamp: chrono::Utc::now().to_rfc3339(),
                             agent_uuid: uuid,
-                            content_type: "ATTACHMENT_ALLOW".to_string(),
+                            content_type: det_type.clone(),
                             action_taken: "ALLOW".to_string(),
                                 preview: reason.chars().take(100).collect(),
-                                severity: "MEDIUM".to_string(),
+                                severity: crate::detector::severity_for_type(Some(&det_type)).to_string(),
                                 detection_method: "REGEX".to_string(),
+                                session_id: session_id.clone(),
                         });
                         form = form.part("file", reqwest::multipart::Part::bytes(original_bytes)
                             .file_name(file_name)
@@ -491,11 +502,12 @@ pub async fn files_handler(
                         audit::log_event(audit::AuditLog {
                             timestamp: chrono::Utc::now().to_rfc3339(),
                             agent_uuid: uuid,
-                            content_type: "ATTACHMENT_BLOCK".to_string(),
+                            content_type: det_type.clone(),
                             action_taken: "BLOCK".to_string(),
                                 preview: reason.clone(),
-                                severity: "MEDIUM".to_string(),
+                                severity: crate::detector::severity_for_type(Some(&det_type)).to_string(),
                                 detection_method: "REGEX".to_string(),
+                                session_id: session_id.clone(),
                         });
                         files_blocked = true;
                         block_reason = reason;

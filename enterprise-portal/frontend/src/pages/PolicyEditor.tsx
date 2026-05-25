@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   Shield,
   ArrowLeft,
@@ -18,8 +18,9 @@ import {
 } from 'lucide-react'
 import { getPolicy, createPolicy, updatePolicy, getGroups } from '@/api/client'
 import { showToast } from '@/components/Toast'
-import type { Policy, AgentGroup } from '@/types'
+import type { Policy, AgentGroup, ConfigSuggestion } from '@/types'
 
+const DEFAULT_BIND_PORT = 51820
 const ALL_DETECTION_KEYS = [
   'api_keys', 'db_credentials', 'pii',
   'injection', 'code_execution', 'social_engineering',
@@ -45,7 +46,7 @@ const emptyForm = {
   redaction_enforced: true,
   upstream_url: '',
   upstream_api_key: '',
-  bind_port: 51820,
+  bind_port: DEFAULT_BIND_PORT,
   enable_ocr: false,
   disable_atr_auto_update: false,
   allow_custom_allowlists: true,
@@ -59,7 +60,9 @@ const emptyForm = {
 export default function PolicyEditor() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const isEditing = !!id
+  const suggestion = location.state?.suggestion as ConfigSuggestion | undefined
 
   const [form, setForm] = useState(emptyForm)
   const [loading, setLoading] = useState(isEditing)
@@ -83,6 +86,18 @@ export default function PolicyEditor() {
   }, [])
 
   useEffect(() => {
+    if (id) return
+    if (!suggestion) return
+    const initial = { ...emptyForm }
+    initial.name = 'Auto: ' + (suggestion.description || suggestion.category).substring(0, 40)
+    if (suggestion.category === 'upstream_url') {
+      initial.upstream_url = suggestion.suggested_value
+      setSections((prev) => ({ ...prev, upstream: true }))
+    }
+    setForm(initial)
+  }, [id, suggestion])
+
+  useEffect(() => {
     if (!id) return
     getPolicy(id)
       .then((res) => {
@@ -94,7 +109,7 @@ export default function PolicyEditor() {
           redaction_enforced: p.redaction_enforced,
           upstream_url: p.upstream_url || '',
           upstream_api_key: '',
-          bind_port: p.bind_port || 51820,
+          bind_port: p.bind_port || DEFAULT_BIND_PORT,
           enable_ocr: p.enable_ocr || false,
           disable_atr_auto_update: p.disable_atr_auto_update || false,
           allow_custom_allowlists: p.allow_custom_allowlists,
@@ -302,7 +317,7 @@ export default function PolicyEditor() {
                   <input
                     type="number"
                     value={form.bind_port}
-                    onChange={(e) => setForm({ ...form, bind_port: parseInt(e.target.value) || 51820 })}
+                    onChange={(e) => setForm({ ...form, bind_port: parseInt(e.target.value) || DEFAULT_BIND_PORT })}
                     className={inputClass}
                   />
                 </div>

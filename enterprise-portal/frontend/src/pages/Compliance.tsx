@@ -14,6 +14,7 @@ import {
 import { showToast } from '@/components/Toast'
 import { getComplianceReports, getComplianceSummary, generateComplianceReport, getComplianceReport } from '@/api/client'
 import { formatDate } from '@/lib/utils'
+type Control = { name: string; status: string; score: number; evidence: string }
 import type { ComplianceReport as ComplianceReportType } from '@/types'
 
 const FRAMEWORK_META: Record<string, { title: string; description: string; icon: React.ElementType; iconBg: string; iconColor: string }> = {
@@ -126,7 +127,7 @@ function DetailModal({ report, onClose }: { report: ComplianceReportType; onClos
           <div>
             <h3 className="text-sm font-semibold text-portal-text mb-3">Controls</h3>
             <div className="space-y-2">
-              {controls.map((c: any, i: number) => (
+              {controls.map((c: Control, i: number) => (
                 <div key={i} className="flex items-center justify-between bg-white/5 rounded-lg p-3">
                   <div>
                     <div className="text-sm text-portal-text">{c.name}</div>
@@ -140,7 +141,16 @@ function DetailModal({ report, onClose }: { report: ComplianceReportType; onClos
 
           <div className="flex justify-end">
             <button
-              onClick={() => showToast(`Downloading ${FRAMEWORK_META[report.framework]?.title ?? report.framework} report...`, 'info')}
+              onClick={() => {
+                const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `${(FRAMEWORK_META[report.framework]?.title ?? report.framework).replace(/\s+/g, '_')}_report.json`
+                a.click()
+                URL.revokeObjectURL(url)
+                showToast(`Downloading ${FRAMEWORK_META[report.framework]?.title ?? report.framework} report...`, 'info')
+              }}
               className="btn-primary text-xs flex items-center gap-2 py-2 px-4"
             >
               <Download className="w-3.5 h-3.5" />
@@ -159,7 +169,13 @@ export default function Compliance() {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState<string | null>(null)
   const [detailReport, setDetailReport] = useState<ComplianceReportType | null>(null)
-  const [dateRange, setDateRange] = useState({ from: '2026-05-01', to: '2026-05-18' })
+  const today = new Date()
+  const thirtyDaysAgo = new Date(today)
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const [dateRange, setDateRange] = useState({
+    from: thirtyDaysAgo.toISOString().slice(0, 10),
+    to: today.toISOString().slice(0, 10),
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -234,13 +250,7 @@ export default function Compliance() {
             const report = reports.find((r) => r.framework === fw)
             const status = report?.status ?? 'not-started'
             const lastGen = report?.generated_at ?? null
-            const controls = report?.report_data?.controls?.map((c: any) => c.name) ?? []
-
-            const defaultControls: Record<string, string[]> = {
-              'eu-ai-act': ['Risk Management', 'Transparency', 'Human Oversight', 'Documentation'],
-              'soc-2': ['Security', 'Availability', 'Confidentiality', 'Privacy'],
-              'custom': ['Custom Controls', 'Date Range', 'Export Formats'],
-            }
+            const controls = report?.report_data?.controls?.map((c: Control) => c.name) ?? []
 
             return (
               <div
@@ -264,22 +274,33 @@ export default function Compliance() {
                   </div>
                 )}
 
-                <div className="flex flex-wrap gap-1.5 mb-5">
-                  {(controls.length > 0 ? controls : defaultControls[fw]).map((ctrl) => (
-                    <span
-                      key={ctrl}
-                      className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/5 text-portal-text-muted border border-portal-border"
-                    >
-                      {ctrl}
-                    </span>
-                  ))}
-                </div>
+                {controls.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-5">
+                    {controls.map((ctrl: string) => (
+                      <span
+                        key={ctrl}
+                        className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/5 text-portal-text-muted border border-portal-border"
+                      >
+                        {ctrl}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
                 <div className="space-y-2 pt-4 border-t border-portal-border">
                   {status !== 'not-started' && report ? (
                     <>
                       <button
-                        onClick={() => showToast(`Downloading ${meta.title} report...`, 'info')}
+                        onClick={() => {
+                          const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })
+                          const url = URL.createObjectURL(blob)
+                          const a = document.createElement('a')
+                          a.href = url
+                          a.download = `${meta.title.replace(/\s+/g, '_')}_report.json`
+                          a.click()
+                          URL.revokeObjectURL(url)
+                          showToast(`Downloading ${meta.title} report...`, 'info')
+                        }}
                         className="btn-primary w-full text-xs flex items-center justify-center gap-2 py-2"
                       >
                         <Download className="w-3.5 h-3.5" />

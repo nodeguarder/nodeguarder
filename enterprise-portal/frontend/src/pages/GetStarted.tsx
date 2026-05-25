@@ -12,6 +12,7 @@ import {
   Server,
   Monitor,
   Download,
+  Globe,
 } from 'lucide-react'
 import { getOnboardingStatus, completeOnboarding, generateCode, downloadProvisioningFile } from '@/api/client'
 import { showToast } from '@/components/Toast'
@@ -100,14 +101,40 @@ export default function GetStarted() {
           Go to Dashboard
         </button>
 
-        <div className="max-w-xl mx-auto">
+        <div className="max-w-xl mx-auto space-y-4">
           <div className="bg-portal-card border border-portal-border rounded-xl p-6 text-left">
-            <h3 className="text-sm font-semibold text-portal-text mb-2">Next Step: Configure Your IDE</h3>
+            <h3 className="text-sm font-semibold text-portal-text mb-2">Step 1: Configure Your IDE</h3>
             <p className="text-xs text-portal-text-muted mb-4">
               Route your IDE's LLM traffic through the NodeGuarder proxy to scan all prompts.
               See the <strong>IDE Setup Guide</strong> (<code>docs/ide-setup-guide.md</code>) for Continue.dev, Cursor, VS Code,
               Windsurf configuration examples, including enterprise deployment via Intune/MDM.
             </p>
+          </div>
+
+          <div className="bg-portal-card border border-portal-border rounded-xl p-6 text-left">
+            <h3 className="text-sm font-semibold text-portal-text mb-2">Step 2: Set Your Upstream LLM</h3>
+            <p className="text-xs text-portal-text-muted mb-4">
+              NodeGuarder needs to know where to forward cleaned requests.
+              Pick a provider below to create your first routing policy.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => navigate('/policies/new', { state: { suggestion: { category: 'upstream_url', description: 'Upstream: GitHub Models', suggested_value: 'https://models.inference.ai.azure.com', priority: 'high', affected_agent_count: 1 } } })} className="btn-primary text-xs flex items-center gap-1.5 py-2 px-3">
+                <Globe className="w-3.5 h-3.5" />
+                GitHub Models
+              </button>
+              <button onClick={() => navigate('/policies/new', { state: { suggestion: { category: 'upstream_url', description: 'Upstream: Azure OpenAI', suggested_value: 'https://<resource>.openai.azure.com/v1', priority: 'high', affected_agent_count: 1 } } })} className="btn-ghost text-xs flex items-center gap-1.5 py-2 px-3">
+                <Globe className="w-3.5 h-3.5" />
+                Azure OpenAI
+              </button>
+              <button onClick={() => navigate('/policies/new', { state: { suggestion: { category: 'upstream_url', description: 'Upstream: OpenAI', suggested_value: 'https://api.openai.com/v1', priority: 'high', affected_agent_count: 1 } } })} className="btn-ghost text-xs flex items-center gap-1.5 py-2 px-3">
+                <Globe className="w-3.5 h-3.5" />
+                OpenAI
+              </button>
+              <button onClick={() => navigate('/policies/new', { state: { suggestion: { category: 'upstream_url', description: 'Upstream: Custom', suggested_value: '', priority: 'medium', affected_agent_count: 1 } } })} className="btn-ghost text-xs flex items-center gap-1.5 py-2 px-3">
+                <Server className="w-3.5 h-3.5" />
+                Custom
+              </button>
+            </div>
           </div>
         </div>
       </div>

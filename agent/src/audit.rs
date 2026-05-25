@@ -20,6 +20,8 @@ pub struct AuditLog {
     pub severity: String,
     #[serde(default)]
     pub detection_method: String,
+    #[serde(default)]
+    pub session_id: String,
 }
 
 fn load_or_create_key() -> [u8; 32] {

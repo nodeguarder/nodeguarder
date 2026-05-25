@@ -12,13 +12,13 @@ import {
   Activity,
   Eye,
 } from 'lucide-react'
-import { getAuditLogs } from '@/api/client'
+import { getAuditLogs, getAgents } from '@/api/client'
 import { formatDateFull, timeAgo, actionBadgeClass } from '@/lib/utils'
 import { showToast } from '@/components/Toast'
 import type { AuditLog } from '@/types'
 
 const contentTypes = ['API_KEY', 'JWT_TOKEN', 'PASSWORD', 'SSN', 'CREDIT_CARD', 'SECRET', 'CUSTOM_REGEX', 'OTHER']
-const actionTypes = ['REDACTED', 'AUTO_REDACTED', 'ALLOWED', 'BLOCKED']
+const actionTypes = ['REDACT', 'ALLOW', 'BLOCK']
 const severities = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
 
 export default function AuditLogs() {
@@ -28,6 +28,7 @@ export default function AuditLogs() {
   const [error, setError] = useState('')
   const [page, setPage] = useState(1)
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null)
+  const [agentNames, setAgentNames] = useState<Map<string, string>>(new Map())
   const [filters, setFilters] = useState({
     content_type: '',
     action: '',
@@ -63,6 +64,16 @@ export default function AuditLogs() {
   }, [page, filters])
 
   useEffect(() => { fetchLogs() }, [fetchLogs])
+
+  useEffect(() => {
+    getAgents({ page: 1, per_page: 500 })
+      .then((res) => {
+        const map = new Map<string, string>()
+        res.agents.forEach((a) => map.set(a.uuid, a.hostname))
+        setAgentNames(map)
+      })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -125,6 +136,25 @@ export default function AuditLogs() {
             Export CSV
           </button>
         </div>
+      </div>
+
+      <div className="flex items-center gap-2 mb-4">
+        {['', 'ALLOW', 'BLOCK', 'REDACT'].map((a) => (
+          <button
+            key={a}
+            onClick={() => { setFilters({ ...filters, action: a }); setPage(1) }}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+              filters.action === a
+                ? a === 'BLOCK' ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                : a === 'ALLOW' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                : a === 'REDACT' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                : 'bg-portal-accent/20 text-portal-accent border border-portal-accent/30'
+                : 'text-portal-text-muted hover:text-portal-text bg-white/5 hover:bg-white/10 border border-transparent'
+            }`}
+          >
+            {a || 'All'}
+          </button>
+        ))}
       </div>
 
       {showFilters && (
@@ -226,6 +256,7 @@ export default function AuditLogs() {
                 <th className="whitespace-nowrap">Agent</th>
                 <th className="whitespace-nowrap">User</th>
                 <th className="whitespace-nowrap">Content Type</th>
+                <th className="whitespace-nowrap">Method</th>
                 <th className="whitespace-nowrap">Severity</th>
                 <th className="whitespace-nowrap">Action</th>
                 <th className="whitespace-nowrap">Preview</th>
@@ -233,19 +264,19 @@ export default function AuditLogs() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+                {loading ? (
                 [...Array(5)].map((_, i) => (
                   <tr key={i}>
-                    {[...Array(8)].map((_, j) => (
+                    {[...Array(9)].map((_, j) => (
                       <td key={j} className="px-4 py-4">
-                        <div className="h-4 bg-white/5 rounded animate-pulse" style={{ width: j === 6 ? '120px' : '80px' }} />
+                        <div className="h-4 bg-white/5 rounded animate-pulse" style={{ width: j === 7 ? '120px' : '80px' }} />
                       </td>
                     ))}
                   </tr>
                 ))
               ) : logs.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-portal-text-muted">
+                  <td colSpan={9} className="text-center py-12 text-portal-text-muted">
                     <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
                     No audit logs found
                   </td>
@@ -254,15 +285,27 @@ export default function AuditLogs() {
                 logs.map((log) => (
                   <tr
                     key={log.id}
-                    className="hover:bg-white/[0.02] transition-colors cursor-pointer"
+                    className={'hover:bg-white/[0.02] transition-colors cursor-pointer border-l-2 ' + (
+                      log.severity === 'CRITICAL' ? 'border-l-red-500/60' :
+                      log.severity === 'HIGH' ? 'border-l-orange-500/40' :
+                      log.severity === 'MEDIUM' ? 'border-l-amber-500/30' :
+                      'border-l-transparent'
+                    )}
                     onClick={() => setSelectedLog(log)}
                   >
                     <td className="text-xs text-portal-text-muted whitespace-nowrap">{formatDateFull(log.flagged_at)}</td>
-                    <td className="font-mono text-xs text-portal-text-muted">{log.agent_uuid.slice(0, 8)}...</td>
+                    <td className="text-xs text-portal-text-muted">
+                      <span className="font-medium">{agentNames.get(log.agent_uuid) || log.agent_uuid.slice(0, 8) + '...'}</span>
+                    </td>
                     <td className="text-sm text-portal-text-muted">{log.user_name || '\u2014'}</td>
                     <td>
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/30">
                         {log.content_type}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-portal-text-muted border border-white/10">
+                        {log.detection_method || '\u2014'}
                       </span>
                     </td>
                     <td>
@@ -303,18 +346,23 @@ export default function AuditLogs() {
 
       {totalPages > 1 && (
         <div className="flex items-center justify-between mt-4">
-          <div className="text-sm text-portal-text-muted">Page {page} of {totalPages}</div>
+          <div className="text-sm text-portal-text-muted">Page {page} of {totalPages} ({total} total entries)</div>
           <div className="flex items-center gap-2">
             <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="btn-ghost text-xs py-1.5 px-3">Previous</button>
-            {[...Array(totalPages)].map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setPage(i + 1)}
-                className={`text-xs w-8 h-8 rounded-lg ${page === i + 1 ? 'bg-portal-accent text-white' : 'text-portal-text-muted hover:text-portal-text hover:bg-white/5'}`}
-              >
-                {i + 1}
-              </button>
-            ))}
+            {[...Array(Math.min(totalPages, 5))].map((_, i) => {
+              const startPage = Math.max(1, Math.min(page - 2, totalPages - 4))
+              const p = startPage + i
+              if (p > totalPages) return null
+              return (
+                <button
+                  key={p}
+                  onClick={() => setPage(p)}
+                  className={`text-xs w-8 h-8 rounded-lg ${page === p ? 'bg-portal-accent text-white' : 'text-portal-text-muted hover:text-portal-text hover:bg-white/5'}`}
+                >
+                  {p}
+                </button>
+              )
+            })}
             <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="btn-ghost text-xs py-1.5 px-3">Next</button>
           </div>
         </div>
@@ -349,6 +397,12 @@ export default function AuditLogs() {
                 <div className="text-xs text-portal-text-muted uppercase tracking-wider mb-1">Content Type</div>
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/30">
                   {selectedLog.content_type}
+                </span>
+              </div>
+              <div>
+                <div className="text-xs text-portal-text-muted uppercase tracking-wider mb-1">Detection Method</div>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-portal-text-muted border border-white/10">
+                  {selectedLog.detection_method || '\u2014'}
                 </span>
               </div>
               <div>

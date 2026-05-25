@@ -47,9 +47,9 @@ export function statusBadgeClass(status: string): string {
 
 export function actionBadgeClass(action: string): string {
   switch (action) {
-    case 'REDACTED': case 'AUTO_REDACTED': return 'badge-redact'
-    case 'ALLOWED': return 'badge-allow'
-    case 'BLOCKED': return 'badge-block'
+    case 'REDACT': case 'AUTO_REDACTED': return 'badge-redact'
+    case 'ALLOW': return 'badge-allow'
+    case 'BLOCK': return 'badge-block'
     default: return 'badge-auto'
   }
 }

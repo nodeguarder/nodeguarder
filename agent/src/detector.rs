@@ -97,6 +97,24 @@ pub struct RedactionResult {
     pub flagged: bool,
     pub scrubbed_text: String,
     pub content_type: Option<String>,
+    pub detection_method: String,
+}
+
+pub fn severity_for_type(content_type: Option<&str>) -> &str {
+    match content_type {
+        Some("AWS_KEY" | "STRIPE_KEY" | "API_SECRET") => "CRITICAL",
+        Some("GITHUB_TOKEN" | "DB_CRED") => "HIGH",
+        Some("PII") => "MEDIUM",
+        Some(other) => {
+            match other.to_lowercase().as_str() {
+                "critical" => "CRITICAL",
+                "high" => "HIGH",
+                "medium" => "MEDIUM",
+                _ => "MEDIUM",
+            }
+        }
+        None => "MEDIUM",
+    }
 }
 
 #[derive(Clone, Default)]
@@ -262,6 +280,7 @@ pub fn scan_and_redact(
                 flagged: false,
                 scrubbed_text: text.to_string(),
                 content_type: None,
+                detection_method: "SKIP".to_string(),
             };
         }
     }
@@ -273,6 +292,7 @@ pub fn scan_and_redact(
             flagged: false,
             scrubbed_text: text.to_string(),
             content_type: None,
+            detection_method: "SKIP".to_string(),
         };
     }
 
@@ -284,6 +304,7 @@ pub fn scan_and_redact(
                 flagged: false,
                 scrubbed_text: text.to_string(),
                 content_type: None,
+                detection_method: "SKIP".to_string(),
             };
         }
     }
@@ -291,6 +312,7 @@ pub fn scan_and_redact(
     let mut flagged = false;
     let mut scrubbed = text.to_string();
     let mut detected_type: Option<String> = None;
+    let mut detection_method = "REGEX".to_string();
 
     // 2. Check API Keys & Secrets (if enabled)
     if config.detect_api_keys {
@@ -407,6 +429,7 @@ pub fn scan_and_redact(
             for field in &["content", "tool_response"] {
                 if let Some(atr_match) = engine.scan(text, config, field) {
                     flagged = true;
+                    detection_method = "ATR".to_string();
                     if detected_type.is_none() {
                         detected_type = Some(atr_match.category.clone());
                     }
@@ -429,6 +452,7 @@ pub fn scan_and_redact(
                 flagged: false,
                 scrubbed_text: text.to_string(),
                 content_type: None,
+                detection_method: "FP_OVERTURN".to_string(),
             };
         }
     }
@@ -442,6 +466,7 @@ pub fn scan_and_redact(
         flagged,
         scrubbed_text: scrubbed,
         content_type: detected_type,
+        detection_method,
     }
 }
 

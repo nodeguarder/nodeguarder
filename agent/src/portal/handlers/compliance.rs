@@ -45,19 +45,19 @@ async fn compute_metrics(pool: &sqlx::PgPool, org_id: uuid::Uuid, date_from: &st
     .fetch_one(pool).await.unwrap_or(0);
 
     let blocked: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM audit_logs WHERE org_id = $1 AND action_taken = 'BLOCKED' AND flagged_at >= $2::timestamptz AND flagged_at < $3::timestamptz",
+        "SELECT COUNT(*) FROM audit_logs WHERE org_id = $1 AND action_taken = 'BLOCK' AND flagged_at >= $2::timestamptz AND flagged_at < $3::timestamptz",
     )
     .bind(org_id).bind(date_from).bind(date_to)
     .fetch_one(pool).await.unwrap_or(0);
 
     let redacted: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM audit_logs WHERE org_id = $1 AND action_taken IN ('REDACTED', 'AUTO_REDACTED') AND flagged_at >= $2::timestamptz AND flagged_at < $3::timestamptz",
+        "SELECT COUNT(*) FROM audit_logs WHERE org_id = $1 AND action_taken = 'REDACT' AND flagged_at >= $2::timestamptz AND flagged_at < $3::timestamptz",
     )
     .bind(org_id).bind(date_from).bind(date_to)
     .fetch_one(pool).await.unwrap_or(0);
 
     let allowed: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM audit_logs WHERE org_id = $1 AND action_taken = 'ALLOWED' AND flagged_at >= $2::timestamptz AND flagged_at < $3::timestamptz",
+        "SELECT COUNT(*) FROM audit_logs WHERE org_id = $1 AND action_taken = 'ALLOW' AND flagged_at >= $2::timestamptz AND flagged_at < $3::timestamptz",
     )
     .bind(org_id).bind(date_from).bind(date_to)
     .fetch_one(pool).await.unwrap_or(0);

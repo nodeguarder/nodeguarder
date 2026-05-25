@@ -34,3 +34,6 @@ installer/*.msi
 installer/*.wixobj
 installer/*.wixpdb
 installer/output/
+
+# Cloned ATR rules repo (CI sync workflow)
+atr-rules/

@@ -1,4 +1,12 @@
-import os
+"""Sync Agent Threat Rules from the upstream ATR repository.
+
+Clones the ATR rules repo (rules/ only), converts YAML rules to JSON
+format matching the Rust agent's detection engine, and writes the
+output to agent/atr_rules.json.
+"""
+
+from __future__ import annotations
+
 import sys
 import json
 import argparse
@@ -26,10 +34,12 @@ CATEGORY_MAP = {
 
 
 def map_category(atr_category: str) -> str:
+    """Map ATR category string to the agent's internal category."""
     return CATEGORY_MAP.get(atr_category, atr_category)
 
 
 def convert_rule(rule: dict) -> dict | None:
+    """Convert a parsed ATR YAML rule into the agent's JSON format."""
     rule_id = rule.get("id")
     if not rule_id:
         return None
@@ -45,6 +55,8 @@ def convert_rule(rule: dict) -> dict | None:
 
     if isinstance(conditions_raw, list):
         for cond in conditions_raw:
+            if not isinstance(cond, dict):
+                continue
             value = cond.get("value", "")
             if value:
                 patterns.append({
@@ -53,7 +65,7 @@ def convert_rule(rule: dict) -> dict | None:
                     "field": cond.get("field", "user_input"),
                 })
     elif isinstance(conditions_raw, dict):
-        for _key, val in conditions_raw.items():
+        for val in conditions_raw.values():
             if isinstance(val, list):
                 for cond in val:
                     if not isinstance(cond, dict):
@@ -78,7 +90,8 @@ def convert_rule(rule: dict) -> dict | None:
     }
 
 
-def main():
+def main() -> None:
+    """Entry point: parse args, convert YAML rules, write JSON output."""
     parser = argparse.ArgumentParser(description="Sync ATR rules from cloned repo")
     parser.add_argument("--atr-dir", required=True, help="Path to cloned ATR rules repo")
     parser.add_argument("--output", required=True, help="Path to output JSON file")

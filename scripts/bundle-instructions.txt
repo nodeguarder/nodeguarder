@@ -1,0 +1,25 @@
+# NodeGuarder Enterprise Portal
+
+Welcome! Here's how to get started.
+
+## Quick Start
+
+1. Load the Docker images:
+   docker load -i ng-portal-images-{VERSION}.tar.gz
+
+2. Create your .env file:
+   Copy .env.example to .env
+   Edit .env and set DB_PASSWORD and JWT_SECRET
+
+3. Start the portal:
+   docker compose up -d
+
+4. Open http://localhost:5173 in your browser
+
+## Default Admin Login
+
+   Email:    admin@nodeguarder.local
+   Password: NodeGuarder#DM1n
+
+IMPORTANT: Change this password immediately after first login
+via Settings > Users in the portal.

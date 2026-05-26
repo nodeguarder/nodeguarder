@@ -44,6 +44,7 @@ services:
       GRPC_ADDR: 0.0.0.0:50051
       JWT_SECRET: ${JWT_SECRET}
       ADMIN_GRPC_URL: http://localhost:50051
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       RUST_LOG: info
     ports:
       - "3000:3000"

@@ -419,6 +419,12 @@ fn run_portal() {
         let pool = crate::portal::db::create_pool(&database_url).await;
         crate::portal::db::run_migrations(&pool).await;
 
+        if let Ok(admin_password) = std::env::var("ADMIN_PASSWORD") {
+            if !admin_password.is_empty() {
+                crate::portal::db::update_admin_password(&pool, &admin_password).await;
+            }
+        }
+
         let data_dir = std::path::Path::new("data");
         let mtls_store = crate::portal::mtls::MtlsStore::load_or_create(data_dir);
 

@@ -11,7 +11,7 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  build:
+  build-msi:
     name: Build Agent + MSI
     runs-on: windows-latest
 
@@ -66,13 +66,61 @@ jobs:
           path: ${{ runner.temp }}\msi\*.msi
           retention-days: 7
 
-      - name: Publish release to public repo
-        if: startsWith(github.ref_name, 'v')
+  build-docker:
+    name: Build Portal Docker Images
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Build API Docker image
+        run: docker build -f agent/Dockerfile.portal -t portal-api agent
+
+      - name: Build UI Docker image
+        run: docker build -t portal-ui enterprise-portal/frontend
+
+      - name: Bundle images into archive
+        run: |
+          docker save portal-api portal-ui -o ng-portal-images-${{ steps.version.outputs.VERSION }}.tar
+          gzip ng-portal-images-${{ steps.version.outputs.VERSION }}.tar
+
+      - name: Upload archive as artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: Portal-Images
+          path: ng-portal-images-*.tar.gz
+          retention-days: 7
+
+  create-release:
+    name: Create Release
+    needs: [build-msi, build-docker]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download MSI artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: NodeGuarder-Setup
+          path: artifacts
+
+      - name: Download Docker artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: Portal-Images
+          path: artifacts
+
+      - name: Publish release
         shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_PAT }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          $msiFile = Get-ChildItem "${{ runner.temp }}\msi\*.msi" | Select-Object -First 1
           $tag = "${{ github.ref_name }}"
-          $repo = "nodeguarder/releases"
-          gh release create $tag --repo $repo --title "NodeGuarder Agent $tag" --notes "See [CHANGES](https://github.com/nodeguarder/nodeguarder)" $msiFile.FullName
+          $assets = Get-ChildItem "artifacts" -Recurse | Where-Object { -not $_.PSIsContainer }
+          gh release create $tag --repo ${{ github.repository }} --title "NodeGuarder Agent $tag" --notes "" $assets.FullName

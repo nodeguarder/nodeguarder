@@ -123,4 +123,4 @@ jobs:
         run: |
           $tag = "${{ github.ref_name }}"
           $assets = Get-ChildItem "artifacts" -Recurse | Where-Object { -not $_.PSIsContainer }
-          gh release create $tag --repo nodeguarder/releases --title "NodeGuarder Agent $tag" --notes "" $assets.FullName
+          gh release create $tag --repo nodeguarder/releases --title "NodeGuarder $tag" --notes "" $assets.FullName

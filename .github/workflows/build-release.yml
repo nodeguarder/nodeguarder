@@ -84,16 +84,22 @@ jobs:
       - name: Build UI Docker image
         run: docker build -t portal-ui enterprise-portal/frontend
 
-      - name: Bundle images into archive
+      - name: Prepare portal bundle
         run: |
-          docker save portal-api portal-ui -o ng-portal-images-${{ steps.version.outputs.VERSION }}.tar
-          gzip ng-portal-images-${{ steps.version.outputs.VERSION }}.tar
+          VERSION=${{ steps.version.outputs.VERSION }}
+          docker save portal-api portal-ui -o ng-portal-images-$VERSION.tar
+          gzip ng-portal-images-$VERSION.tar
+          mkdir -p portal-bundle
+          cp enterprise-portal/docker-compose.yml portal-bundle/
+          cp enterprise-portal/.env.example portal-bundle/
+          cp ng-portal-images-$VERSION.tar.gz portal-bundle/
+          cd portal-bundle && zip -r ../ng-portal-bundle-$VERSION.zip .
 
-      - name: Upload archive as artifact
+      - name: Upload bundle as artifact
         uses: actions/upload-artifact@v6
         with:
-          name: Portal-Images
-          path: ng-portal-images-*.tar.gz
+          name: Portal-Bundle
+          path: ng-portal-bundle-*.zip
           retention-days: 7
 
   create-release:
@@ -113,7 +119,7 @@ jobs:
       - name: Download Docker artifact
         uses: actions/download-artifact@v6
         with:
-          name: Portal-Images
+          name: Portal-Bundle
           path: artifacts
 
       - name: Publish release
@@ -132,8 +138,12 @@ jobs:
 3. Point your AI apps to `http://127.0.0.1:51820/v1`
 
 ### Enterprise Portal (Linux / Windows / macOS)
-1. Download **ng-portal-images-$tag.tar.gz**
-2. `docker load -i ng-portal-images-$tag.tar.gz`
-3. `cd enterprise-portal && docker compose up`
+1. Download **ng-portal-bundle-$tag.zip**
+2. Unzip → folder contains `docker-compose.yml`, `.env.example`, and `ng-portal-images-$tag.tar.gz`
+3. Open a terminal in the unzipped folder
+4. Copy `.env.example` to `.env` and set `DB_PASSWORD` and `JWT_SECRET`
+5. `docker load -i ng-portal-images-$tag.tar.gz`
+6. `docker compose up -d`
+7. Open `http://localhost:5173` and log in with `admin@nodeguarder.local` / `NodeGuarder#DM1n`
 "@
           gh release create $tag --repo nodeguarder/releases --title "NodeGuarder $tag" --notes "$notes" $assets.FullName

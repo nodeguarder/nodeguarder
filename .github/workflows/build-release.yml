@@ -131,7 +131,7 @@ jobs:
 2. Run the installer
 3. Point your AI apps to `http://127.0.0.1:51820/v1`
 
-### Enterprise Portal (Docker)
+### Enterprise Portal (Linux / Windows / macOS)
 1. Download **ng-portal-images-$tag.tar.gz**
 2. `docker load -i ng-portal-images-$tag.tar.gz`
 3. `cd enterprise-portal && docker compose up`

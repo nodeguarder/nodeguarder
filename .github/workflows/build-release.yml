@@ -120,8 +120,8 @@ jobs:
       - name: Publish release
         shell: pwsh
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.RELEASES_PAT }}
         run: |
           $tag = "${{ github.ref_name }}"
           $assets = Get-ChildItem "artifacts" -Recurse | Where-Object { -not $_.PSIsContainer }
-          gh release create $tag --repo ${{ github.repository }} --title "NodeGuarder Agent $tag" --notes "" $assets.FullName
+          gh release create $tag --repo nodeguarder/releases --title "NodeGuarder Agent $tag" --notes "" $assets.FullName

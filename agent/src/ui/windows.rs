@@ -706,7 +706,8 @@ pub fn spawn_settings_window(
                         <div class="label">Organization ID</div>
                         <div class="value-row"><span class="value" id="orgIdConnected">--</span></div>
                         <p style="font-size: 13px; color: var(--text-muted); margin-top: 15px;">Hardware identity and mTLS certificates are managed by the platform.</p>
-                        <button class="action danger" onclick="disconnect()" style="margin-top: 20px;">REMOVE ENROLLMENT</button>
+                        <button class="action danger" onclick="disconnect()" style="margin-top: 20px;">DISCONNECT AGENT</button>
+                    </div>
 
                     <div id="enrolledDisconnectedStatus" style="display: none;">
                         <div class="status-indicator" style="margin-bottom: 20px;">
@@ -716,22 +717,146 @@ pub fn spawn_settings_window(
                         <div class="label">Organization ID</div>
                         <div class="value-row"><span class="value" id="orgIdDisconnected">--</span></div>
                         <p style="font-size: 13px; color: var(--text-muted); margin-top: 15px;">Connection to the Admin Platform is currently unavailable. The agent will automatically reconnect.</p>
-                        <button class="action danger" onclick="disconnect()" style="margin-top: 20px;">REMOVE ENROLLMENT</button>
+                        <button class="action danger" onclick="disconnect()" style="margin-top: 20px;">DISCONNECT AGENT</button>
+                    </div>
+
+                    <div id="localStatus">
+                        <div class="status-indicator" style="margin-bottom: 20px;">
+                            <div class="dot dot-offline"></div>
+                            <span style="font-weight: 700;">STAND-ALONE LOCAL MODE</span>
+                        </div>
+                        <div class="label">Admin Portal gRPC URL</div>
+                        <input type="text" id="adminUrl" class="rule-input" placeholder="e.g. https://admin.nodeguarder.com:50051" style="width: 100%; box-sizing: border-box; margin-bottom: 20px;">
+                        
+                        <div class="label">Enrollment Code</div>
+                        <input type="text" id="enrollmentCode" class="rule-input" placeholder="ENV-XXXX-YYYY" style="width: 100%; box-sizing: border-box; margin-bottom: 20px;">
+                        
+                        <button class="action" onclick="enroll()" style="width: 100%;">VALIDATE & ENROLL AGENT</button>
+                        <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 15px;">Don't have a code? Contact your system administrator.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Advanced Tab -->
+            <div id="advanced" class="tab-content">
+                <h1>Advanced Settings</h1>
+                <p class="desc">System diagnostics, model configuration, and maintenance.</p>
+
+                <!-- Card 1: System Diagnostics -->
+                <div class="card" style="border-left: 4px solid var(--accent);">
+                    <div class="card-title">
+                        <span>System Diagnostics</span>
+                        <span class="badge badge-redact" style="font-size: 10px;">LIVE</span>
+                    </div>
+
+                    <div class="diag-row">
+                        <span class="diag-label">Semantic Model</span>
+                        <span class="diag-value">
+                            <span class="dot dot-online" id="advModelDot"></span>
+                            DeBERTa-v3 ONNX
+                        </span>
+                    </div>
+
+                    <div class="diag-row">
+                        <span class="diag-label">Model Status</span>
+                        <span class="diag-value" id="advModelStatus">Initializing...</span>
+                    </div>
+
+                    <div class="diag-row">
+                        <span class="diag-label">Inference Engine</span>
+                        <span class="diag-value">ONNX Runtime 1.24.2</span>
+                    </div>
+
+                    <div class="diag-row">
+                        <span class="diag-label">Hardware</span>
+                        <span class="diag-value"><span id="hardwareName">CPU</span> <span class="badge badge-redact" style="font-size: 10px; margin-left: 8px;" id="hardwareBadge">ACTIVE</span></span>
+                    </div>
+
+                    <div class="diag-row">
+                        <span class="diag-label">ATR Rules</span>
+                        <span class="diag-value">419 patterns loaded <span id="atrBadge" class="badge {atr_badge_class}">{atr_badge_text}</span></span>
+                    </div>
+                </div>
+
+                <!-- Card 2: Model Information -->
+                <div class="card">
+                    <div class="card-title">
+                        <span>Model Information</span>
+                    </div>
+
+                    <div class="label">Current Model</div>
+                    <div class="model-badge">
+                        <div class="model-icon">🧠</div>
+                        <div>
+                            <div class="model-name">DeBERTa-v3 (Prompt Injection)</div>
+                            <div class="model-detail">184M parameters &middot; ~704MB on disk &middot; CPU optimized</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Model Health Status -->
+                <div class="card">
+                    <div class="card-title">Model Health Status</div>
+                    <div class="value-row" style="background: rgba(16, 185, 129, 0.1); border-color: #10b981;">
+                        <span id="modelStatusText" class="value" style="color: #10b981; font-weight: 700;">{status_str}</span>
+                    </div>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">
+                        Our lightweight <b>DeBERTa-v3</b> model analyzes your prompts locally on CPU to verify context before anything leaves your machine. It does not replace the model you chat with.
+                    </p>
+                </div>
+
+                <!-- Card 4: Data & Maintenance -->
+                <div class="card">
+                    <div class="card-title">Data & Maintenance</div>
+
+                    <div class="maint-row">
+                        <div>
+                            <div class="maint-label">Audit Logs</div>
+                            <div class="maint-desc">Download your complete audit history as a CSV file</div>
+                        </div>
+                        <button class="action ghost" onclick="window.ipc.postMessage('EXPORT_LOGS')">EXPORT CSV</button>
+                    </div>
+
+                    <div class="switch-row" id="atrAutoUpdateRow">
+                        <div>
+                            <div style="font-weight: 700; color: #fff; margin-bottom: 4px;">Auto-Update ATR Threat Rules</div>
+                            <div style="font-size: 13px; color: var(--text-muted);">Weekly background update of 419 detection patterns from the ATR community registry.</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="atrAutoUpdateToggle" onchange="toggleAtrAutoUpdate(this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                </div>
+
+                <!-- Card 4: About -->
+                <div class="card" style="border-left: 4px solid var(--accent);">
+                    <div class="card-title">About NodeGuarder</div>
+                    <div style="font-size: 13px; color: var(--text-muted); line-height: 1.8;">
+                        Version <span style="color: var(--text); font-weight: 600;">{version}</span> &middot;
+                        ONNX Runtime <span style="color: var(--text);">1.24.2</span> &middot;
+                        DeBERTa-v3 semantic engine
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
         <!-- Custom Modal Overlay -->
         <div id="disconnectModal" class="modal-overlay">
             <div class="modal-card">
-                <div class="modal-title">Remove Enrollment?</div>
+                <div class="modal-title">Disconnect from Enterprise?</div>
                 <div class="modal-body">
                     You are about to remove this agent from organization management. Administrative rules and redaction enforcement will be disabled.
                 </div>
                 <div id="disconnectPasswordRow" style="margin-bottom: 20px; display: none;">
                     <div class="label">Disconnect Password</div>
-                    <input type="password" id="disconnectPasswordInput" class="rule-input" placeholder="Enter organization password" style="width: 100%; box-sizing: border-box;">
+                    <input type="password" id="disconnectPasswordInput" class="rule-input" placeholder="Enter organization disconnect password" style="width: 100%; box-sizing: border-box;">
                 </div>
                 <div class="modal-buttons">
                     <button class="action ghost" onclick="hideModal()">CANCEL</button>
-                    <button class="action danger" onclick="confirmDisconnect()">REMOVE ENROLLMENT</button>
+                    <button class="action danger" onclick="confirmDisconnect()">DISCONNECT</button>
                 </div>
             </div>
         </div>
@@ -917,7 +1042,7 @@ pub fn spawn_settings_window(
                 if (config.disconnect_password_required) {{
                     var pwd = document.getElementById('disconnectPasswordInput').value;
                     if (!pwd) {{
-                        showToast('Password is required.', 3000);
+                        showToast('Disconnect password is required.', 3000);
                         return;
                     }}
                     window.ipc.postMessage('DISCONNECT_WITH_PWD:' + pwd);

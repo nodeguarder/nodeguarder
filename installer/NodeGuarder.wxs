@@ -120,10 +120,10 @@
             ]]>
         </CustomAction>
 
-        <Property Id="WixQuietExecCmdLine" Value="[INSTALLDIR]nodeguarder-agent.exe" />
+        <Property Id="WixShellExecTarget" Value="[#MainExe]" />
         <CustomAction Id="LaunchAgent"
                       BinaryKey="WixCA"
-                      DllEntry="WixQuietExec"
+                      DllEntry="WixShellExec"
                       Execute="immediate"
                       Return="asyncNoWait" />
 

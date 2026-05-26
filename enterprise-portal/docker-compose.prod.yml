@@ -47,9 +47,11 @@ services:
           memory: 128M
 
   api:
-    build:
-      context: ../agent
-      dockerfile: Dockerfile.portal
+    # Build from source: uncomment below and comment out image:
+    # build:
+    #   context: ../agent
+    #   dockerfile: Dockerfile.portal
+    image: ghcr.io/nodeguarder/portal-api:v1.0.1
     restart: unless-stopped
     user: "1000:1000"
     read_only: true
@@ -87,7 +89,9 @@ services:
           memory: 256M
 
   ui:
-    build: ./frontend
+    # Build from source: uncomment below and comment out image:
+    # build: ./frontend
+    image: ghcr.io/nodeguarder/portal-ui:v1.0.1
     restart: unless-stopped
     networks:
       - internal

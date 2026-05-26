@@ -41,3 +41,6 @@ atr-rules/
 # Portal secrets (prod Docker secrets)
 secrets/
 enterprise-portal/secrets/
+
+# Design docs (internal specs, not for public)
+nodeguarder_*.md

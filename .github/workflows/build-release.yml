@@ -133,8 +133,7 @@ jobs:
 
 ### Enterprise Portal (Docker)
 1. Download **ng-portal-images-$tag.tar.gz**
-2. `tar -xzf ng-portal-images-$tag.tar.gz`
-3. `docker load -i ng-portal-images-$tag.tar`
-4. `cd enterprise-portal && docker compose up`
+2. `docker load -i ng-portal-images-$tag.tar.gz`
+3. `cd enterprise-portal && docker compose up`
 "@
           gh release create $tag --repo nodeguarder/releases --title "NodeGuarder $tag" --notes "$notes" $assets.FullName

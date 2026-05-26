@@ -123,4 +123,19 @@ jobs:
         run: |
           $tag = "${{ github.ref_name }}"
           $assets = Get-ChildItem "artifacts" -Recurse | Where-Object { -not $_.PSIsContainer }
-          gh release create $tag --repo nodeguarder/releases --title "NodeGuarder $tag" --notes "" $assets.FullName
+          $notes = @"
+## Installation
+
+### Agent (Windows)
+1. Download **NodeGuarder-Setup-$tag.msi**
+2. Run the installer
+3. Launch NodeGuarder from the Start Menu
+4. Point your AI apps to `http://127.0.0.1:51820/v1`
+
+### Enterprise Portal (Docker)
+1. Download **ng-portal-images-$tag.tar.gz**
+2. `tar -xzf ng-portal-images-$tag.tar.gz`
+3. `docker load -i ng-portal-images-$tag.tar`
+4. `cd enterprise-portal && docker compose up`
+"@
+          gh release create $tag --repo nodeguarder/releases --title "NodeGuarder $tag" --notes "$notes" $assets.FullName

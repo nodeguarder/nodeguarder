@@ -120,10 +120,9 @@
             ]]>
         </CustomAction>
 
-        <Property Id="WixShellExecTarget" Value="[#MainExe]" />
         <CustomAction Id="LaunchAgent"
-                      BinaryKey="WixCA"
-                      DllEntry="WixShellExec"
+                      Directory="INSTALLDIR"
+                      ExeCommand="[#MainExe]"
                       Execute="immediate"
                       Return="asyncNoWait" />
 

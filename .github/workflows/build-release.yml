@@ -93,6 +93,34 @@ jobs:
           cp enterprise-portal/docker-compose.yml portal-bundle/
           cp enterprise-portal/.env.example portal-bundle/
           cp ng-portal-images-$VERSION.tar.gz portal-bundle/
+          cat > portal-bundle/INSTRUCTIONS.txt << 'EOF'
+# NodeGuarder Enterprise Portal
+
+Welcome! Here's how to get started.
+
+## Quick Start
+
+1. Load the Docker images:
+   docker load -i ng-portal-images-{VERSION}.tar.gz
+
+2. Create your .env file:
+   Copy .env.example to .env
+   Edit .env and set DB_PASSWORD and JWT_SECRET
+
+3. Start the portal:
+   docker compose up -d
+
+4. Open http://localhost:5173 in your browser
+
+## Default Admin Login
+
+   Email:    admin@nodeguarder.local
+   Password: NodeGuarder#DM1n
+
+IMPORTANT: Change this password immediately after first login
+via Settings > Users in the portal.
+EOF
+          sed -i "s/{VERSION}/$VERSION/g" portal-bundle/INSTRUCTIONS.txt
           cd portal-bundle && zip -r ../ng-portal-bundle-$VERSION.zip .
 
       - name: Upload bundle as artifact
@@ -123,26 +151,21 @@ jobs:
           path: artifacts
 
       - name: Write release notes
-        shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
-          @"
-## Installation
+          cat > release-notes.md << 'EOF'
+          ## Installation
 
-### Agent (Windows)
-1. Download **NodeGuarder-Setup-$tag.msi**
-2. Run the installer
-3. Point your AI apps to `http://127.0.0.1:51820/v1`
+          ### Agent (Windows)
+          1. Download **NodeGuarder-Setup-${{ github.ref_name }}.msi**
+          2. Run the installer
+          3. Point your AI apps to `http://127.0.0.1:51820/v1`
 
-### Enterprise Portal (Linux / Windows / macOS)
-1. Download **ng-portal-bundle-$tag.zip**
-2. Unzip the zip file
-3. In the unzipped folder:
-   - Copy `.env.example` to `.env`, set `DB_PASSWORD` and `JWT_SECRET`
-   - `docker load -i ng-portal-images-$tag.tar.gz`
-   - `docker compose up -d`
-4. Open `http://localhost:5173` — login: `admin@nodeguarder.local` / `NodeGuarder#DM1n`
-"@ | Out-File -FilePath release-notes.md -Encoding utf8
+          ### Enterprise Portal (Linux / Windows / macOS)
+          1. Download **ng-portal-bundle-${{ github.ref_name }}.zip**
+          2. Unzip the zip file
+          3. In the unzipped folder follow **INSTRUCTIONS.txt**
+          4. **Change the default admin password immediately after first login**
+          EOF
 
       - name: Publish release
         shell: pwsh

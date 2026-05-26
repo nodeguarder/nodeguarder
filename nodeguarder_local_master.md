@@ -326,7 +326,7 @@ All served from one binary with `--portal` flag:
 ### C. Database Schema
 Full schema at `agent/migrations/001_initial_schema.sql`. Key tables:
 - **organizations** — Multi-tenant orgs (seeded with "Default Organization")
-- **users** — Admin, SecurityOps, Auditor roles (seeded: `admin@nodeguarder.local` / `admin123`)
+- **users** — Admin, SecurityOps, Auditor roles (seeded: `admin@nodeguarder.local` / `NodeGuarder#DM1n`)
 - **agents** — Fleet (uuid, hostname, ip, status, last_seen, cert_pem, identity_key_pem)
 - **policies** — 15 enforcement fields + target_mode (all/hostname_regex) + JSON arrays for detection_overrides, custom_regex, allowlists
 - **audit_logs** — Partitioned by month (Q1 2026 – Q4 2032 via auto-partitions), 11 columns

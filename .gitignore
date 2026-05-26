@@ -37,3 +37,7 @@ installer/output/
 
 # Cloned ATR rules repo (CI sync workflow)
 atr-rules/
+
+# Portal secrets (prod Docker secrets)
+secrets/
+enterprise-portal/secrets/

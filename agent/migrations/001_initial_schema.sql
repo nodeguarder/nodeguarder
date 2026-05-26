@@ -105,6 +105,7 @@ CREATE INDEX idx_codes_org_id ON enrollment_codes(org_id);
 CREATE INDEX idx_codes_code ON enrollment_codes(code);
 
 -- Seed default organization and admin user (password: NodeGuarder#DM1n)
+-- IMPORTANT: Change this password after first login!
 INSERT INTO organizations (id, name) VALUES (uuid_generate_v4(), 'Default Organization');
 
 -- Password is bcrypt hash of 'NodeGuarder#DM1n'

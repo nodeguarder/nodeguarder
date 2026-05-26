@@ -50,13 +50,13 @@ cargo build --release --features enterprise
 docker run -d --name ng-postgres ^
   -e POSTGRES_DB=nodeguarder ^
   -e POSTGRES_USER=ng_admin ^
-  -e POSTGRES_PASSWORD=ng_password ^
+  -e POSTGRES_PASSWORD=<your-db-password> ^
   -p 5433:5432 ^
   postgres:15-alpine
 
 # Run portal (migrations run automatically on startup)
-$env:DATABASE_URL="postgres://ng_admin:ng_password@localhost:5433/nodeguarder"
-$env:JWT_SECRET="dev-secret"
+$env:DATABASE_URL="postgres://ng_admin:<your-db-password>@localhost:5433/nodeguarder"
+$env:JWT_SECRET="<your-jwt-secret>"
 $env:REST_ADDR="0.0.0.0:3000"
 $env:GRPC_ADDR="0.0.0.0:50051"
 target\release\nodeguarder-agent.exe --portal
@@ -108,7 +108,7 @@ services:
 
 | Endpoint | Method | Description |
 |---|---|---|
-| `/api/v1/auth/login` | POST | JWT login (admin@nodeguarder.local / admin123) |
+| `/api/v1/auth/login` | POST | JWT login (admin@nodeguarder.local / NodeGuarder#DM1n) |
 | `/api/v1/auth/me` | GET | Current user info |
 | `/api/v1/dashboard/summary` | GET | Dashboard statistics |
 | `/api/v1/agents` | GET | List agents (paginated, filterable) |
@@ -296,11 +296,11 @@ enterprise-portal/
 ### First-time setup
 ```powershell
 # 1. Start PostgreSQL
-docker run -d --name ng-postgres -e POSTGRES_DB=nodeguarder -e POSTGRES_USER=ng_admin -e POSTGRES_PASSWORD=ng_password -p 5433:5432 postgres:15-alpine
+docker run -d --name ng-postgres -e POSTGRES_DB=nodeguarder -e POSTGRES_USER=ng_admin -e POSTGRES_PASSWORD=<your-db-password> -p 5433:5432 postgres:15-alpine
 
 # 2. Run portal (migrations auto-run)
-$env:DATABASE_URL="postgres://ng_admin:ng_password@localhost:5433/nodeguarder"
-$env:JWT_SECRET="dev-secret"
+$env:DATABASE_URL="postgres://ng_admin:<your-db-password>@localhost:5433/nodeguarder"
+$env:JWT_SECRET="<your-jwt-secret>"
 cd agent && cargo run --features enterprise -- --portal
 
 # 3. In another terminal, start frontend
@@ -308,14 +308,14 @@ cd enterprise-portal/frontend && npm run dev
 
 # 4. Login at http://localhost:5173
 #    Email: admin@nodeguarder.local
-#    Password: admin123
+#    Password: NodeGuarder#DM1n
 ```
 
 ### Testing enrollment
 ```powershell
 # Generate an enrollment code via API
 curl -X POST http://localhost:3000/api/v1/enrollment-codes `
-  -H "Authorization: Bearer $(curl -s http://localhost:3000/api/v1/auth/login -d '{\"email\":\"admin@nodeguarder.local\",\"password\":\"admin123\"}' | python -c "import sys,json;print(json.load(sys.stdin)['token'])")" `
+  -H "Authorization: Bearer $(curl -s http://localhost:3000/api/v1/auth/login -d '{\"email\":\"admin@nodeguarder.local\",\"password\":\"NodeGuarder#DM1n\"}' | python -c "import sys,json;print(json.load(sys.stdin)['token'])")" `
   -H "Content-Type: application/json" -d "{}"
 
 # Or use mock code ENV-MOCK-TEST directly in agent UI
@@ -352,7 +352,7 @@ organizations (id, name, created_at)
 - **gRPC:** mTLS — each agent receives a unique certificate signed by the portal's CA on enrollment
 - **Audit logs:** Encrypted at-rest (AES-256), actual secrets never logged — only content type and action
 - **PostgreSQL:** Private to Docker network, no external port exposure
-- **Default credentials:** `admin@nodeguarder.local` / `admin123` — change in production
+- **Default credentials:** `admin@nodeguarder.local` / `NodeGuarder#DM1n` — change in production
 
 ---
 

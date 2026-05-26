@@ -42,4 +42,4 @@ The enterprise portal provides fleet-wide policy management, centralized audit, 
 
 ## License
 
-The NodeGuarder Agent is licensed under the MIT License. The enterprise portal code is proprietary. See `LICENSE` for details.
+Licensed under the MIT License. See `LICENSE` for details.

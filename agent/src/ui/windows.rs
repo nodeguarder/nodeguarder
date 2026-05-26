@@ -706,7 +706,7 @@ pub fn spawn_settings_window(
                         <div class="label">Organization ID</div>
                         <div class="value-row"><span class="value" id="orgIdConnected">--</span></div>
                         <p style="font-size: 13px; color: var(--text-muted); margin-top: 15px;">Hardware identity and mTLS certificates are managed by the platform.</p>
-                        <button class="action danger" onclick="disconnect()" style="margin-top: 20px;">DISCONNECT AGENT</button>
+                        <button class="action danger" onclick="disconnect()" style="margin-top: 20px;">REMOVE ENROLLMENT</button>
                     </div>
 
                     <div id="enrolledDisconnectedStatus" style="display: none;">
@@ -717,7 +717,7 @@ pub fn spawn_settings_window(
                         <div class="label">Organization ID</div>
                         <div class="value-row"><span class="value" id="orgIdDisconnected">--</span></div>
                         <p style="font-size: 13px; color: var(--text-muted); margin-top: 15px;">Connection to the Admin Platform is currently unavailable. The agent will automatically reconnect.</p>
-                        <button class="action danger" onclick="disconnect()" style="margin-top: 20px;">DISCONNECT AGENT</button>
+                        <button class="action danger" onclick="disconnect()" style="margin-top: 20px;">REMOVE ENROLLMENT</button>
                     </div>
 
                     <div id="localStatus">
@@ -846,17 +846,17 @@ pub fn spawn_settings_window(
         <!-- Custom Modal Overlay -->
         <div id="disconnectModal" class="modal-overlay">
             <div class="modal-card">
-                <div class="modal-title">Disconnect from Enterprise?</div>
+                <div class="modal-title">Remove Enrollment?</div>
                 <div class="modal-body">
                     You are about to remove this agent from organization management. Administrative rules and redaction enforcement will be disabled.
                 </div>
                 <div id="disconnectPasswordRow" style="margin-bottom: 20px; display: none;">
                     <div class="label">Disconnect Password</div>
-                    <input type="password" id="disconnectPasswordInput" class="rule-input" placeholder="Enter organization disconnect password" style="width: 100%; box-sizing: border-box;">
+                    <input type="password" id="disconnectPasswordInput" class="rule-input" placeholder="Enter organization password" style="width: 100%; box-sizing: border-box;">
                 </div>
                 <div class="modal-buttons">
                     <button class="action ghost" onclick="hideModal()">CANCEL</button>
-                    <button class="action danger" onclick="confirmDisconnect()">DISCONNECT</button>
+                    <button class="action danger" onclick="confirmDisconnect()">REMOVE ENROLLMENT</button>
                 </div>
             </div>
         </div>
@@ -1042,7 +1042,7 @@ pub fn spawn_settings_window(
                 if (config.disconnect_password_required) {{
                     var pwd = document.getElementById('disconnectPasswordInput').value;
                     if (!pwd) {{
-                        showToast('Disconnect password is required.', 3000);
+                        showToast('Password is required.', 3000);
                         return;
                     }}
                     window.ipc.postMessage('DISCONNECT_WITH_PWD:' + pwd);

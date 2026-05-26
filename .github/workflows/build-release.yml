@@ -122,14 +122,11 @@ jobs:
           name: Portal-Bundle
           path: artifacts
 
-      - name: Publish release
+      - name: Write release notes
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.RELEASES_PAT }}
         run: |
           $tag = "${{ github.ref_name }}"
-          $assets = Get-ChildItem "artifacts" -Recurse | Where-Object { -not $_.PSIsContainer }
-          $notes = @"
+          @"
 ## Installation
 
 ### Agent (Windows)
@@ -139,11 +136,19 @@ jobs:
 
 ### Enterprise Portal (Linux / Windows / macOS)
 1. Download **ng-portal-bundle-$tag.zip**
-2. Unzip → folder contains `docker-compose.yml`, `.env.example`, and `ng-portal-images-$tag.tar.gz`
-3. Open a terminal in the unzipped folder
-4. Copy `.env.example` to `.env` and set `DB_PASSWORD` and `JWT_SECRET`
-5. `docker load -i ng-portal-images-$tag.tar.gz`
-6. `docker compose up -d`
-7. Open `http://localhost:5173` and log in with `admin@nodeguarder.local` / `NodeGuarder#DM1n`
-"@
-          gh release create $tag --repo nodeguarder/releases --title "NodeGuarder $tag" --notes "$notes" $assets.FullName
+2. Unzip the zip file
+3. In the unzipped folder:
+   - Copy `.env.example` to `.env`, set `DB_PASSWORD` and `JWT_SECRET`
+   - `docker load -i ng-portal-images-$tag.tar.gz`
+   - `docker compose up -d`
+4. Open `http://localhost:5173` — login: `admin@nodeguarder.local` / `NodeGuarder#DM1n`
+"@ | Out-File -FilePath release-notes.md -Encoding utf8
+
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_PAT }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $assets = Get-ChildItem "artifacts" -Recurse | Where-Object { -not $_.PSIsContainer }
+          gh release create $tag --repo nodeguarder/releases --title "NodeGuarder $tag" --notes-file release-notes.md $assets.FullName

@@ -20,7 +20,7 @@
 
         <MediaTemplate EmbedCab="yes" />
 
-        <WixVariable Id="WixUILicenseRtf" Value="$(var.InstallerDir)EULA.rtf" />
+        <WixVariable Id="WixUILicenseRtf" Value="$(var.InstallerDir)\EULA.rtf" />
 
         <UI>
             <UIRef Id="WixUI_Minimal" />

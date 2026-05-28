@@ -100,9 +100,6 @@ pub fn load_icon_base64() -> String {
 }
 
 pub struct TrayMenuIds {
-    pub copy_url: tray_icon::menu::MenuId,
-    pub copy_token: tray_icon::menu::MenuId,
-    pub setup_guide: tray_icon::menu::MenuId,
     pub settings: tray_icon::menu::MenuId,
     pub exit: tray_icon::menu::MenuId,
 }
@@ -110,25 +107,15 @@ pub struct TrayMenuIds {
 pub fn build_tray() -> (TrayIcon, TrayMenuIds) {
     let tray_menu = Menu::new();
 
-    let copy_url_item = MenuItem::new("Copy API URL", true, None);
-    let copy_token_item = MenuItem::new("Copy Bearer Token", true, None);
-    let setup_guide_item = MenuItem::new("How to Configure IDE", true, None);
     let settings_item = MenuItem::new("Settings", true, None);
-    let exit_item = MenuItem::new("Exit NodeGuarder", true, None);
+    let exit_item = MenuItem::new("Close and exit NodeGuarder", true, None);
 
     let ids = TrayMenuIds {
-        copy_url: copy_url_item.id().clone(),
-        copy_token: copy_token_item.id().clone(),
-        setup_guide: setup_guide_item.id().clone(),
         settings: settings_item.id().clone(),
         exit: exit_item.id().clone(),
     };
 
     let _ = tray_menu.append_items(&[
-        &copy_url_item,
-        &copy_token_item,
-        &PredefinedMenuItem::separator(),
-        &setup_guide_item,
         &settings_item,
         &PredefinedMenuItem::separator(),
         &exit_item,

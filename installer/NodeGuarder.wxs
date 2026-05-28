@@ -20,6 +20,12 @@
 
         <MediaTemplate EmbedCab="yes" />
 
+        <WixVariable Id="WixUILicenseRtf" Value="$(var.InstallerDir)EULA.rtf" />
+
+        <UI>
+            <UIRef Id="WixUI_Minimal" />
+        </UI>
+
         <Icon Id="AppIcon" SourceFile="$(var.SourceDir)icon.ico" />
 
         <Property Id="ARPPRODUCTICON" Value="AppIcon" />
@@ -127,7 +133,7 @@
                       Return="asyncNoWait" />
 
         <InstallExecuteSequence>
-            <Custom Action="KillAgentDeferred" Before="RemoveFiles">REMOVE="ALL"</Custom>
+            <Custom Action="KillAgentDeferred" Before="InstallValidate">NOT Installed OR REMOVE="ALL"</Custom>
             <Custom Action="RemoveAppData" After="InstallValidate">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE</Custom>
             <Custom Action="LaunchAgent" After="InstallFinalize" />
         </InstallExecuteSequence>

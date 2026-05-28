@@ -56,4 +56,5 @@ pub enum UiEvent {
     UpdateUpstreamUrl(String),
     UpdateUpstreamApiKey(String),
     ToggleAtrAutoUpdate(bool),
+    ToggleAutoStart(bool),
 }

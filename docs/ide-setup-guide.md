@@ -54,8 +54,8 @@ Edit `~/.continue/config.json` (macOS/Linux) or
 }
 ```
 
-You can copy your bearer token from the agent tray icon → **Copy API URL**,
-or run `nodeguarder-agent token` from the command line.
+You can find your bearer token in the agent **Settings** window or run
+`nodeguarder-agent token` from the command line.
 
 ---
 

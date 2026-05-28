@@ -83,9 +83,29 @@ fn main() {
 }
 
 #[cfg(feature = "gui")]
+fn set_autostart(enabled: bool) {
+    let exe_path = std::env::current_exe().unwrap_or_default();
+    if enabled {
+        let _ = std::process::Command::new("reg")
+            .args(["add", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                   "/v", "NodeGuarder", "/t", "REG_SZ",
+                   "/d", &exe_path.to_string_lossy(), "/f"])
+            .status();
+    } else {
+        let _ = std::process::Command::new("reg")
+            .args(["delete", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                   "/v", "NodeGuarder", "/f"])
+            .status();
+    }
+}
+
+#[cfg(feature = "gui")]
 fn run_agent() {
     let config = config::load_or_create_config();
     crate::model::check_for_atr_updates(config.disable_atr_auto_update);
+    if config.auto_start {
+        set_autostart(true);
+    }
 
     info!("Starting NodeGuarder Local Agent MVP...");
 
@@ -141,17 +161,8 @@ fn run_agent() {
             let id = event.id();
             if *id == tray_ids.exit {
                 let _ = ui_proxy.send_event(UiEvent::ExitApp);
-            } else if *id == tray_ids.setup_guide {
-                let _ = ui_proxy.send_event(UiEvent::OpenSettings);
             } else if *id == tray_ids.settings {
                 let _ = ui_proxy.send_event(UiEvent::OpenSettings);
-            } else if *id == tray_ids.copy_url {
-                let port = *bound_port_ui.lock().unwrap();
-                let addr = format!("http://127.0.0.1:{}/v1", port);
-                let _ = ui_proxy.send_event(UiEvent::CopyToClipboard(addr));
-            } else if *id == tray_ids.copy_token {
-                let token = config_lock_ui.read().unwrap().bearer_token.clone();
-                let _ = ui_proxy.send_event(UiEvent::CopyToClipboard(token));
             }
         }
 
@@ -337,7 +348,8 @@ fn run_agent() {
                         let path = std::env::var("USERPROFILE").unwrap_or_else(|_| ".".to_string());
                         let dest = std::path::PathBuf::from(path).join("Downloads").join("nodeguarder_logs.csv");
                         if let Ok(_) = std::fs::write(&dest, csv) {
-                            let script = format!("alert('Logs exported to your Downloads folder: {}');", dest.display().to_string().replace("\\", "\\\\"));
+                            let msg = format!("Logs exported to your Downloads folder: {}", dest.display().to_string().replace("\\", "\\\\"));
+                            let script = format!("showToast('{}', 5000);", msg.replace("'", "\\'"));
                             for (_, (_, webview)) in windows.iter() {
                                 let _ = webview.evaluate_script(&script);
                             }
@@ -370,6 +382,18 @@ fn run_agent() {
                         config::save_config(&cfg);
                         info!("ATR auto-update disabled: {}", disabled);
                         let json = serde_json::json!({"disable_atr_auto_update": disabled}).to_string();
+                        let script = format!("if(window.updateConfig) {{ window.updateConfig({}); }}", json);
+                        for (_, (_, webview)) in windows.iter() {
+                            let _ = webview.evaluate_script(&script);
+                        }
+                    }
+                    UiEvent::ToggleAutoStart(enabled) => {
+                        let mut cfg = config_lock_ui.write().unwrap();
+                        cfg.auto_start = enabled;
+                        config::save_config(&cfg);
+                        set_autostart(enabled);
+                        info!("Auto-start on boot: {}", enabled);
+                        let json = serde_json::json!({"auto_start": enabled}).to_string();
                         let script = format!("if(window.updateConfig) {{ window.updateConfig({}); }}", json);
                         for (_, (_, webview)) in windows.iter() {
                             let _ = webview.evaluate_script(&script);

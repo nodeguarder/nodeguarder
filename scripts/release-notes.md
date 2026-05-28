@@ -9,4 +9,8 @@
 1. Download **ng-portal-bundle-{VERSION}.zip**
 2. Unzip the zip file
 3. In the unzipped folder follow **INSTRUCTIONS.txt**
-4. **Change the default admin password immediately after first login**
+4. **Change the default admin password immediately after first login
+
+***
+
+**Disclaimer:** This software is provided "AS IS" without warranty of any kind. See the [LICENSE](https://github.com/nodeguarder/nodeguarder/blob/main/LICENSE) file for details.**

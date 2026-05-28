@@ -828,6 +828,17 @@ pub fn spawn_settings_window(
                         </label>
                     </div>
 
+                    <div class="switch-row" id="autoStartRow">
+                        <div>
+                            <div style="font-weight: 700; color: #fff; margin-bottom: 4px;">Auto Start on Boot</div>
+                            <div style="font-size: 13px; color: var(--text-muted);">Launch NodeGuarder automatically when Windows starts.</div>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="autoStartToggle" onchange="toggleAutoStart(this.checked)">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
                 </div>
 
                 <!-- Card 4: About -->
@@ -901,6 +912,7 @@ pub fn spawn_settings_window(
                 detect_model_abuse: {detect_model_abuse},
                 detect_data_poisoning: {detect_data_poisoning},
                 disable_atr_auto_update: {disable_atr_auto_update},
+                auto_start: {auto_start},
                 disconnect_password_required: {disconnect_password_required},
                 // Enforcement flags (updated by policy sync)
                 redactionEnforced: false,
@@ -966,6 +978,11 @@ pub fn spawn_settings_window(
                 var disabled = !checked;
                 config.disable_atr_auto_update = disabled;
                 window.ipc.postMessage('TOGGLE_ATR_AUTO_UPDATE:' + disabled);
+            }}
+
+            function toggleAutoStart(checked) {{
+                config.auto_start = checked;
+                window.ipc.postMessage('TOGGLE_AUTO_START:' + checked);
             }}
 
             function addRule() {{
@@ -1144,6 +1161,7 @@ pub fn spawn_settings_window(
                 disableEl('dataPoisonToggle', managed);
                 disableEl('ocrToggle', managed);
                 disableEl('atrAutoUpdateToggle', managed);
+                disableEl('autoStartToggle', managed);
 
                 // Protection tab banner - show whenever enrolled
                 var protBanner = document.getElementById('lockBanner');
@@ -1221,6 +1239,9 @@ pub fn spawn_settings_window(
                         badge.className = 'badge ' + (newCfg.disable_atr_auto_update ? 'badge-manual' : 'badge-redact');
                     }}
                 }}
+                if (newCfg.auto_start !== undefined) {{
+                    document.getElementById('autoStartToggle').checked = newCfg.auto_start;
+                }}
                 // Update detection toggle checkboxes from policy
                 const toggleMap = {{
                     'detect_api_keys': 'apiKeysToggle',
@@ -1285,6 +1306,7 @@ pub fn spawn_settings_window(
                 document.getElementById('modelAbuseToggle').checked = config.detect_model_abuse;
                 document.getElementById('dataPoisonToggle').checked = config.detect_data_poisoning;
                 document.getElementById('atrAutoUpdateToggle').checked = !config.disable_atr_auto_update;
+                document.getElementById('autoStartToggle').checked = config.auto_start;
             }};
         </script>
     </body>
@@ -1309,6 +1331,7 @@ pub fn spawn_settings_window(
         detect_model_abuse = config.detect_model_abuse,
         detect_data_poisoning = config.detect_data_poisoning,
         disable_atr_auto_update = config.disable_atr_auto_update,
+        auto_start = config.auto_start,
         disconnect_password_required = config.disconnect_password_hash.is_some(),
         atr_badge_class = if config.disable_atr_auto_update { "badge-manual" } else { "badge-redact" },
         atr_badge_text = if config.disable_atr_auto_update { "MANUAL" } else { "AUTO" },
@@ -1380,6 +1403,9 @@ pub fn spawn_settings_window(
             } else if body.starts_with("TOGGLE_ATR_AUTO_UPDATE:") {
                 let disabled = body.strip_prefix("TOGGLE_ATR_AUTO_UPDATE:").unwrap() == "true";
                 let _ = proxy.send_event(UiEvent::ToggleAtrAutoUpdate(disabled));
+            } else if body.starts_with("TOGGLE_AUTO_START:") {
+                let enabled = body.strip_prefix("TOGGLE_AUTO_START:").unwrap() == "true";
+                let _ = proxy.send_event(UiEvent::ToggleAutoStart(enabled));
             } else if body == "DRAG" {
                 let _ = proxy.send_event(UiEvent::DragWindow(window_id));
             }

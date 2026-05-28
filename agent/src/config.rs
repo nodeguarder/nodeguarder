@@ -64,6 +64,8 @@ pub struct AppConfig {
     /// - Some("sk-...") → replace Authorization header with `Bearer <value>`
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upstream_api_key: Option<String>,
+    #[serde(default = "default_true")]
+    pub auto_start: bool,
     }
 
 fn default_upstream_url() -> String {
@@ -147,6 +149,7 @@ pub fn load_or_create_config() -> AppConfig {
             disable_atr_auto_update: false,
             upstream_api_key: None,
             disconnect_password_hash: None,
+            auto_start: true,
         };
 
         let content = toml::to_string_pretty(&config).expect("Failed to serialize config");
@@ -229,6 +232,7 @@ mod tests {
             disable_atr_auto_update: false,
             upstream_api_key: None,
             disconnect_password_hash: None,
+            auto_start: true,
         };
 
         let content = toml::to_string_pretty(&config).unwrap();

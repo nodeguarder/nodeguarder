@@ -131,6 +131,7 @@ Write-Host "Compiling WiX source: $wxsFile" -ForegroundColor Yellow
 & $candle -arch x64 -ext WixUtilExtension `
     -dSourceDir="$SourceDir" `
     -dVersion="$exeVersion" `
+    -dInstallerDir="$InstallerDir" `
     -out "$wixobjFile" `
     "$wxsFile" 2>&1
 

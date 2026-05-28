@@ -132,7 +132,7 @@
                       Return="asyncNoWait" />
 
         <InstallExecuteSequence>
-            <Custom Action="KillAgentDeferred" Before="InstallValidate">NOT Installed OR REMOVE="ALL"</Custom>
+            <Custom Action="KillAgentDeferred" Before="RemoveFiles">REMOVE="ALL"</Custom>
             <Custom Action="RemoveAppData" After="InstallValidate">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE</Custom>
             <Custom Action="LaunchAgent" After="InstallFinalize" />
         </InstallExecuteSequence>

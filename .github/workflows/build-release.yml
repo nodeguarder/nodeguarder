@@ -112,6 +112,9 @@ jobs:
       contents: write
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
       - name: Download MSI artifact
         uses: actions/download-artifact@v6
         with:
@@ -127,6 +130,7 @@ jobs:
       - name: Write release notes
         run: |
           VERSION=${{ github.ref_name }}
+          VERSION=${VERSION#v}
           sed "s/{VERSION}/$VERSION/g" scripts/release-notes.md > release-notes.md
 
       - name: Publish release

@@ -31,7 +31,6 @@
         <Property Id="ARPPRODUCTICON" Value="AppIcon" />
         <Property Id="ARPHELPLINK" Value="https://nodeguarder.com" />
         <Property Id="ARPNOREPAIR" Value="yes" />
-        <Property Id="ARPNOMODIFY" Value="yes" />
 
         <Directory Id="TARGETDIR" Name="SourceDir">
             <Directory Id="ProgramFiles64Folder">

@@ -127,10 +127,13 @@ jobs:
           name: Portal-Bundle
           path: artifacts
 
+      - name: Extract version from Cargo.toml
+        run: |
+          VERSION=$(grep '^version = ' agent/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
       - name: Write release notes
         run: |
-          VERSION=${{ github.ref_name }}
-          VERSION=${VERSION#v}
           sed "s/{VERSION}/$VERSION/g" scripts/release-notes.md > release-notes.md
 
       - name: Publish release
@@ -138,6 +141,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASES_PAT }}
         run: |
-          $tag = "${{ github.ref_name }}"
+          $tag = "v$env:VERSION"
           $assets = Get-ChildItem "artifacts" -Recurse | Where-Object { -not $_.PSIsContainer }
           gh release create $tag --repo nodeguarder/releases --title "NodeGuarder $tag" --notes-file release-notes.md $assets.FullName

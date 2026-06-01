@@ -18,10 +18,97 @@ import {
   Key,
   ChevronDown,
   ChevronRight,
+  BarChart,
 } from 'lucide-react'
-import { getAgent, revokeAgent, getAgentEnvironment } from '@/api/client'
+import { getAgent, revokeAgent, getAgentEnvironment, getAgentMetrics } from '@/api/client'
 import { formatDateFull, timeAgo, statusBadgeClass, actionBadgeClass } from '@/lib/utils'
-import type { Agent, AuditLog, EnvironmentReport, DetectedEndpoint } from '@/types'
+import type { Agent, AuditLog, EnvironmentReport, DetectedEndpoint, RequestMetric } from '@/types'
+
+function AgentUsageMetrics({ agentUuid }: { agentUuid: string }) {
+  const [metrics, setMetrics] = useState<RequestMetric[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!agentUuid) return
+    getAgentMetrics(agentUuid, { limit: 20 })
+      .then((res) => setMetrics(res.metrics))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [agentUuid])
+
+  if (loading) {
+    return <div className="animate-pulse h-20 bg-white/5 rounded" />
+  }
+
+  if (metrics.length === 0) {
+    return <p className="text-sm text-portal-text-muted">No usage data available yet.</p>
+  }
+
+  const totalTokens = metrics.reduce((sum, m) => sum + (m.total_tokens || 0), 0)
+  const avgLatency = metrics.length > 0
+    ? Math.round(metrics.reduce((sum, m) => sum + m.total_latency_ms, 0) / metrics.length)
+    : 0
+  const cachedCount = metrics.filter((m) => m.was_cached).length
+  const totalCost = metrics.reduce((sum, m) => sum + (
+    (m.prompt_tokens || 0) * 0.002 / 1000 + (m.completion_tokens || 0) * 0.002 / 1000
+  ), 0)
+
+  return (
+    <div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div className="bg-portal-bg rounded-lg p-3 border border-portal-border/50">
+          <div className="text-[10px] text-portal-text-muted uppercase tracking-wider">Requests (24h)</div>
+          <div className="text-lg font-bold text-portal-text">{metrics.length}</div>
+        </div>
+        <div className="bg-portal-bg rounded-lg p-3 border border-portal-border/50">
+          <div className="text-[10px] text-portal-text-muted uppercase tracking-wider">Avg Latency</div>
+          <div className="text-lg font-bold text-portal-text">{avgLatency}ms</div>
+        </div>
+        <div className="bg-portal-bg rounded-lg p-3 border border-portal-border/50">
+          <div className="text-[10px] text-portal-text-muted uppercase tracking-wider">Cached</div>
+          <div className="text-lg font-bold text-portal-text">{cachedCount}</div>
+        </div>
+        <div className="bg-portal-bg rounded-lg p-3 border border-portal-border/50">
+          <div className="text-[10px] text-portal-text-muted uppercase tracking-wider">Est. Cost</div>
+          <div className="text-lg font-bold text-portal-text">${totalCost.toFixed(4)}</div>
+        </div>
+      </div>
+
+      {metrics.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-portal-text-muted uppercase tracking-wider border-b border-portal-border">
+                <th className="text-left py-1.5 pr-3">Model</th>
+                <th className="text-right py-1.5 px-3">Tokens</th>
+                <th className="text-right py-1.5 px-3">Latency</th>
+                <th className="text-right py-1.5 pl-3">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {metrics.slice(0, 10).map((m) => (
+                <tr key={m.id} className="border-b border-portal-border/20 hover:bg-white/5">
+                  <td className="py-1.5 pr-3 text-portal-text font-medium truncate max-w-[120px]">{m.model_used}</td>
+                  <td className="text-right py-1.5 px-3 text-portal-text-muted">{m.total_tokens || '-'}</td>
+                  <td className="text-right py-1.5 px-3 text-portal-text-muted">{m.total_latency_ms}ms</td>
+                  <td className="text-right py-1.5 pl-3">
+                    {m.was_cached ? (
+                      <span className="text-emerald-400 text-[10px] font-semibold">CACHED</span>
+                    ) : m.was_blocked ? (
+                      <span className="text-red-400 text-[10px] font-semibold">BLOCKED</span>
+                    ) : (
+                      <span className="text-portal-accent text-[10px] font-semibold">{m.upstream_status}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function AgentDetail() {
   const { uuid } = useParams<{ uuid: string }>()
@@ -35,7 +122,7 @@ export default function AgentDetail() {
   const [revoking, setRevoking] = useState(false)
   const [envReport, setEnvReport] = useState<EnvironmentReport | null>(null)
   const [envLoading, setEnvLoading] = useState(false)
-  const [envExpanded, setEnvExpanded] = useState(false)
+  const [envExpanded, setEnvExpanded] = useState(true)
 
   useEffect(() => {
     if (!uuid) return
@@ -249,11 +336,18 @@ export default function AgentDetail() {
                     ) : (
                       <div className="space-y-1">
                         {envReport.detected_ides.map((ide, i) => (
-                          <div key={i} className="flex items-center gap-2 text-xs">
-                            <Monitor className="w-3 h-3 text-portal-text-muted" />
-                            <span className="text-portal-text capitalize">{ide.ide_type}</span>
-                            {ide.copilot_enabled && <span className="text-portal-accent">Copilot enabled</span>}
-                            {ide.proxy_settings && <span className="font-mono text-portal-text-muted">{ide.proxy_settings}</span>}
+                          <div key={i} className="text-xs">
+                            <div className="flex items-center gap-2">
+                              <Monitor className="w-3 h-3 text-portal-text-muted" />
+                              <span className="text-portal-text capitalize">{ide.ide_type}</span>
+                              {ide.copilot_enabled && <span className="text-portal-accent">Copilot enabled</span>}
+                              {ide.proxy_settings && <span className="font-mono text-portal-text-muted">{ide.proxy_settings}</span>}
+                            </div>
+                            {ide.config_path && (
+                              <div className="ml-5 text-[10px] text-portal-text-muted font-mono truncate" title={ide.config_path}>
+                                {ide.config_path}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -307,6 +401,15 @@ export default function AgentDetail() {
               )}
             </div>
           )}
+
+          {/* Usage Analytics */}
+          <div className="bg-portal-card border border-portal-border rounded-xl p-6">
+            <h3 className="text-sm font-semibold text-portal-text flex items-center gap-2 mb-4">
+              <BarChart className="w-4 h-4 text-portal-accent" />
+              Usage Analytics
+            </h3>
+            <AgentUsageMetrics agentUuid={uuid || ''} />
+          </div>
 
           <div className="bg-portal-card border border-portal-border rounded-xl p-6">
             <h3 className="text-sm font-semibold text-portal-text flex items-center gap-2 mb-4">

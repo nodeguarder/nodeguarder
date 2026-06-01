@@ -8,6 +8,7 @@ use axum::{
     Json,
 };
 use std::sync::{Arc, RwLock};
+use std::time::Instant;
 
 use tracing::{warn, error, info};
 use crate::config::AppConfig;
@@ -15,6 +16,8 @@ use crate::detector::{scan_and_redact, DetectionConfig, AtEngine};
 use crate::scrubber::{scrub_file, ScrutinyResult};
 use crate::audit;
 use crate::ui::events::{UiEvent, DetectionHit, InterventionDecision};
+use crate::metrics::{MetricsCollector, RequestMetric};
+use crate::cache::ResponseCache;
 #[cfg(windows)]
 use crate::ocr::extract_text_from_image_bytes;
 use tokio::sync::oneshot;
@@ -31,6 +34,8 @@ pub struct AppState {
     pub hit_sender: crossbeam_channel::Sender<UiEvent>,
     pub atr_engine: Option<AtEngine>,
     pub bound_port: Arc<std::sync::Mutex<u16>>,
+    pub metrics: Arc<MetricsCollector>,
+    pub cache: Arc<std::sync::Mutex<ResponseCache>>,
 }
 
 /// Extract text from base64-encoded images in message content (e.g. data:image/png;base64,...)
@@ -124,6 +129,7 @@ pub async fn chat_completions_handler(
     body: Bytes,
 ) -> impl IntoResponse {
     // 1. Authorization Check (Fetch config under read lock)
+    let t0 = Instant::now();
     let session_id = Uuid::new_v4().to_string();
     let (bearer_token, allowlists_regex, detection_config, upstream_url, upstream_api_key) = {
         let cfg = state.config.read().unwrap();
@@ -164,6 +170,7 @@ pub async fn chat_completions_handler(
         }
     };
 
+    let model = payload.get("model").and_then(|m| m.as_str()).unwrap_or("unknown").to_string();
 
     // 3. Scan & Intervene on Prompt
     // Skip scan if the last message is not from the user, or is an
@@ -296,6 +303,8 @@ pub async fn chat_completions_handler(
     }
     }
 
+    let detection_latency = t0.elapsed();
+
     // Development shortcut: if caller sets `x-local-debug: true`, return
     // the processed payload directly instead of proxying to upstream. This
     // lets local testing validate redaction/allow flows without reaching
@@ -305,6 +314,30 @@ pub async fn chat_completions_handler(
     }
 
     let is_streaming = payload.get("stream").and_then(|s| s.as_bool()).unwrap_or(false);
+
+    if !is_streaming {
+        if let Some(cached) = state.cache.lock().unwrap().get(&model, &payload) {
+            let cached_pt = cached.get("usage").and_then(|u| u.get("prompt_tokens")).and_then(|v| v.as_u64());
+            let cached_ct = cached.get("usage").and_then(|u| u.get("completion_tokens")).and_then(|v| v.as_u64());
+            state.metrics.push(RequestMetric {
+                timestamp_ms: chrono::Utc::now().timestamp_millis(),
+                session_id: session_id.clone(),
+                model_requested: model.clone(),
+                model_used: model.clone(),
+                prompt_tokens: cached_pt,
+                completion_tokens: cached_ct,
+                total_tokens: cached_pt.zip(cached_ct).map(|(p, c)| p + c),
+                total_latency_ms: t0.elapsed().as_millis() as u64,
+                detection_latency_ms: detection_latency.as_millis() as u64,
+                upstream_latency_ms: 0,
+                was_cached: true,
+                was_blocked: false,
+                was_redacted: false,
+                upstream_status: 200,
+            });
+            return (StatusCode::OK, Json(cached)).into_response();
+        }
+    }
 
     // 4. Proxy Upstream
     let upstream_chat = format!("{}/chat/completions", upstream_url);
@@ -340,6 +373,10 @@ pub async fn chat_completions_handler(
     if !is_streaming {
         let status = upstream_res.status();
         let mut res_json: Value = upstream_res.json().await.unwrap_or(json!({}));
+        let total_latency = t0.elapsed();
+        let upstream_latency = total_latency - detection_latency;
+        let prompt_tokens = res_json.get("usage").and_then(|u| u.get("prompt_tokens")).and_then(|v| v.as_u64());
+        let completion_tokens = res_json.get("usage").and_then(|u| u.get("completion_tokens")).and_then(|v| v.as_u64());
         
         if let Some(choices) = res_json.get_mut("choices").and_then(|c| c.as_array_mut()) {
             for choice in choices {
@@ -352,10 +389,51 @@ pub async fn chat_completions_handler(
                 }
             }
         }
+
+        if status.is_success() {
+            state.cache.lock().unwrap().set(&model, &payload, res_json.clone());
+        }
+
+        let pt = prompt_tokens.unwrap_or_else(|| (body.len() / 4) as u64);
+        let ct = completion_tokens.unwrap_or_else(|| {
+            res_json.get("choices")
+                .and_then(|c| c.as_array())
+                .map(|arr| arr.iter()
+                    .filter_map(|c| c.get("message").and_then(|m| m.get("content")).and_then(|t| t.as_str()))
+                    .map(|t| t.len() as u64 / 4)
+                    .sum())
+                .unwrap_or(0)
+        });
+        state.metrics.push(RequestMetric {
+            timestamp_ms: chrono::Utc::now().timestamp_millis(),
+            session_id: session_id.clone(),
+            model_requested: model.clone(),
+            model_used: model.clone(),
+            prompt_tokens: Some(pt),
+            completion_tokens: Some(ct),
+            total_tokens: Some(pt + ct),
+            total_latency_ms: total_latency.as_millis() as u64,
+            detection_latency_ms: detection_latency.as_millis() as u64,
+            upstream_latency_ms: upstream_latency.as_millis() as u64,
+            was_cached: false,
+            was_blocked: false,
+            was_redacted: false,
+            upstream_status: status.as_u16(),
+        });
+
         (status, Json(res_json)).into_response()
     } else {
         let mut stream = upstream_res.bytes_stream();
         let state_internal = state.clone();
+        let completion_tokens = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let ct = completion_tokens.clone();
+        let t0_arc = std::sync::Arc::new(t0);
+        let t0_for_stream = t0_arc.clone();
+        let detection_latency_ms = detection_latency.as_millis() as u64;
+        let body_len = body.len();
+        let model_for_stream = model.clone();
+        let upstream_header_latency = t0.elapsed() - detection_latency;
+        let upstream_header_latency_ms = upstream_header_latency.as_millis() as u64;
 
         let sse_stream = stream! {
             let mut line_buf = String::new();
@@ -384,6 +462,7 @@ pub async fn chat_completions_handler(
                                 if let Some(choices) = json_chunk.get_mut("choices").and_then(|c| c.as_array_mut()) {
                                     for choice in choices {
                                         if let Some(content) = choice.get_mut("delta").and_then(|d| d.get_mut("content")).and_then(|c| c.as_str()) {
+                                            ct.fetch_add((content.len() / 4) as u64, std::sync::atomic::Ordering::Relaxed);
                                             let internal_allowlist = {
                                                 state_internal.config.read().unwrap().allowlists_regex.clone()
                                             };
@@ -417,6 +496,25 @@ pub async fn chat_completions_handler(
                     yield Ok::<_, std::io::Error>(Bytes::from(output));
                 }
             }
+
+            let pt = (body_len / 4) as u64;
+            let ct = completion_tokens.load(std::sync::atomic::Ordering::Relaxed);
+            state_internal.metrics.push(RequestMetric {
+                timestamp_ms: chrono::Utc::now().timestamp_millis(),
+                session_id: session_id.clone(),
+                model_requested: model_for_stream.clone(),
+                model_used: model_for_stream,
+                prompt_tokens: Some(pt),
+                completion_tokens: Some(ct),
+                total_tokens: Some(pt + ct),
+                total_latency_ms: t0_for_stream.elapsed().as_millis() as u64,
+                detection_latency_ms,
+                upstream_latency_ms: upstream_header_latency_ms,
+                was_cached: false,
+                was_blocked: false,
+                was_redacted: false,
+                upstream_status: 200,
+            });
         };
 
         Response::builder()
@@ -649,6 +747,7 @@ mod e2e_tests {
         http::{Request, StatusCode},
     };
     use crate::config;
+    use crate::detector::tests::test_engine;
     use std::sync::Arc;
     use tower::ServiceExt;
 
@@ -679,18 +778,8 @@ mod e2e_tests {
             disable_atr_auto_update: false,
             upstream_api_key: None,
             disconnect_password_hash: None,
+            auto_start: true,
         }
-    }
-
-    fn test_engine() -> AtEngine {
-        let json = r#"[
-            {"id":"TEST-001","title":"OpenAI Key","severity":"critical","category":"api_keys","patterns":[{"regex":"sk-[a-zA-Z0-9\\-]{20,}","description":"OpenAI","field":"content"}]},
-            {"id":"TEST-002","title":"AWS Key","severity":"critical","category":"api_keys","patterns":[{"regex":"AKIA[0-9A-Z]{16}","description":"AWS","field":"content"}]},
-            {"id":"TEST-003","title":"Prompt Injection","severity":"high","category":"injection","patterns":[{"regex":"(?i)ignore\\s+(all\\s+)?previous\\s+instructions","description":"Injection","field":"content"}]},
-            {"id":"TEST-004","title":"Shell Escape","severity":"critical","category":"code_execution","patterns":[{"regex":";\\s*(?:rm|cat|curl)","description":"Shell","field":"content"}]},
-            {"id":"TEST-005","title":"MongoDB URI","severity":"high","category":"db_credentials","patterns":[{"regex":"mongodb(?:\\+srv)?://[^\\s\"']{10,}","description":"Mongo","field":"content"}]}
-        ]"#;
-        AtEngine::from_json(json)
     }
 
     fn test_state() -> Arc<AppState> {
@@ -699,7 +788,9 @@ mod e2e_tests {
         let atr_engine = Some(test_engine());
         let (hit_sender, _) = crossbeam_channel::unbounded();
         let bound_port = Arc::new(std::sync::Mutex::new(51820));
-        Arc::new(AppState { config, client, hit_sender, atr_engine, bound_port })
+        let metrics = Arc::new(crate::metrics::MetricsCollector::new(1000));
+        let cache = Arc::new(std::sync::Mutex::new(crate::cache::ResponseCache::new(300, 1000)));
+        Arc::new(AppState { config, client, hit_sender, atr_engine, bound_port, metrics, cache })
     }
 
     fn new_request(body: &str) -> Request<Body> {
@@ -786,7 +877,9 @@ mod e2e_tests {
         let client = reqwest::Client::new();
         let (hit_sender, _) = crossbeam_channel::unbounded();
         let bound_port = Arc::new(std::sync::Mutex::new(51820));
-        let state = Arc::new(AppState { config, client, hit_sender, atr_engine: Some(test_engine()), bound_port });
+        let metrics = Arc::new(crate::metrics::MetricsCollector::new(1000));
+        let cache = Arc::new(std::sync::Mutex::new(crate::cache::ResponseCache::new(300, 1000)));
+        let state = Arc::new(AppState { config, client, hit_sender, atr_engine: Some(test_engine()), bound_port, metrics, cache });
         let app = router(state);
         let req = new_request(r#"{"model":"gpt-4","messages":[{"role":"user","content":"My key is sk-proj-abc123def456ghi789jkl012mno"}]}"#);
         let resp = app.oneshot(req).await.unwrap();
@@ -921,7 +1014,9 @@ mod e2e_tests {
         let atr_engine = Some(test_engine());
         let (hit_sender, _) = crossbeam_channel::unbounded();
         let bound_port = Arc::new(std::sync::Mutex::new(51820));
-        Arc::new(AppState { config, client, hit_sender, atr_engine, bound_port })
+        let metrics = Arc::new(crate::metrics::MetricsCollector::new(1000));
+        let cache = Arc::new(std::sync::Mutex::new(crate::cache::ResponseCache::new(300, 1000)));
+        Arc::new(AppState { config, client, hit_sender, atr_engine, bound_port, metrics, cache })
     }
 
     fn read_pwd_image_base64() -> Option<String> {

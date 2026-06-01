@@ -5,8 +5,8 @@ use serde_json;
 
 use crate::portal::grpc::agent::{
     agent_controller_server::AgentController, HeartbeatRequest, HeartbeatResponse,
-    LogAckResponse, LogBatch, PolicyRequest, PolicyResponse, RegisterRequest, RegisterResponse,
-    PolicyEnforcement,
+    LogAckResponse, LogBatch, MetricsAckResponse, MetricsBatch, PolicyRequest, PolicyResponse,
+    RegisterRequest, RegisterResponse, PolicyEnforcement,
 };
 use crate::portal::mtls::MtlsStore;
 
@@ -282,5 +282,60 @@ impl AgentController for AgentControllerImpl {
             latest_policy_version: env!("CARGO_PKG_VERSION").to_string(),
             agent_revoked: revoked,
         }))
+    }
+
+    async fn push_metrics(
+        &self,
+        request: Request<MetricsBatch>,
+    ) -> Result<Response<MetricsAckResponse>, Status> {
+        let batch = request.into_inner();
+
+        let org_id = sqlx::query_as::<_, (Uuid,)>(
+            "SELECT org_id FROM agents WHERE uuid = $1",
+        )
+        .bind(&batch.agent_uuid)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| Status::internal(e.to_string()))?
+        .ok_or_else(|| Status::not_found("Agent not found"))?
+        .0;
+
+        for m in batch.metrics.iter() {
+            sqlx::query(
+                r#"INSERT INTO agent_request_metrics 
+               (org_id, agent_uuid, timestamp_ms, session_id, model_requested, model_used,
+                prompt_tokens, completion_tokens, total_tokens,
+                total_latency_ms, detection_latency_ms, upstream_latency_ms,
+                was_cached, was_blocked, was_redacted, upstream_status)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)"#,
+            )
+            .bind(org_id)
+            .bind(&batch.agent_uuid)
+            .bind(m.timestamp_ms)
+            .bind(&m.session_id)
+            .bind(&m.model_requested)
+            .bind(&m.model_used)
+            .bind(m.prompt_tokens.map(|v| v as i64))
+            .bind(m.completion_tokens.map(|v| v as i64))
+            .bind(m.total_tokens.map(|v| v as i64))
+            .bind(m.total_latency_ms as i64)
+            .bind(m.detection_latency_ms as i64)
+            .bind(m.upstream_latency_ms as i64)
+            .bind(m.was_cached)
+            .bind(m.was_blocked)
+            .bind(m.was_redacted)
+            .bind(m.upstream_status as i32)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
+        }
+
+        sqlx::query("UPDATE agents SET last_seen = NOW(), status = 'online' WHERE uuid = $1")
+            .bind(&batch.agent_uuid)
+            .execute(&self.pool)
+            .await
+            .ok();
+
+        Ok(Response::new(MetricsAckResponse { success: true }))
     }
 }

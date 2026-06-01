@@ -14,6 +14,10 @@ mod ui;
 mod audit;
 #[cfg(feature = "agent")]
 mod discovery;
+#[cfg(any(feature = "agent", feature = "enterprise"))]
+mod metrics;
+#[cfg(feature = "agent")]
+mod cache;
 #[cfg(feature = "enterprise")]
 mod grpc;
 #[cfg(feature = "gui")]
@@ -146,7 +150,7 @@ fn run_agent() {
                 se.run().await;
             });
             
-            run_backend(ui_proxy_clone, hit_sender, config_lock_backend, bound_port_backend).await;
+            run_backend(ui_proxy_clone, hit_sender, config_lock_backend, bound_port_backend, sync_engine).await;
         });
     });
 
@@ -479,6 +483,7 @@ fn run_portal() {
             .nest("/", crate::portal::handlers::groups::routes())
             .nest("/", crate::portal::handlers::onboarding::routes())
             .nest("/", crate::portal::handlers::organization::routes())
+            .nest("/", crate::portal::handlers::metrics::routes())
             .layer(CorsLayer::new()
                 .allow_origin(allowed_origin.parse::<axum::http::HeaderValue>().unwrap_or_else(|_| {
                     axum::http::HeaderValue::from_str("http://localhost:5173").unwrap()
@@ -510,15 +515,21 @@ pub async fn run_backend(
     hit_sender: crossbeam_channel::Sender<UiEvent>,
     config_lock: Arc<RwLock<config::AppConfig>>,
     bound_port: Arc<Mutex<u16>>,
+    sync_engine: Arc<crate::sync::SyncEngine>,
 ) {
     let client = reqwest::Client::new();
     let atr_engine = Some(crate::detector::load_atr_engine());
+    let metrics = Arc::new(crate::metrics::MetricsCollector::new(1000));
+    let cache = Arc::new(std::sync::Mutex::new(crate::cache::ResponseCache::new(300, 1000)));
+    sync_engine.set_metrics_collector(metrics.clone());
     let state = Arc::new(AppState {
         config: config_lock.clone(),
         client,
         hit_sender,
         atr_engine,
         bound_port: bound_port.clone(),
+        metrics,
+        cache,
     });
 
     let app = proxy::router(state.clone());

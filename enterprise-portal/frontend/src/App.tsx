@@ -17,6 +17,7 @@ import {
   Eye,
   EyeOff,
   Brain,
+  BarChart,
 } from 'lucide-react'
 import { setAuthToken, clearAuth, setOnLogout } from '@/api/client'
 import Login from '@/pages/Login'
@@ -28,6 +29,7 @@ import AuditLogs from '@/pages/AuditLogs'
 import Compliance from '@/pages/Compliance'
 import SettingsPage from '@/pages/Settings'
 import LLMLandscape from '@/pages/LLMLandscape'
+import Usage from '@/pages/Usage'
 import GetStarted from '@/pages/GetStarted'
 import PolicyEditor from '@/pages/PolicyEditor'
 import ToastContainer from '@/components/Toast'
@@ -37,6 +39,7 @@ const sidebarNav = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/agents', label: 'Agents', icon: Radio },
   { to: '/llm-landscape', label: 'LLM Landscape', icon: Brain },
+  { to: '/usage', label: 'Usage', icon: BarChart },
   { to: '/policies', label: 'Policies', icon: Shield },
   { to: '/audit-logs', label: 'Audit Logs', icon: FileText },
   { to: '/compliance', label: 'Compliance', icon: ClipboardCheck },
@@ -211,6 +214,7 @@ function AuthenticatedLayout() {
             <Route path="/agents" element={<Agents />} />
             <Route path="/agents/:uuid" element={<AgentDetail />} />
             <Route path="/llm-landscape" element={<LLMLandscape />} />
+            <Route path="/usage" element={<Usage />} />
             <Route path="/policies" element={<Policies />} />
             <Route path="/audit-logs" element={<AuditLogs />} />
             <Route path="/compliance" element={<Compliance />} />

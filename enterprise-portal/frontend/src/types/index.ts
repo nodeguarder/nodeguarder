@@ -197,3 +197,63 @@ export interface LandscapeReport {
   hostname: string
   report: EnvironmentReport
 }
+
+export interface RequestMetric {
+  id: number
+  agent_uuid: string
+  timestamp_ms: number
+  model_requested: string
+  model_used: string
+  prompt_tokens: number | null
+  completion_tokens: number | null
+  total_tokens: number | null
+  total_latency_ms: number
+  detection_latency_ms: number
+  upstream_latency_ms: number
+  was_cached: boolean
+  was_blocked: boolean
+  was_redacted: boolean
+  upstream_status: number
+}
+
+export interface MetricsSummary {
+  total_requests: number
+  cached_requests: number
+  blocked_requests: number
+  redacted_requests: number
+  avg_total_latency_ms: number
+  avg_detection_latency_ms: number
+  avg_upstream_latency_ms: number
+  total_prompt_tokens: number
+  total_completion_tokens: number
+  estimated_cost_usd: number
+  unique_agents: number
+  unique_models: number
+}
+
+export interface PerModelMetric {
+  model: string
+  request_count: number
+  total_prompt_tokens: number
+  total_completion_tokens: number
+  avg_latency_ms: number
+  cached_count: number
+  estimated_cost_usd: number
+}
+
+export interface DailyMetric {
+  date: string
+  request_count: number
+  cached_count: number
+  total_prompt_tokens: number
+  total_completion_tokens: number
+  estimated_cost_usd: number
+}
+
+export interface PerAgentMetric {
+  agent_uuid: string
+  request_count: number
+  total_tokens: number
+  avg_latency_ms: number
+  cached_count: number
+}

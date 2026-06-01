@@ -1,5 +1,5 @@
 import { API_BASE } from '@/lib/utils'
-import type { LoginResponse, DashboardSummary, Agent, Policy, AuditLog, EnrollmentCode, User, EnvironmentReport, LLMLandscape, LandscapeReport, ConfigSuggestion, ComplianceReport, ComplianceSummary, AgentGroup, OnboardingStatus } from '@/types'
+import type { LoginResponse, DashboardSummary, Agent, Policy, AuditLog, EnrollmentCode, User, EnvironmentReport, LLMLandscape, LandscapeReport, ConfigSuggestion, ComplianceReport, ComplianceSummary, AgentGroup, OnboardingStatus, MetricsSummary, PerModelMetric, DailyMetric, PerAgentMetric, RequestMetric } from '@/types'
 
 let token: string | null = localStorage.getItem('token')
 let onLogout: (() => void) | null = null
@@ -269,4 +269,28 @@ export function setDisconnectPassword(password: string): Promise<void> {
 
 export function clearDisconnectPassword(): Promise<void> {
   return request('/organization/disconnect-password', { method: 'DELETE' })
+}
+
+export function getAgentMetrics(uuid: string, params?: { limit?: number; offset?: number }): Promise<{ metrics: RequestMetric[]; total: number }> {
+  const qs = new URLSearchParams()
+  if (params?.limit) qs.set('limit', String(params.limit))
+  if (params?.offset) qs.set('offset', String(params.offset))
+  const q = qs.toString()
+  return request(`/agents/${uuid}/metrics${q ? '?' + q : ''}`)
+}
+
+export function getMetricsSummary(): Promise<MetricsSummary> {
+  return request('/organization/metrics/summary')
+}
+
+export function getMetricsPerModel(): Promise<PerModelMetric[]> {
+  return request('/organization/metrics/per-model')
+}
+
+export function getMetricsDaily(): Promise<DailyMetric[]> {
+  return request('/organization/metrics/daily')
+}
+
+export function getMetricsPerAgent(): Promise<PerAgentMetric[]> {
+  return request('/organization/metrics/per-agent')
 }

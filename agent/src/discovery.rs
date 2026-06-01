@@ -114,12 +114,16 @@ const LLM_PORTS: &[(u16, &str, &str)] = &[
     (1337, "jan", "Jan.ai"),
     (3000, "localai", "LocalAI"),
     (9090, "openai_api_proxy", "OpenAI API Proxy"),
+    (4000, "litellm", "LiteLLM Proxy"),
+    (8008, "tabby", "Tabby"),
+    (8787, "portkey", "Portkey Gateway"),
 ];
 
 /// Known IDE config file paths (relative to user home)
 const IDE_CONFIG_PATHS: &[(&str, &str, &str, &str)] = &[
     // (ide_type, config_subpath, proxy_setting_key, copilot_key)
     ("vscode", r"AppData\Roaming\Code\User\settings.json", "http.proxy", "github.copilot.enabled"),
+    ("vscodium", r"AppData\Roaming\VSCodium\User\settings.json", "http.proxy", "github.copilot.enabled"),
     ("cursor", r"AppData\Roaming\Cursor\User\settings.json", "http.proxy", "github.copilot.enabled"),
     ("windsurf", r"AppData\Roaming\Windsurf\User\settings.json", "http.proxy", "github.copilot.enabled"),
 ];
@@ -138,6 +142,11 @@ const LLM_ENV_VARS: &[&str] = &[
     "MISTRAL_API_KEY",
     "DEEPSEEK_API_KEY",
     "GROQ_API_KEY",
+    "OPENROUTER_API_KEY",
+    "XAI_API_KEY",
+    "PERPLEXITY_API_KEY",
+    "AI21_API_KEY",
+    "FIREWORKS_API_KEY",
 ];
 
 /// Scan a port on localhost to see if something is listening
@@ -147,6 +156,17 @@ fn scan_port(port: u16) -> bool {
         Err(_) => return false,
     };
     TcpStream::connect_timeout(&addr, Duration::from_millis(300)).is_ok()
+}
+
+/// Check if a port is serving HTTP (not just a raw TCP listener like Docker relay)
+async fn is_http_server(base_url: &str) -> bool {
+    match reqwest::Client::builder()
+        .timeout(Duration::from_secs(1))
+        .build()
+    {
+        Ok(client) => client.get(base_url).send().await.is_ok(),
+        Err(_) => false,
+    }
 }
 
 /// Try to fetch models from an OpenAI-compatible endpoint
@@ -211,6 +231,12 @@ async fn detect_endpoints() -> Vec<DetectedEndpoint> {
     for &(port, service_type, name) in LLM_PORTS {
         if scan_port(port) {
             let base_url = format!("http://127.0.0.1:{}", port);
+
+            // Verify this is actually an HTTP server (not Docker relay, system service, etc.)
+            if !is_http_server(&base_url).await {
+                continue;
+            }
+
             let models = fetch_models(&base_url).await;
 
             let mut metadata = HashMap::new();
@@ -326,6 +352,28 @@ fn detect_ides() -> Vec<DetectedIde> {
                     is_running: false,
                 });
             }
+        }
+    }
+
+    // Check for Zed editor config
+    let zed_path = format!(r"{}\AppData\Roaming\Zed\settings.json", home);
+    let zed_config = std::path::Path::new(&zed_path);
+    if zed_config.exists() {
+        if let Some(settings) = read_vscode_settings(zed_config) {
+            let proxy = settings.get("assistant")
+                .and_then(|a| a.get("openai_base_url"))
+                .and_then(|v| v.as_str())
+                .or_else(|| settings.get("openai_base_url").and_then(|v| v.as_str()))
+                .or_else(|| settings.get("base_url").and_then(|v| v.as_str()))
+                .map(|s| format!("apiBase: {}", s));
+
+            ides.push(DetectedIde {
+                ide_type: "zed".to_string(),
+                config_path: zed_config.to_string_lossy().to_string(),
+                copilot_enabled: None,
+                proxy_settings: proxy,
+                is_running: false,
+            });
         }
     }
 

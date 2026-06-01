@@ -164,7 +164,7 @@ function UsersTab() {
       setCreateForm({ email: '', password: '', display_name: '', role: 'SECURITYOPS' })
       fetchUsers()
     } catch (err: any) {
-      alert(err.message)
+      showToast(err.message, 'error')
     } finally {
       setSaving(false)
     }
@@ -176,7 +176,7 @@ function UsersTab() {
       setDeleteConfirm(null)
       fetchUsers()
     } catch (err: any) {
-      alert(err.message)
+      showToast(err.message, 'error')
     }
   }
 
@@ -187,7 +187,7 @@ function UsersTab() {
       setEditingRole(null)
       fetchUsers()
     } catch (err: any) {
-      alert(err.message)
+      showToast(err.message, 'error')
     } finally {
       setSavingRole(false)
     }

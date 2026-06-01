@@ -666,12 +666,11 @@ pub fn verify_semantics_with_model(text: &str, category: &str) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
+    use crate::config;
 
-    // ── Helpers ─────────────────────────────────────────────────────
-
-    fn test_engine() -> AtEngine {
+    pub(crate) fn test_engine() -> AtEngine {
         let json = r#"[
             {
             "id": "TEST-001",
@@ -902,6 +901,7 @@ mod tests {
             disable_atr_auto_update: false,
             upstream_api_key: None,
             disconnect_password_hash: None,
+            auto_start: true,
         };
         let config = DetectionConfig::from_config(&app_config);
         assert!(!config.detect_api_keys);

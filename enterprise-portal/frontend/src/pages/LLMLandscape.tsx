@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Radio, Monitor, Server, Globe, Key, AlertTriangle, CheckCircle,
   ChevronDown, ChevronRight, Brain, Lightbulb, Search, Plus, ArrowRight,
-  Code, Layers, Terminal,
+  Code, Layers, Terminal, BarChart,
 } from 'lucide-react'
 import { getEnvironmentLandscape, getEnvironmentSuggestions } from '@/api/client'
 import { showToast } from '@/components/Toast'
@@ -25,6 +25,7 @@ const TABS = [
   { id: 'endpoints', label: 'Endpoints', icon: Layers },
   { id: 'environment', label: 'Environment', icon: Key },
   { id: 'ides', label: 'IDEs', icon: Code },
+  { id: 'usage', label: 'Usage', icon: BarChart },
   { id: 'suggestions', label: 'Suggestions', icon: Lightbulb },
 ] as const
 
@@ -309,6 +310,18 @@ export default function LLMLandscape() {
 
               {activeTab === 'ides' && (
                 <IdesTab ides={allIdes} />
+              )}
+
+              {activeTab === 'usage' && (
+                <div>
+                  <p className="text-sm text-portal-text-muted mb-4">Usage data for your LLM landscape</p>
+                  <div className="bg-portal-bg rounded-lg p-4">
+                    <p className="text-xs text-portal-text-muted">
+                      Per-agent usage metrics are available on each agent's detail page. 
+                      Organization-wide usage analytics are available on the Usage page.
+                    </p>
+                  </div>
+                </div>
               )}
 
               {activeTab === 'suggestions' && (

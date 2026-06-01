@@ -7,6 +7,7 @@ pub mod enrollment_codes;
 pub mod environment;
 pub mod groups;
 pub mod health;
+pub mod metrics;
 pub mod onboarding;
 pub mod organization;
 pub mod policies;

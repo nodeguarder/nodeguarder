@@ -5,12 +5,14 @@ use tokio::time::sleep;
 use tracing::{info, warn};
 use crate::config::{AppConfig, save_config};
 #[cfg(feature = "enterprise")]
-use crate::grpc::{AgentControllerClient, RegisterRequest, PolicyRequest, LogBatch, AuditLogEntry, HeartbeatRequest};
+use crate::grpc::{AgentControllerClient, RegisterRequest, PolicyRequest, LogBatch, AuditLogEntry, HeartbeatRequest, MetricsBatch};
 #[cfg(feature = "enterprise")]
 use crate::crypto::generate_identity_key;
 #[cfg(feature = "enterprise")]
 use crate::audit;
 use crate::ui::events::UiEvent;
+#[cfg(feature = "enterprise")]
+use crate::metrics::MetricsCollector;
 use tao::event_loop::EventLoopProxy;
 use serde_json::json;
 #[cfg(feature = "enterprise")]
@@ -20,6 +22,8 @@ pub struct SyncEngine {
     config: Arc<RwLock<AppConfig>>,
     ui_proxy: EventLoopProxy<UiEvent>,
     connected: AtomicBool,
+    #[cfg(feature = "enterprise")]
+    metrics_collector: Arc<std::sync::Mutex<Option<Arc<MetricsCollector>>>>,
 }
 
 impl SyncEngine {
@@ -28,7 +32,22 @@ impl SyncEngine {
     }
 
     pub fn new(config: Arc<RwLock<AppConfig>>, ui_proxy: EventLoopProxy<UiEvent>) -> Self {
-        Self { config, ui_proxy, connected: AtomicBool::new(false) }
+        Self {
+            config,
+            ui_proxy,
+            connected: AtomicBool::new(false),
+            #[cfg(feature = "enterprise")]
+            metrics_collector: Arc::new(std::sync::Mutex::new(None)),
+        }
+    }
+
+    #[cfg(feature = "enterprise")]
+    pub fn set_metrics_collector(&self, collector: Arc<MetricsCollector>) {
+        *self.metrics_collector.lock().unwrap() = Some(collector);
+    }
+
+    #[cfg(not(feature = "enterprise"))]
+    pub fn set_metrics_collector(&self, _collector: Arc<MetricsCollector>) {
     }
 
     pub async fn run(&self) {
@@ -270,6 +289,44 @@ impl SyncEngine {
                 });
                 let _ = client.push_logs(log_batch).await?;
                 info!("Uploaded log batch to Admin Platform.");
+            }
+
+            // Push Metrics
+            let drained = {
+                self.metrics_collector.lock().unwrap().as_ref().map(|c| c.drain())
+            };
+            if let Some(metrics) = drained {
+                if !metrics.is_empty() {
+                    let proto_metrics: Vec<crate::grpc::RequestMetric> = metrics.iter().map(|m| {
+                        crate::grpc::RequestMetric {
+                            timestamp_ms: m.timestamp_ms,
+                            session_id: m.session_id.clone(),
+                            model_requested: m.model_requested.clone(),
+                            model_used: m.model_used.clone(),
+                            prompt_tokens: m.prompt_tokens.map(|v| v as u64),
+                            completion_tokens: m.completion_tokens.map(|v| v as u64),
+                            total_tokens: m.total_tokens.map(|v| v as u64),
+                            total_latency_ms: m.total_latency_ms as u64,
+                            detection_latency_ms: m.detection_latency_ms as u64,
+                            upstream_latency_ms: m.upstream_latency_ms as u64,
+                            was_cached: m.was_cached,
+                            was_blocked: m.was_blocked,
+                            was_redacted: m.was_redacted,
+                            upstream_status: m.upstream_status as u32,
+                        }
+                    }).collect();
+
+                    let metrics_batch = tonic::Request::new(MetricsBatch {
+                        agent_uuid: uuid.clone(),
+                        metrics: proto_metrics,
+                        timestamp_ms: chrono::Utc::now().timestamp_millis(),
+                    });
+                    if let Err(e) = client.push_metrics(metrics_batch).await {
+                        warn!("Failed to push metrics: {}", e.message());
+                    } else {
+                        info!("Pushed {} metrics to Admin Platform.", metrics.len());
+                    }
+                }
             }
 
             // Pull Policy

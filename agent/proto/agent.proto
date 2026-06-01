@@ -7,6 +7,7 @@ service AgentController {
   rpc PushLogs(LogBatch) returns (LogAckResponse);
   rpc GetPolicy(PolicyRequest) returns (PolicyResponse);
   rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  rpc PushMetrics(MetricsBatch) returns (MetricsAckResponse);
 }
 
 message RegisterRequest {
@@ -101,4 +102,31 @@ message HeartbeatResponse {
   bool policy_updated = 1;
   string latest_policy_version = 2;
   bool agent_revoked = 3;
+}
+
+message RequestMetric {
+  int64 timestamp_ms = 1;
+  string session_id = 2;
+  string model_requested = 3;
+  string model_used = 4;
+  optional uint64 prompt_tokens = 5;
+  optional uint64 completion_tokens = 6;
+  optional uint64 total_tokens = 7;
+  uint64 total_latency_ms = 8;
+  uint64 detection_latency_ms = 9;
+  uint64 upstream_latency_ms = 10;
+  bool was_cached = 11;
+  bool was_blocked = 12;
+  bool was_redacted = 13;
+  uint32 upstream_status = 14;
+}
+
+message MetricsBatch {
+  string agent_uuid = 1;
+  repeated RequestMetric metrics = 2;
+  int64 timestamp_ms = 3;
+}
+
+message MetricsAckResponse {
+  bool success = 1;
 }

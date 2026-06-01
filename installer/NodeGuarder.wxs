@@ -124,6 +124,19 @@
             ]]>
         </CustomAction>
 
+        <CustomAction Id="KillAgentDeferred2"
+                       Script="vbscript"
+                       Execute="deferred"
+                       Impersonate="no"
+                       Return="ignore">
+            <![CDATA[
+                On Error Resume Next
+                Dim shell
+                Set shell = CreateObject("WScript.Shell")
+                shell.Run "taskkill /f /im nodeguarder-agent.exe", 0, True
+            ]]>
+        </CustomAction>
+
         <CustomAction Id="RemoveAppData"
                        Script="vbscript"
                        Execute="immediate"
@@ -141,7 +154,7 @@
         <InstallExecuteSequence>
             <Custom Action="KillAgentInstall" Before="InstallValidate">NOT Installed OR UPGRADINGPRODUCTCODE</Custom>
             <Custom Action="KillAgentDeferred" Before="InstallFiles">REMOVE="ALL" OR UPGRADINGPRODUCTCODE</Custom>
-            <Custom Action="KillAgentDeferred" Before="RemoveFiles">REMOVE="ALL"</Custom>
+            <Custom Action="KillAgentDeferred2" Before="RemoveFiles">REMOVE="ALL"</Custom>
             <Custom Action="RemoveAppData" After="InstallValidate">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE</Custom>
             <Custom Action="LaunchAgent" After="InstallFinalize" />
         </InstallExecuteSequence>

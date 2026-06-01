@@ -75,10 +75,12 @@ impl ResponseCache {
         });
     }
 
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.store.len()
     }
 
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.store.clear();
     }

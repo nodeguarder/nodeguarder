@@ -39,7 +39,6 @@ pub struct MetricRow {
 pub struct MetricsQuery {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
-    pub since: Option<i64>,
 }
 
 #[derive(Serialize)]

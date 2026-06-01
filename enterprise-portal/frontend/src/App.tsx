@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { version } from '../package.json'
 import {
   LayoutDashboard,
   Radio,
@@ -99,7 +100,7 @@ function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => 
       <div className={`p-4 border-t border-portal-border ${collapsed ? 'flex justify-center' : ''}`}>
         <div className="flex items-center gap-2 text-portal-text-muted text-xs">
           <Activity className="w-3.5 h-3.5" />
-          {!collapsed && <span>v1.0.0</span>}
+          {!collapsed && <span>v{version}</span>}
         </div>
       </div>
     </aside>

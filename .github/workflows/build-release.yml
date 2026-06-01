@@ -60,7 +60,7 @@ jobs:
           echo "MSI_PATH=${{ runner.temp }}\msi" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Upload MSI as artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: NodeGuarder-Setup
           path: ${{ runner.temp }}\msi\*.msi
@@ -98,7 +98,7 @@ jobs:
           cd portal-bundle && zip -r ../ng-portal-bundle-$VERSION.zip .
 
       - name: Upload bundle as artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: Portal-Bundle
           path: ng-portal-bundle-*.zip
@@ -116,13 +116,13 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Download MSI artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: NodeGuarder-Setup
           path: artifacts
 
       - name: Download Docker artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: Portal-Bundle
           path: artifacts

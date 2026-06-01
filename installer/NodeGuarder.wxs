@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
-     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
     <Product Id="*"
              Name="NodeGuarder"
              Language="1033"
@@ -99,30 +98,37 @@
             </Directory>
         </Directory>
 
-        <util:CloseApplication Id="CloseAgent"
-                               Target="nodeguarder-agent.exe"
-                               CloseMessage="no"
-                               RebootPrompt="no" />
+        <CustomAction Id="KillAgentInstall"
+                       Script="vbscript"
+                       Execute="immediate"
+                       Impersonate="no"
+                       Return="ignore">
+            <![CDATA[
+                On Error Resume Next
+                Dim shell
+                Set shell = CreateObject("WScript.Shell")
+                shell.Run "taskkill /f /im nodeguarder-agent.exe", 0, True
+            ]]>
+        </CustomAction>
 
         <CustomAction Id="KillAgentDeferred"
-                      Directory="INSTALLDIR"
-                      ExeCommand="taskkill /f /im nodeguarder-agent.exe"
-                      Execute="deferred"
-                      Impersonate="no"
-                      Return="ignore" />
-
-        <CustomAction Id="KillAgentInstall"
-                      Directory="INSTALLDIR"
-                      ExeCommand="taskkill /f /im nodeguarder-agent.exe"
-                      Execute="immediate"
-                      Impersonate="no"
-                      Return="ignore" />
+                       Script="vbscript"
+                       Execute="deferred"
+                       Impersonate="no"
+                       Return="ignore">
+            <![CDATA[
+                On Error Resume Next
+                Dim shell
+                Set shell = CreateObject("WScript.Shell")
+                shell.Run "taskkill /f /im nodeguarder-agent.exe", 0, True
+            ]]>
+        </CustomAction>
 
         <CustomAction Id="RemoveAppData"
-                      Script="vbscript"
-                      Execute="immediate"
-                      Impersonate="yes"
-                      Return="ignore">
+                       Script="vbscript"
+                       Execute="immediate"
+                       Impersonate="yes"
+                       Return="ignore">
             <![CDATA[
                 On Error Resume Next
                 Dim shell, appdata
@@ -133,14 +139,14 @@
         </CustomAction>
 
         <CustomAction Id="LaunchAgent"
-                      Directory="INSTALLDIR"
-                      ExeCommand="[#MainExe]"
-                      Execute="immediate"
-                      Return="asyncNoWait" />
+                       Directory="INSTALLDIR"
+                       ExeCommand="[#MainExe]"
+                       Execute="immediate"
+                       Return="asyncNoWait" />
 
         <InstallExecuteSequence>
             <Custom Action="KillAgentInstall" Before="InstallValidate">NOT Installed OR UPGRADINGPRODUCTCODE</Custom>
-            <Custom Action="KillAgentDeferred" Before="RemoveFiles">REMOVE="ALL"</Custom>
+            <Custom Action="KillAgentDeferred" Before="InstallFiles">REMOVE="ALL" OR UPGRADINGPRODUCTCODE</Custom>
             <Custom Action="RemoveAppData" After="InstallValidate">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE</Custom>
             <Custom Action="LaunchAgent" After="InstallFinalize" />
         </InstallExecuteSequence>

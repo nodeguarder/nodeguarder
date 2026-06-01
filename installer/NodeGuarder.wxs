@@ -30,6 +30,7 @@
         <Property Id="ARPPRODUCTICON" Value="AppIcon" />
         <Property Id="ARPHELPLINK" Value="https://nodeguarder.com" />
         <Property Id="ARPNOREPAIR" Value="yes" />
+        <Property Id="MSIRESTARTMANAGERCONTROL" Value="Disable" />
 
         <Directory Id="TARGETDIR" Name="SourceDir">
             <Directory Id="ProgramFiles64Folder">
@@ -101,7 +102,6 @@
         <CustomAction Id="KillAgentInstall"
                        Script="vbscript"
                        Execute="immediate"
-                       Impersonate="no"
                        Return="ignore">
             <![CDATA[
                 On Error Resume Next
@@ -129,13 +129,7 @@
                        Execute="immediate"
                        Impersonate="yes"
                        Return="ignore">
-            <![CDATA[
-                On Error Resume Next
-                Dim shell, appdata
-                Set shell = CreateObject("WScript.Shell")
-                appdata = shell.ExpandEnvironmentStrings("%APPDATA%")
-                shell.Run "cmd.exe /C rmdir /s /q """ & appdata & "\NodeGuarder""", 0, True
-            ]]>
+            <![CDATA[On Error Resume Next:Dim s,a:Set s=CreateObject("WScript.Shell"):a=s.ExpandEnvironmentStrings("%APPDATA%"):s.Run "cmd.exe /C rmdir /s /q """&a&"\NodeGuarder""",0,True]]>
         </CustomAction>
 
         <CustomAction Id="LaunchAgent"
@@ -147,6 +141,7 @@
         <InstallExecuteSequence>
             <Custom Action="KillAgentInstall" Before="InstallValidate">NOT Installed OR UPGRADINGPRODUCTCODE</Custom>
             <Custom Action="KillAgentDeferred" Before="InstallFiles">REMOVE="ALL" OR UPGRADINGPRODUCTCODE</Custom>
+            <Custom Action="KillAgentDeferred" Before="RemoveFiles">REMOVE="ALL"</Custom>
             <Custom Action="RemoveAppData" After="InstallValidate">REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE</Custom>
             <Custom Action="LaunchAgent" After="InstallFinalize" />
         </InstallExecuteSequence>

@@ -40,6 +40,8 @@ message AuditLogEntry {
   string detection_method = 6;
   bool timeout_triggered = 7;
   bool policy_enforced = 8;
+  string session_id = 9;
+  string user_name = 10;
 }
 
 message LogAckResponse {

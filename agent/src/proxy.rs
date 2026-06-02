@@ -27,6 +27,7 @@ use async_stream::stream;
 use serde_json::{Value, json};
 use base64::Engine;
 use uuid::Uuid;
+use whoami;
 
 pub struct AppState {
     pub config: Arc<RwLock<AppConfig>>,
@@ -188,11 +189,15 @@ pub async fn chat_completions_handler(
     if is_user_initiated {
     if let Some(messages) = payload.get_mut("messages").and_then(|m| m.as_array_mut()) {
         let enable_ocr = state.config.read().unwrap().enable_ocr;
-        for msg in messages.iter_mut() {
+        let last_user_idx = messages.iter().rposition(|m|
+            m.get("role").and_then(|r| r.as_str()) == Some("user")
+        );
+        if let Some(idx) = last_user_idx {
+            let msg = &mut messages[idx];
             let extracted = extract_text_from_content(msg.get("content").unwrap_or(&Value::Null), enable_ocr).await;
-            if extracted.is_empty() { continue; }
-            let check = scan_and_redact(&extracted, &allowlists_regex, &detection_config, state.atr_engine.as_ref());
-            if check.flagged {
+            if !extracted.is_empty() {
+                let check = scan_and_redact(&extracted, &allowlists_regex, &detection_config, state.atr_engine.as_ref());
+                if check.flagged {
                 let enforce = state.config.read().unwrap().enforce_redaction;
                 let (tx, rx) = oneshot::channel();
                 let has_attachment = message_has_attachment(msg.get("content").unwrap_or(&Value::Null));
@@ -217,6 +222,7 @@ pub async fn chat_completions_handler(
                                 severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
                                 detection_method: check.detection_method.clone(),
                                 session_id: session_id.clone(),
+                                user_name: whoami::username().unwrap_or_default(),
                             });
                         }
                         crate::ui::events::InterventionDecision::Block => {
@@ -230,6 +236,24 @@ pub async fn chat_completions_handler(
                                 severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
                                 detection_method: check.detection_method.clone(),
                                 session_id: session_id.clone(),
+                                user_name: whoami::username().unwrap_or_default(),
+                            });
+                            let block_latency = t0.elapsed();
+                            state.metrics.push(RequestMetric {
+                                timestamp_ms: chrono::Utc::now().timestamp_millis(),
+                                session_id: session_id.clone(),
+                                model_requested: model.clone(),
+                                model_used: model.clone(),
+                                prompt_tokens: Some(0),
+                                completion_tokens: Some(0),
+                                total_tokens: Some(0),
+                                total_latency_ms: block_latency.as_millis() as u64,
+                                detection_latency_ms: block_latency.as_millis() as u64,
+                                upstream_latency_ms: 0,
+                                was_cached: false,
+                                was_blocked: true,
+                                was_redacted: false,
+                                upstream_status: 0,
                             });
                             return (StatusCode::FORBIDDEN, "Request blocked by user").into_response();
                         }
@@ -244,14 +268,12 @@ pub async fn chat_completions_handler(
                                 severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
                                 detection_method: check.detection_method.clone(),
                                 session_id: session_id.clone(),
+                                user_name: whoami::username().unwrap_or_default(),
                             });
                             replace_content(msg, &check.scrubbed_text);
                         }
                     }
-                    continue;
-                }
-
-                if state.hit_sender.send(UiEvent::TriggerHitModal(hit)).is_ok() {
+                } else if state.hit_sender.send(UiEvent::TriggerHitModal(hit)).is_ok() {
                     match timeout(Duration::from_secs(15), rx).await {
                         Ok(Ok(InterventionDecision::Allow)) => {
                             let uuid = state.config.read().unwrap().uuid.clone();
@@ -264,6 +286,7 @@ pub async fn chat_completions_handler(
                                 severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
                                 detection_method: check.detection_method.clone(),
                                 session_id: session_id.clone(),
+                                user_name: whoami::username().unwrap_or_default(),
                             });
                         }
                         Ok(Ok(InterventionDecision::Block)) => {
@@ -277,6 +300,24 @@ pub async fn chat_completions_handler(
                                 severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
                                 detection_method: check.detection_method.clone(),
                                 session_id: session_id.clone(),
+                                user_name: whoami::username().unwrap_or_default(),
+                            });
+                            let block_latency = t0.elapsed();
+                            state.metrics.push(RequestMetric {
+                                timestamp_ms: chrono::Utc::now().timestamp_millis(),
+                                session_id: session_id.clone(),
+                                model_requested: model.clone(),
+                                model_used: model.clone(),
+                                prompt_tokens: Some(0),
+                                completion_tokens: Some(0),
+                                total_tokens: Some(0),
+                                total_latency_ms: block_latency.as_millis() as u64,
+                                detection_latency_ms: block_latency.as_millis() as u64,
+                                upstream_latency_ms: 0,
+                                was_cached: false,
+                                was_blocked: true,
+                                was_redacted: false,
+                                upstream_status: 0,
                             });
                             return (StatusCode::FORBIDDEN, "Request blocked by user").into_response();
                         }
@@ -291,6 +332,7 @@ pub async fn chat_completions_handler(
                                 severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
                                 detection_method: check.detection_method.clone(),
                                 session_id: session_id.clone(),
+                                user_name: whoami::username().unwrap_or_default(),
                             });
                             replace_content(msg, &check.scrubbed_text);
                         }
@@ -300,6 +342,7 @@ pub async fn chat_completions_handler(
                 }
             }
         }
+    }
     }
     }
 
@@ -378,6 +421,7 @@ pub async fn chat_completions_handler(
         let prompt_tokens = res_json.get("usage").and_then(|u| u.get("prompt_tokens")).and_then(|v| v.as_u64());
         let completion_tokens = res_json.get("usage").and_then(|u| u.get("completion_tokens")).and_then(|v| v.as_u64());
         
+        let mut response_redacted = false;
         if let Some(choices) = res_json.get_mut("choices").and_then(|c| c.as_array_mut()) {
             for choice in choices {
                 if let Some(content) = choice.get_mut("message").and_then(|m| m.get_mut("content")).and_then(|c| c.as_str()) {
@@ -385,6 +429,7 @@ pub async fn chat_completions_handler(
                     let check = scan_and_redact(content, &allowlists_regex, &detection_config, state.atr_engine.as_ref());
                     if check.flagged {
                         choice["message"]["content"] = json!(check.scrubbed_text);
+                        response_redacted = true;
                     }
                 }
             }
@@ -417,7 +462,7 @@ pub async fn chat_completions_handler(
             upstream_latency_ms: upstream_latency.as_millis() as u64,
             was_cached: false,
             was_blocked: false,
-            was_redacted: false,
+            was_redacted: response_redacted,
             upstream_status: status.as_u16(),
         });
 
@@ -427,6 +472,8 @@ pub async fn chat_completions_handler(
         let state_internal = state.clone();
         let completion_tokens = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
         let ct = completion_tokens.clone();
+        let was_stream_redacted = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let was_redacted_tracker = was_stream_redacted.clone();
         let t0_arc = std::sync::Arc::new(t0);
         let t0_for_stream = t0_arc.clone();
         let detection_latency_ms = detection_latency.as_millis() as u64;
@@ -469,6 +516,7 @@ pub async fn chat_completions_handler(
                                             let internal_detection_config = DetectionConfig::from_config(&state_internal.config.read().unwrap());
                                             let check = scan_and_redact(content, &internal_allowlist, &internal_detection_config, state_internal.atr_engine.as_ref());
                                             if check.flagged {
+                                                was_redacted_tracker.store(true, std::sync::atomic::Ordering::Relaxed);
                                                 let uuid = state_internal.config.read().unwrap().uuid.clone();
                                                 audit::log_event(audit::AuditLog {
                                                     timestamp: chrono::Utc::now().to_rfc3339(),
@@ -479,6 +527,7 @@ pub async fn chat_completions_handler(
                                                     severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
                                                     detection_method: check.detection_method.clone(),
                                                     session_id: session_id.clone(),
+                                                    user_name: whoami::username().unwrap_or_default(),
                                                 });
                                                 choice["delta"]["content"] = json!(check.scrubbed_text);
                                             }
@@ -512,7 +561,7 @@ pub async fn chat_completions_handler(
                 upstream_latency_ms: upstream_header_latency_ms,
                 was_cached: false,
                 was_blocked: false,
-                was_redacted: false,
+                was_redacted: was_stream_redacted.load(std::sync::atomic::Ordering::Relaxed),
                 upstream_status: 200,
             });
         };
@@ -591,6 +640,7 @@ pub async fn files_handler(
                                 severity: crate::detector::severity_for_type(Some(&det_type)).to_string(),
                                 detection_method: "REGEX".to_string(),
                                 session_id: session_id.clone(),
+                                user_name: whoami::username().unwrap_or_default(),
                         });
                         form = form.part("file", reqwest::multipart::Part::bytes(original_bytes)
                             .file_name(file_name)
@@ -606,6 +656,7 @@ pub async fn files_handler(
                                 severity: crate::detector::severity_for_type(Some(&det_type)).to_string(),
                                 detection_method: "REGEX".to_string(),
                                 session_id: session_id.clone(),
+                                user_name: whoami::username().unwrap_or_default(),
                         });
                         files_blocked = true;
                         block_reason = reason;

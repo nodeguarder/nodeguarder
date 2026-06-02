@@ -22,6 +22,8 @@ pub struct AuditLog {
     pub detection_method: String,
     #[serde(default)]
     pub session_id: String,
+    #[serde(default)]
+    pub user_name: String,
 }
 
 fn load_or_create_key() -> [u8; 32] {
@@ -55,6 +57,15 @@ fn load_or_create_key() -> [u8; 32] {
 fn cipher_from_key(key_bytes: &[u8]) -> Aes256Gcm {
     let key = aes_gcm::Key::<Aes256Gcm>::from_slice(key_bytes);
     Aes256Gcm::new(key)
+}
+
+pub fn clear_logs() {
+    let appdata = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
+    let mut log_dir = PathBuf::from(appdata);
+    log_dir.push("NodeGuarder");
+    log_dir.push("logs");
+    let log_path = log_dir.join("agent_audit.enc");
+    let _ = std::fs::remove_file(&log_path);
 }
 
 pub fn log_event(log: AuditLog) {

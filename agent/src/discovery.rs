@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::net::{TcpStream, SocketAddr};
 use std::time::Duration;
 use tracing::info;
@@ -225,10 +225,13 @@ async fn fetch_models(base_url: &str) -> Vec<String> {
 }
 
 /// Detect LLM endpoints by scanning well-known ports
-async fn detect_endpoints() -> Vec<DetectedEndpoint> {
+async fn detect_endpoints(proxy_port: u16) -> Vec<DetectedEndpoint> {
     let mut endpoints = Vec::new();
 
     for &(port, service_type, name) in LLM_PORTS {
+        if port == proxy_port {
+            continue;
+        }
         if scan_port(port) {
             let base_url = format!("http://127.0.0.1:{}", port);
 
@@ -238,6 +241,11 @@ async fn detect_endpoints() -> Vec<DetectedEndpoint> {
             }
 
             let models = fetch_models(&base_url).await;
+
+            // Port 3000 is the Portal API — skip unless it responds as an OpenAI-compatible LLM
+            if port == 3000 && models.is_empty() {
+                continue;
+            }
 
             let mut metadata = HashMap::new();
             metadata.insert("port".to_string(), port.to_string());
@@ -324,9 +332,16 @@ fn detect_ides() -> Vec<DetectedIde> {
         format!("{}/.continue/config.json", home),
     ];
 
+    let mut seen_continue_paths = HashSet::new();
+
     for path_str in continue_paths {
         let config_path = std::path::Path::new(&path_str);
         if config_path.exists() {
+            if let Ok(canon) = config_path.canonicalize() {
+                if !seen_continue_paths.insert(canon) {
+                    continue;
+                }
+            }
             if let Some(settings) = read_vscode_settings(config_path) {
                 let models = settings.get("models").and_then(|m| m.as_array());
                 let copilot_enabled = None;
@@ -551,7 +566,7 @@ fn build_suggestions(
 pub async fn compile_report(agent_uuid: &str, proxy_port: u16) -> EnvironmentReport {
     info!("Compiling LLM environment report...");
 
-    let endpoints = detect_endpoints().await;
+    let endpoints = detect_endpoints(proxy_port).await;
     let ides = detect_ides();
     let env_vars = detect_env_vars();
     let os = detect_os();

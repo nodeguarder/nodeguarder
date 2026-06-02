@@ -170,23 +170,24 @@ export default function Policies() {
                   {deployResult?.id === policy.id && (
                     <span className="text-[10px] text-portal-success flex items-center gap-1">
                       <Check className="w-3 h-3" />
-                      Deployed
+                      Activated
                     </span>
                   )}
                   <button
                     onClick={() => handleDeploy(policy.id)}
                     disabled={deploying === policy.id}
+                    title="Applied on next agent heartbeat (up to 30s)"
                     className="btn-ghost text-[10px] py-1 px-2.5 flex items-center gap-1"
                   >
                     {deploying === policy.id ? (
                       <>
                         <div className="w-3 h-3 border-2 border-portal-accent/30 border-t-portal-accent rounded-full animate-spin" />
-                        Deploying
+                        Activating
                       </>
                     ) : (
                       <>
                         <Upload className="w-3 h-3" />
-                        Deploy
+                        Activate
                       </>
                     )}
                   </button>

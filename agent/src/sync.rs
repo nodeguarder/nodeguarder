@@ -279,6 +279,8 @@ impl SyncEngine {
                 detection_method: l.detection_method.clone(),
                 timeout_triggered: false,
                 policy_enforced: true,
+                session_id: l.session_id.clone(),
+                user_name: l.user_name.clone(),
             }).collect();
 
             if !entries.is_empty() {
@@ -288,6 +290,7 @@ impl SyncEngine {
                     timestamp_ms: chrono::Utc::now().timestamp_millis(),
                 });
                 let _ = client.push_logs(log_batch).await?;
+                audit::clear_logs();
                 info!("Uploaded log batch to Admin Platform.");
             }
 
@@ -411,6 +414,7 @@ impl SyncEngine {
                         "enable_ocr": cfg.enable_ocr,
                         "upstream_url": cfg.upstream_url,
                         "disable_atr_auto_update": cfg.disable_atr_auto_update,
+                        "policy_version": policy.policy_version,
                     });
 
                     if enforcement.upstream_url_enforced {

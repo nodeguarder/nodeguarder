@@ -151,6 +151,7 @@ pub fn spawn_hit_modal(
             
             if (enforce) {{
                 document.getElementById('enforceBanner').style.display = 'block';
+                document.getElementById('btnAllow').style.display = 'none';
             }}
             if (!hasRedact) {{
                 document.getElementById('btnRedact').style.display = 'none';
@@ -705,6 +706,7 @@ pub fn spawn_settings_window(
                         </div>
                         <div class="label">Organization ID</div>
                         <div class="value-row"><span class="value" id="orgIdConnected">--</span></div>
+                        <div id="policyInfoConnected" style="margin-top: 15px;"></div>
                         <p style="font-size: 13px; color: var(--text-muted); margin-top: 15px;">Hardware identity and mTLS certificates are managed by the platform.</p>
                         <button class="action danger" onclick="disconnect()" style="margin-top: 20px;">REMOVE ENROLLMENT</button>
                     </div>
@@ -716,6 +718,7 @@ pub fn spawn_settings_window(
                         </div>
                         <div class="label">Organization ID</div>
                         <div class="value-row"><span class="value" id="orgIdDisconnected">--</span></div>
+                        <div id="policyInfoDisconnected" style="margin-top: 15px;"></div>
                         <p style="font-size: 13px; color: var(--text-muted); margin-top: 15px;">Connection to the Admin Platform is currently unavailable. The agent will automatically reconnect.</p>
                         <button class="action danger" onclick="disconnect()" style="margin-top: 20px;">REMOVE ENROLLMENT</button>
                     </div>
@@ -1130,11 +1133,31 @@ pub fn spawn_settings_window(
                         document.getElementById('enrolledDisconnectedStatus').style.display = 'block';
                         document.getElementById('orgIdDisconnected').innerText = config.orgId || '--';
                     }}
+                    renderPolicyInfo();
                 }} else {{
                     document.getElementById('enrolledConnectedStatus').style.display = 'none';
                     document.getElementById('enrolledDisconnectedStatus').style.display = 'none';
                     document.getElementById('localStatus').style.display = 'block';
                 }}
+            }}
+
+            function renderPolicyInfo() {{
+                var enforcements = [];
+                if (config.redactionEnforced) enforcements.push('Redaction');
+                if (config.upstreamUrlEnforced) enforcements.push('Upstream URL');
+                if (config.upstreamApiKeyEnforced) enforcements.push('Upstream API Key');
+                if (config.bindPortEnforced) enforcements.push('Bind Port');
+                if (config.ocrEnforced) enforcements.push('OCR');
+                if (config.atrAutoUpdateEnforced) enforcements.push('ATR Auto-Update');
+                var html = '<div class="label">Deployed Policy</div>' +
+                    '<div class="value-row"><span class="value">Version: ' + (config.policy_version || '—') + '</span></div>' +
+                    '<div style="margin-top:8px;"><span class="label">Enforcements:</span> ' +
+                    (enforcements.length > 0 ? enforcements.map(function(e) {{ return '<span class="badge badge-redact" style="margin:2px;">' + e + '</span>'; }}).join('') : '<span style="color:var(--text-muted);font-size:12px;">None</span>') +
+                    '</div>';
+                var connectedEl = document.getElementById('policyInfoConnected');
+                var disconnectedEl = document.getElementById('policyInfoDisconnected');
+                if (connectedEl) connectedEl.innerHTML = html;
+                if (disconnectedEl) disconnectedEl.innerHTML = html;
             }}
 
             function disableEl(id, disabled) {{

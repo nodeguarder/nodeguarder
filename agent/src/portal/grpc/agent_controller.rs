@@ -98,8 +98,8 @@ impl AgentController for AgentControllerImpl {
 
         for log in batch.logs.iter() {
             sqlx::query(
-                r#"INSERT INTO audit_logs (org_id, agent_uuid, content_type, severity, action_taken, detection_method, preview, flagged_at, session_id, timeout_triggered, policy_enforced)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9, $10, $11)"#,
+                r#"INSERT INTO audit_logs (org_id, agent_uuid, content_type, severity, action_taken, detection_method, preview, flagged_at, session_id, timeout_triggered, policy_enforced, user_name)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9, $10, $11, $12)"#,
             )
             .bind(org_id)
             .bind(&batch.agent_uuid)
@@ -109,9 +109,10 @@ impl AgentController for AgentControllerImpl {
             .bind(&log.detection_method)
             .bind(&log.preview)
             .bind(&log.timestamp)
-            .bind("")
+            .bind(&log.session_id)
             .bind(log.timeout_triggered)
             .bind(log.policy_enforced)
+            .bind(&log.user_name)
             .execute(&self.pool)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
@@ -153,11 +154,11 @@ impl AgentController for AgentControllerImpl {
         .map_err(|e| Status::internal(e.to_string()))?
         .unwrap_or(None);
 
-        let policy = sqlx::query_as::<_, (String, bool, Option<String>, Option<String>, Option<i32>, Option<bool>, Option<bool>, bool, Option<serde_json::Value>, Option<serde_json::Value>, Option<serde_json::Value>)>(
+        let policy_row = sqlx::query_as::<_, (String, bool, Option<String>, Option<String>, Option<i32>, Option<bool>, Option<bool>, bool, Option<serde_json::Value>, Option<serde_json::Value>, Option<serde_json::Value>, Uuid)>(
             r#"SELECT 
                 name, redaction_enforced, upstream_url, upstream_api_key, bind_port,
                 enable_ocr, disable_atr_auto_update, allow_custom_allowlists,
-                detection_overrides, custom_regex, allowlists
+                detection_overrides, custom_regex, allowlists, id
                FROM policies 
                WHERE org_id = $1 AND (
                    target_mode = 'all'
@@ -177,51 +178,63 @@ impl AgentController for AgentControllerImpl {
         .bind(&req.agent_uuid)
         .fetch_optional(&self.pool)
         .await
-        .map_err(|e| Status::internal(e.to_string()))?
-        .map(|p| {
-            let detection_categories: Vec<String> = p
-                .8
-                .and_then(|v| serde_json::from_value(v).ok())
-                .unwrap_or_default();
+        .map_err(|e| Status::internal(e.to_string()))?;
 
-            let custom_regex: Vec<String> = p
-                .9
-                .and_then(|v| serde_json::from_value(v).ok())
-                .unwrap_or_default();
+        let policy = match policy_row {
+            Some(p) => {
+                let detection_categories: Vec<String> = p
+                    .8
+                    .and_then(|v| serde_json::from_value(v).ok())
+                    .unwrap_or_default();
 
-            let allowlists: Vec<String> = p
-                .10
-                .and_then(|v| serde_json::from_value(v).ok())
-                .unwrap_or_default();
+                let custom_regex: Vec<String> = p
+                    .9
+                    .and_then(|v| serde_json::from_value(v).ok())
+                    .unwrap_or_default();
 
-            PolicyResponse {
-                policy_version: env!("CARGO_PKG_VERSION").to_string(),
-                enforcement: Some(PolicyEnforcement {
-                    redaction_enforced: p.1,
-                    upstream_url_enforced: p.2.is_some(),
-                    upstream_url: p.2.unwrap_or_default(),
-                    upstream_api_key_enforced: p.3.is_some(),
-                    upstream_api_key: p.3.unwrap_or_default(),
-                    bind_port_enforced: p.4.is_some(),
-                    bind_port: p.4.unwrap_or(0),
-                    ocr_enforced: p.5.is_some(),
-                    enable_ocr: p.5.unwrap_or(true),
-                    atr_auto_update_enforced: p.6.is_some(),
-                    disable_atr_auto_update: p.6.unwrap_or(false),
-                    allow_custom_allowlists: p.7,
-                    enabled_detection_categories: detection_categories,
-                    custom_regex,
-                    allowlists,
-                    disconnect_password_hash: disconnect_password_hash.unwrap_or_default(),
-                }),
-                signature: vec![],
+                let allowlists: Vec<String> = p
+                    .10
+                    .and_then(|v| serde_json::from_value(v).ok())
+                    .unwrap_or_default();
+
+                let policy_id = p.11;
+
+                // Update agents.policy_version so the portal displays the real deployed policy version
+                let _ = sqlx::query("UPDATE agents SET policy_version = $2 WHERE uuid = $1")
+                    .bind(&req.agent_uuid)
+                    .bind(policy_id.to_string())
+                    .execute(&self.pool)
+                    .await;
+
+                PolicyResponse {
+                    policy_version: policy_id.to_string(),
+                    enforcement: Some(PolicyEnforcement {
+                        redaction_enforced: p.1,
+                        upstream_url_enforced: p.2.is_some(),
+                        upstream_url: p.2.unwrap_or_default(),
+                        upstream_api_key_enforced: p.3.is_some(),
+                        upstream_api_key: p.3.unwrap_or_default(),
+                        bind_port_enforced: p.4.is_some(),
+                        bind_port: p.4.unwrap_or(0),
+                        ocr_enforced: p.5.is_some(),
+                        enable_ocr: p.5.unwrap_or(true),
+                        atr_auto_update_enforced: p.6.is_some(),
+                        disable_atr_auto_update: p.6.unwrap_or(false),
+                        allow_custom_allowlists: p.7,
+                        enabled_detection_categories: detection_categories,
+                        custom_regex,
+                        allowlists,
+                        disconnect_password_hash: disconnect_password_hash.unwrap_or_default(),
+                    }),
+                    signature: vec![],
+                }
             }
-        })
-        .unwrap_or_else(|| PolicyResponse {
-            policy_version: "0".to_string(),
-            enforcement: None,
-            signature: vec![],
-        });
+            None => PolicyResponse {
+                policy_version: "0".to_string(),
+                enforcement: None,
+                signature: vec![],
+            },
+        };
 
         Ok(Response::new(policy))
     }
@@ -260,19 +273,30 @@ impl AgentController for AgentControllerImpl {
                 let report_value: Result<serde_json::Value, _> =
                     serde_json::from_str(&req.environment_report_json);
 
-                if let Ok(report) = report_value {
-                    // Upsert: replace the latest report for this agent
-                    sqlx::query(
-                        r#"INSERT INTO agent_environment_reports (org_id, agent_uuid, report, detected_at)
-                           VALUES ($1, $2, $3, NOW())
-                           ON CONFLICT DO NOTHING"#,
-                    )
-                    .bind(org_id)
-                    .bind(&req.agent_uuid)
-                    .bind(&report)
-                    .execute(&self.pool)
-                    .await
-                    .ok();
+                match report_value {
+                    Ok(report) => {
+                        // Replace the latest report for this agent (delete old, insert new)
+                        let _ = sqlx::query(
+                            "DELETE FROM agent_environment_reports WHERE org_id = $1 AND agent_uuid = $2",
+                        )
+                        .bind(org_id)
+                        .bind(&req.agent_uuid)
+                        .execute(&self.pool)
+                        .await;
+
+                        let _ = sqlx::query(
+                            r#"INSERT INTO agent_environment_reports (org_id, agent_uuid, report, detected_at)
+                               VALUES ($1, $2, $3, NOW())"#,
+                        )
+                        .bind(org_id)
+                        .bind(&req.agent_uuid)
+                        .bind(&report)
+                        .execute(&self.pool)
+                        .await;
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to parse environment report JSON: {}", e);
+                    }
                 }
             }
         }

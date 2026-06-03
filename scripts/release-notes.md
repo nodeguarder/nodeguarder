@@ -1,3 +1,11 @@
+## v1.0.16
+
+- **Fix:** Streaming requests now check upstream HTTP status before wrapping as SSE — upstream errors propagate properly instead of silent "no response"
+- **Fix:** Trusted Patterns row now greyed out (`opacity: 0.5`, `disabled`) when enrolled via Enterprise policy
+- **Fix:** Policy version displays correctly from sync, persists to local `config.toml`
+- **Feature:** Connectivity tab with provider dropdown (OpenAI/Ollama/GitHub Models/Custom), upstream reachability indicator, env var hints, and AI Tools config detection
+- **Feature:** Environment scan on settings open — detects IDE configs (Continue, Cursor, VS Code) and env vars
+
 ## Installation
 
 ### Agent (Windows)

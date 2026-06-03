@@ -415,6 +415,48 @@ fn run_agent() {
                             let _ = webview.evaluate_script(&script);
                         }
                     }
+                    UiEvent::ScanEnvironment => {
+                        let rt = rt_handle.clone();
+                        let uuid = config_lock_ui.read().unwrap().uuid.clone();
+                        let port = *bound_port_ui.lock().unwrap();
+                        let proxy = ui_proxy.clone();
+                        rt.spawn(async move {
+                            let report = crate::discovery::compile_report(&uuid, port).await;
+                            let json = serde_json::to_string(&report).unwrap_or_else(|_| "null".to_string());
+                            let _ = proxy.send_event(UiEvent::UpdateDiscoveryData(json));
+                        });
+                    }
+                    UiEvent::CheckUpstream(url) => {
+                        let rt = rt_handle.clone();
+                        let proxy = ui_proxy.clone();
+                        rt.spawn(async move {
+                            let base = url.trim_end_matches('/');
+                            let reachable = crate::discovery::is_http_server(base).await;
+                            let models = if reachable {
+                                crate::discovery::fetch_models(base).await
+                            } else {
+                                vec![]
+                            };
+                            let result = serde_json::json!({
+                                "url": url,
+                                "reachable": reachable,
+                                "models": models,
+                            });
+                            let _ = proxy.send_event(UiEvent::UpdateUpstreamStatus(result.to_string()));
+                        });
+                    }
+                    UiEvent::UpdateDiscoveryData(json) => {
+                        let script = format!("if(window.updateDiscovery) {{ window.updateDiscovery({}); }}", json);
+                        for (_, (_, webview)) in windows.iter() {
+                            let _ = webview.evaluate_script(&script);
+                        }
+                    }
+                    UiEvent::UpdateUpstreamStatus(json) => {
+                        let script = format!("if(window.updateUpstreamStatus) {{ window.updateUpstreamStatus({}); }}", json);
+                        for (_, (_, webview)) in windows.iter() {
+                            let _ = webview.evaluate_script(&script);
+                        }
+                    }
 
                 }
             }

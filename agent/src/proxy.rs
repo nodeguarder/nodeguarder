@@ -468,6 +468,14 @@ pub async fn chat_completions_handler(
 
         (status, Json(res_json)).into_response()
     } else {
+        let status = upstream_res.status();
+        if !status.is_success() {
+            let body = upstream_res.bytes().await.unwrap_or_default();
+            let body_str = String::from_utf8_lossy(&body);
+            warn!("Upstream returned {} for streaming request: {}", status, body_str.chars().take(200).collect::<String>());
+            return (status, body).into_response();
+        }
+        info!("Upstream streaming response started (status {})", status);
         let mut stream = upstream_res.bytes_stream();
         let state_internal = state.clone();
         let completion_tokens = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
@@ -562,7 +570,7 @@ pub async fn chat_completions_handler(
                 was_cached: false,
                 was_blocked: false,
                 was_redacted: was_stream_redacted.load(std::sync::atomic::Ordering::Relaxed),
-                upstream_status: 200,
+                upstream_status: status.as_u16(),
             });
         };
 

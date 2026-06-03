@@ -503,17 +503,21 @@ pub fn spawn_settings_window(
                     <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.6;">
                         NodeGuarder is a <b>middleman</b>. After scanning your prompt, it forwards the (possibly redacted) request to the URL you set here.
                     </p>
-                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 16px; background: rgba(0,0,0,0.2); padding: 12px 14px; border-radius: 8px; line-height: 1.8;">
-                        <b style="color: var(--text);">Common values:</b><br>
-                        • <code>https://api.openai.com/v1</code> — OpenAI (default)<br>
-                        • <code>http://localhost:11434/v1</code> — Local model (example Ollama)<br>
-                        • <code>https://your-resource.openai.azure.com/</code> — Azure OpenAI
-                    </div>
+
+                    <div class="label">Provider</div>
+                    <select id="providerSelect" class="rule-input" style="width:100%;margin-bottom:16px;" onchange="onProviderChange()">
+                        <option value="https://api.openai.com/v1">OpenAI</option>
+                        <option value="http://localhost:11434/v1">Ollama</option>
+                        <option value="https://models.inference.ai.azure.com">GitHub Models</option>
+                        <option value="__custom__">Custom</option>
+                    </select>
+
                     <div class="label">Upstream Base URL</div>
-                    <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+                    <div style="display: flex; gap: 10px; margin-bottom: 8px;">
                         <input type="text" id="upstreamUrlInput" class="rule-input" value="{upstream_url}" style="flex-grow: 1;">
                         <button id="saveUpstreamUrlBtn" class="action" onclick="saveUpstreamUrl()">SAVE</button>
                     </div>
+                    <div id="upstreamStatusRow" style="display:none;margin-bottom:16px;font-size:12px;"></div>
                     <div id="upstreamSaved" style="display: none; font-size: 12px; color: #10b981; font-weight: 600;">Saved.</div>
 
                     <div class="label" style="margin-top: 24px;">Upstream API Key</div>
@@ -521,9 +525,16 @@ pub fn spawn_settings_window(
                         <input type="password" id="upstreamApiKeyInput" class="rule-input" value="{upstream_api_key}" placeholder="sk-... or leave empty for local models" style="flex-grow: 1;">
                         <button id="saveUpstreamKeyBtn" class="action" onclick="saveUpstreamApiKey()">SAVE</button>
                     </div>
+                    <div id="envVarHint" style="display:none;font-size:12px;color:var(--text-muted);margin-bottom:8px;padding:8px 10px;background:rgba(0,0,0,0.2);border-radius:6px;"></div>
                     <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px;">
                         Leave empty for Ollama / local models (no auth). Set your API key for OpenAI, Azure, GitHub Models, etc.
                     </p>
+                </div>
+
+                <!-- AI Tools card -->
+                <div class="card" id="aiToolsCard" style="display:none;">
+                    <div class="card-title">AI Tools on This Machine</div>
+                    <div id="aiToolsBody"></div>
                 </div>
 
             </div>
@@ -926,6 +937,7 @@ pub fn spawn_settings_window(
                 ocrEnforced: false,
                 atrAutoUpdateEnforced: false,
                 allowCustomAllowlists: true,
+                policy_version: "{policy_version}",
             }};
 
             function showTab(tabId, el) {{
@@ -1022,6 +1034,7 @@ pub fn spawn_settings_window(
                 window.ipc.postMessage('SET_UPSTREAM_URL:' + url);
                 document.getElementById('upstreamSaved').style.display = 'block';
                 setTimeout(() => document.getElementById('upstreamSaved').style.display = 'none', 2000);
+                window.ipc.postMessage('CHECK_UPSTREAM:' + url);
             }}
 
             function saveUpstreamApiKey() {{
@@ -1033,6 +1046,123 @@ pub fn spawn_settings_window(
                 config.upstream_api_key = key;
                 window.ipc.postMessage('SET_UPSTREAM_API_KEY:' + key);
                 showToast('API key saved', 2000);
+            }}
+
+            function onProviderChange() {{
+                var select = document.getElementById('providerSelect');
+                var urlInput = document.getElementById('upstreamUrlInput');
+                var val = select.value;
+                if (val === '__custom__') {{
+                    urlInput.readOnly = false;
+                    urlInput.value = config.upstream_url;
+                    return;
+                }}
+                urlInput.readOnly = false;
+                urlInput.value = val;
+            }}
+
+            window.updateDiscovery = (data) => {{
+                config.discovery = data;
+                renderAiTools();
+                renderEnvHints();
+            }};
+
+            function renderAiTools() {{
+                var data = config.discovery;
+                var card = document.getElementById('aiToolsCard');
+                var body = document.getElementById('aiToolsBody');
+                if (!data || !data.detected_ides || data.detected_ides.length === 0) {{
+                    if (card) card.style.display = 'none';
+                    return;
+                }}
+                card.style.display = 'block';
+                body.innerHTML = '';
+                data.detected_ides.forEach(function(ide) {{
+                    var item = document.createElement('div');
+                    item.style.cssText = 'background:rgba(0,0,0,0.2);border-radius:8px;padding:12px;margin-bottom:10px;';
+                    var header = document.createElement('div');
+                    header.style.cssText = 'font-weight:700;font-size:13px;color:#fff;margin-bottom:6px;text-transform:capitalize;';
+                    header.textContent = ide.ide_type;
+                    item.appendChild(header);
+                    var isProxySet = ide.proxy_settings && (ide.proxy_settings.indexOf('localhost') !== -1 || ide.proxy_settings.indexOf('127.0.0.1') !== -1);
+                    var status = document.createElement('div');
+                    status.style.cssText = 'font-size:12px;color:var(--text-muted);margin-bottom:4px;';
+                    if (ide.ide_type === 'continue' && data.continue_config_suggestion) {{
+                        var sug = data.continue_config_suggestion;
+                        status.innerHTML = sug.already_configured
+                            ? '<span style="color:#10b981;">●</span> Configured for NodeGuarder'
+                            : '<span style="color:#f59e0b;">●</span> Not routed through NodeGuarder';
+                        if (!sug.already_configured && sug.current_api_base) {{
+                            var detail = document.createElement('div');
+                            detail.style.cssText = 'font-size:10px;font-family:monospace;color:var(--text-muted);margin-top:4px;';
+                            detail.textContent = 'Currently: ' + sug.current_api_base;
+                            item.appendChild(detail);
+                        }}
+                    }} else if (ide.ide_type === 'cursor' || ide.ide_type === 'vscode') {{
+                        status.innerHTML = isProxySet
+                            ? '<span style="color:#10b981;">●</span> Proxy set to localhost'
+                            : '<span style="color:#f59e0b;">●</span> No local proxy configured';
+                    }} else {{
+                        status.innerHTML = ide.proxy_settings
+                            ? '<span style="color:#10b981;">●</span> Proxy: ' + ide.proxy_settings
+                            : '<span style="color:var(--text-muted);">No proxy config found</span>';
+                    }}
+                    item.appendChild(status);
+                    if (ide.config_path) {{
+                        var path = document.createElement('div');
+                        path.style.cssText = 'font-size:10px;font-family:monospace;color:var(--text-muted);opacity:0.6;';
+                        path.textContent = ide.config_path;
+                        item.appendChild(path);
+                    }}
+                    body.appendChild(item);
+                }});
+            }}
+
+            function renderEnvHints() {{
+                var data = config.discovery;
+                var hint = document.getElementById('envVarHint');
+                if (!data || !data.detected_env_vars) {{
+                    if (hint) hint.style.display = 'none';
+                    return;
+                }}
+                var names = ['OPENAI_API_KEY', 'AZURE_OPENAI_KEY', 'ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY', 'DEEPSEEK_API_KEY'];
+                var found = null;
+                for (var i = 0; i < data.detected_env_vars.length; i++) {{
+                    var v = data.detected_env_vars[i];
+                    if (v.is_set && names.indexOf(v.name) !== -1) {{
+                        found = v;
+                        break;
+                    }}
+                }}
+                if (found) {{
+                    hint.style.display = 'block';
+                    hint.innerHTML = '🔑 <b>' + found.name + '</b> detected in environment — <span style="color:var(--text-muted);">use as your API key above</span>';
+                }} else {{
+                    hint.style.display = 'none';
+                }}
+            }}
+
+            window.updateUpstreamStatus = (data) => {{
+                config.upstreamStatus = data;
+                renderUpstreamStatus();
+            }};
+
+            function renderUpstreamStatus() {{
+                var data = config.upstreamStatus;
+                var row = document.getElementById('upstreamStatusRow');
+                if (!data) {{ row.style.display = 'none'; return; }}
+                row.style.display = 'block';
+                if (data.reachable) {{
+                    var text = data.models && data.models.length > 0
+                        ? data.models.length + ' model' + (data.models.length > 1 ? 's' : '') + ' available'
+                        : 'Reachable';
+                    row.innerHTML = '<span style="color:#10b981;">●</span> ' + text;
+                    if (data.models && data.models.length > 0) {{
+                        row.innerHTML += ' <span style="font-size:10px;color:var(--text-muted);">(' + data.models.join(', ') + ')</span>';
+                    }}
+                }} else {{
+                    row.innerHTML = '<span style="color:#ef4444;">●</span> Not reachable';
+                }}
             }}
 
             function enroll() {{
@@ -1081,7 +1211,7 @@ pub fn spawn_settings_window(
                 }}
                 config.allowlists.forEach(rule => {{
                     const tr = document.createElement('tr');
-                    const canDelete = !config.enforce_redaction && config.allowCustomAllowlists;
+                    const canDelete = !config.enrolled && config.allowCustomAllowlists && !config.enforce_redaction;
                     tr.innerHTML = `
                         <td style="font-family: monospace; font-size: 13px;">${{rule}}</td>
                         <td style="text-align: right;">
@@ -1090,14 +1220,6 @@ pub fn spawn_settings_window(
                     `;
                     body.appendChild(tr);
                 }});
-
-                if (config.enforce_redaction || !config.allowCustomAllowlists) {{
-                    document.getElementById('lockBanner').style.display = 'flex';
-                    document.getElementById('ruleInputRow').style.display = 'none';
-                }} else {{
-                    document.getElementById('lockBanner').style.display = 'none';
-                    document.getElementById('ruleInputRow').style.display = 'flex';
-                }}
             }}
 
             function renderLogs() {{
@@ -1192,7 +1314,12 @@ pub fn spawn_settings_window(
                     protBanner.style.display = managed ? 'flex' : 'none';
                 }}
 
-                // Connectivity tab - upstream URL and API key
+                // Connectivity tab - provider select, upstream URL and API key
+                var providerSelect = document.getElementById('providerSelect');
+                if (providerSelect) {{
+                    providerSelect.disabled = managed;
+                    providerSelect.style.opacity = managed ? '0.5' : '1';
+                }}
                 var upstreamRow = document.getElementById('upstreamUrlInput');
                 if (upstreamRow) {{
                     upstreamRow.disabled = managed;
@@ -1216,10 +1343,27 @@ pub fn spawn_settings_window(
                     connBanner.style.display = managed ? 'flex' : 'none';
                 }}
 
-                // Trusted Patterns input - controlled by allowCustomAllowlists only (independent of enforce_redaction)
+                // Trusted Patterns input - grey out when managed, respect allowCustomAllowlists
                 var ruleInputRow = document.getElementById('ruleInputRow');
                 if (ruleInputRow) {{
-                    ruleInputRow.style.display = (config.allowCustomAllowlists && !managed) ? 'flex' : 'none';
+                    var newRuleInput = document.getElementById('newRule');
+                    var addRuleBtn = ruleInputRow.querySelector('button');
+                    if (managed) {{
+                        ruleInputRow.style.display = 'flex';
+                        ruleInputRow.style.opacity = '0.5';
+                        if (newRuleInput) newRuleInput.disabled = !config.allowCustomAllowlists;
+                        if (addRuleBtn) addRuleBtn.style.display = config.allowCustomAllowlists ? '' : 'none';
+                    }} else {{
+                        ruleInputRow.style.opacity = '1';
+                        ruleInputRow.style.display = config.allowCustomAllowlists ? 'flex' : 'none';
+                        if (newRuleInput) newRuleInput.disabled = false;
+                        if (addRuleBtn) addRuleBtn.style.display = '';
+                    }}
+                }}
+                // Grey out rules table when managed
+                var rulesTable = document.getElementById('rulesTable');
+                if (rulesTable) {{
+                    rulesTable.style.opacity = managed ? '0.5' : '1';
                 }}
             }}
 
@@ -1317,6 +1461,21 @@ pub fn spawn_settings_window(
                 logsIntervalId = setInterval(fetchLogs, 5000);
                 document.getElementById('upstreamUrlInput').value = config.upstream_url;
                 document.getElementById('upstreamApiKeyInput').value = config.upstream_api_key;
+                // Set provider dropdown to match current upstream URL
+                var providerSelect = document.getElementById('providerSelect');
+                if (providerSelect) {{
+                    var matched = false;
+                    for (var i = 0; i < providerSelect.options.length; i++) {{
+                        if (providerSelect.options[i].value === config.upstream_url) {{
+                            providerSelect.selectedIndex = i;
+                            matched = true;
+                            break;
+                        }}
+                    }}
+                    if (!matched) providerSelect.value = '__custom__';
+                }}
+                // Trigger environment scan
+                window.ipc.postMessage('SCAN_ENVIRONMENT');
                 document.getElementById('ocrToggle').checked = config.enable_ocr;
                 document.getElementById('apiKeysToggle').checked = config.detect_api_keys;
                 document.getElementById('dbCredsToggle').checked = config.detect_db_credentials;
@@ -1363,6 +1522,7 @@ pub fn spawn_settings_window(
         status_str = status_str,
         upstream_url = config.upstream_url,
         upstream_api_key = config.upstream_api_key.clone().unwrap_or_default(),
+        policy_version = config.policy_version.clone().unwrap_or_default(),
         token_trunc = {
             let t = &config.bearer_token;
             if t.len() > 14 { format!("{}...", &t[..14]) } else { t.clone() }
@@ -1429,6 +1589,11 @@ pub fn spawn_settings_window(
             } else if body.starts_with("TOGGLE_AUTO_START:") {
                 let enabled = body.strip_prefix("TOGGLE_AUTO_START:").unwrap() == "true";
                 let _ = proxy.send_event(UiEvent::ToggleAutoStart(enabled));
+            } else if body == "SCAN_ENVIRONMENT" {
+                let _ = proxy.send_event(UiEvent::ScanEnvironment);
+            } else if body.starts_with("CHECK_UPSTREAM:") {
+                let url = body.strip_prefix("CHECK_UPSTREAM:").unwrap().to_string();
+                let _ = proxy.send_event(UiEvent::CheckUpstream(url));
             } else if body == "DRAG" {
                 let _ = proxy.send_event(UiEvent::DragWindow(window_id));
             }

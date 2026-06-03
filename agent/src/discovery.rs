@@ -159,7 +159,7 @@ fn scan_port(port: u16) -> bool {
 }
 
 /// Check if a port is serving HTTP (not just a raw TCP listener like Docker relay)
-async fn is_http_server(base_url: &str) -> bool {
+pub(crate) async fn is_http_server(base_url: &str) -> bool {
     match reqwest::Client::builder()
         .timeout(Duration::from_secs(1))
         .build()
@@ -170,7 +170,7 @@ async fn is_http_server(base_url: &str) -> bool {
 }
 
 /// Try to fetch models from an OpenAI-compatible endpoint
-async fn fetch_models(base_url: &str) -> Vec<String> {
+pub(crate) async fn fetch_models(base_url: &str) -> Vec<String> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(2))
         .build()

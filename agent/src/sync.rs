@@ -213,6 +213,7 @@ impl SyncEngine {
             "allowCustomAllowlists": true,
             "detectionTogglesEnforced": false,
             "disconnect_password_required": false,
+            "policy_version": cfg.policy_version,
         }).to_string()));
 
         info!("Agent disconnected from Enterprise management.");
@@ -393,6 +394,12 @@ impl SyncEngine {
                         }
                     }
 
+                    // Persist policy_version to local config (filter sentinel "0" = no policy)
+                    if policy.policy_version != "0" {
+                        cfg.policy_version = Some(policy.policy_version.clone());
+                    } else {
+                        cfg.policy_version = None;
+                    }
                     save_config(&cfg);
 
                     // Build UI update payload

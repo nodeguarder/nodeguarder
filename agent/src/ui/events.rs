@@ -57,4 +57,8 @@ pub enum UiEvent {
     UpdateUpstreamApiKey(String),
     ToggleAtrAutoUpdate(bool),
     ToggleAutoStart(bool),
+    ScanEnvironment,
+    CheckUpstream(String),
+    UpdateDiscoveryData(String),
+    UpdateUpstreamStatus(String),
 }

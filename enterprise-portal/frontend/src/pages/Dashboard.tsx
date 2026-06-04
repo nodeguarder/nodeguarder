@@ -414,6 +414,9 @@ function PipelineCard({ data, reports, upstreamUrl, setUpstreamUrl, navigate }: 
   setUpstreamUrl: (v: string) => void
   navigate: ReturnType<typeof useNavigate>
 }) {
+  const [configModelName, setConfigModelName] = useState(() => {
+    try { return localStorage.getItem('ng-config-model') || 'openai/gpt-4o-mini' } catch (e) { return 'openai/gpt-4o-mini' }
+  })
   const allIdes = reports.flatMap((r) => r.report.detected_ides ?? [])
   const idesConfigured = allIdes.filter((ide) =>
     ide.proxy_settings?.includes('localhost') || ide.proxy_settings?.includes('127.0.0.1')
@@ -458,14 +461,23 @@ function PipelineCard({ data, reports, upstreamUrl, setUpstreamUrl, navigate }: 
               View
             </button>
           ) : (
-            <button onClick={() => {
-              navigator.clipboard.writeText(JSON.stringify({
-                models: [{ title: 'NodeGuarder', provider: 'openai', model: 'gpt-4', apiBase: 'http://localhost:51820/v1', apiKey: 'ng-<your-token>' }],
-              }, null, 2))
-              showToast('Config snippet copied', 'success')
-            }} className="btn-ghost text-[10px] py-1 px-2 flex-shrink-0">
-              Copy Config
-            </button>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={configModelName}
+                onChange={(e) => { setConfigModelName(e.target.value); localStorage.setItem('ng-config-model', e.target.value) }}
+                className="input-field text-[10px] w-[140px] py-1"
+                placeholder="model name"
+              />
+              <button onClick={() => {
+                navigator.clipboard.writeText(JSON.stringify({
+                  models: [{ title: 'NodeGuarder', provider: 'openai', model: configModelName, apiBase: 'http://localhost:51820/v1', apiKey: 'ng-<your-token>' }],
+                }, null, 2))
+                showToast('Config snippet copied', 'success')
+              }} className="btn-ghost text-[10px] py-1 px-2 flex-shrink-0">
+                Copy Config
+              </button>
+            </div>
           )
         )}
 

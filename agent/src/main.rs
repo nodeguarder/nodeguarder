@@ -103,8 +103,72 @@ fn set_autostart(enabled: bool) {
     }
 }
 
+/// Return the path used for the single-instance lock file.
+#[cfg(feature = "gui")]
+fn lock_path() -> std::path::PathBuf {
+    let appdata = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
+    std::path::PathBuf::from(&appdata).join("NodeGuarder").join("agent.lock")
+}
+
+/// Check and acquire a process-exclusive lock file to prevent multiple instances.
+/// On Windows, uses OpenProcess via raw FFI to detect stale locks so that a
+/// crashed instance doesn't permanently block restarts.
+#[cfg(feature = "gui")]
+fn acquire_lock() -> Result<(), String> {
+    use std::io::Write;
+    use std::fs;
+
+    let lock_path = lock_path();
+    if let Some(parent) = lock_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Cannot create lock dir: {}", e))?;
+    }
+
+    // If a lock file already exists, check whether the owning PID is still alive.
+    if lock_path.exists() {
+        if let Ok(content) = fs::read_to_string(&lock_path) {
+            if let Ok(pid) = content.trim().parse::<u32>() {
+                #[cfg(windows)]
+                {
+                    extern "system" {
+                        fn OpenProcess(dwDesiredAccess: u32, bInheritHandle: i32, dwProcessId: u32) -> *mut std::ffi::c_void;
+                        fn CloseHandle(hObject: *mut std::ffi::c_void) -> i32;
+                    }
+                    const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
+                    unsafe {
+                        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+                        if !handle.is_null() {
+                            CloseHandle(handle);
+                            return Err("Another instance is already running".to_string());
+                        }
+                    }
+                }
+                #[cfg(not(windows))]
+                {
+                    if std::path::Path::new(&format!("/proc/{}", pid)).exists() {
+                        return Err("Another instance is already running".to_string());
+                    }
+                }
+            }
+        }
+        // Stale lock – remove it.
+        let _ = fs::remove_file(&lock_path);
+    }
+
+    // Write our PID.
+    let mut f = fs::File::create(&lock_path).map_err(|e| format!("Cannot create lock file: {}", e))?;
+    write!(f, "{}", std::process::id()).map_err(|e| format!("Cannot write lock file: {}", e))?;
+    f.flush().map_err(|e| format!("Cannot flush lock file: {}", e))?;
+    Ok(())
+}
+
 #[cfg(feature = "gui")]
 fn run_agent() {
+    // Enforce single instance before anything else.
+    if let Err(msg) = acquire_lock() {
+        eprintln!("{}", msg);
+        std::process::exit(0);
+    }
+
     let config = config::load_or_create_config();
     crate::model::check_for_atr_updates(config.disable_atr_auto_update);
     if config.auto_start {
@@ -360,6 +424,7 @@ fn run_agent() {
                         }
                     }
                     UiEvent::ExitApp => {
+                        let _ = std::fs::remove_file(lock_path());
                         *control_flow = ControlFlow::Exit;
                     }
                     UiEvent::UpdateUpstreamUrl(url) => {

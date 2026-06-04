@@ -50,6 +50,7 @@ const emptyForm = {
   enable_ocr: false,
   disable_atr_auto_update: false,
   allow_custom_allowlists: true,
+  bearer_token: '',
   enabled_detection_categories: [...ALL_DETECTION_KEYS] as string[],
   custom_regex: [] as string[],
   allowlists: [] as string[],
@@ -113,6 +114,7 @@ export default function PolicyEditor() {
           enable_ocr: p.enable_ocr || false,
           disable_atr_auto_update: p.disable_atr_auto_update || false,
           allow_custom_allowlists: p.allow_custom_allowlists,
+          bearer_token: p.bearer_token || '',
           enabled_detection_categories: existing.length > 0 ? existing : [...ALL_DETECTION_KEYS],
           custom_regex: p.custom_regex || [],
           allowlists: p.allowlists || [],
@@ -319,6 +321,16 @@ export default function PolicyEditor() {
                     value={form.bind_port}
                     onChange={(e) => setForm({ ...form, bind_port: parseInt(e.target.value) || DEFAULT_BIND_PORT })}
                     className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Bearer Token (shared across agents)</label>
+                  <input
+                    type="text"
+                    value={form.bearer_token}
+                    onChange={(e) => setForm({ ...form, bearer_token: e.target.value })}
+                    className={inputClass}
+                    placeholder="ng-... leave empty to keep per-agent tokens"
                   />
                 </div>
               </div>

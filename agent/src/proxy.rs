@@ -132,9 +132,9 @@ pub async fn chat_completions_handler(
     // 1. Authorization Check (Fetch config under read lock)
     let t0 = Instant::now();
     let session_id = Uuid::new_v4().to_string();
-    let (bearer_token, allowlists_regex, detection_config, upstream_url, upstream_api_key) = {
+    let (bearer_token, enforced_bearer_token, allowlists_regex, detection_config, upstream_url, upstream_api_key) = {
         let cfg = state.config.read().unwrap();
-        (cfg.bearer_token.clone(), cfg.allowlists_regex.clone(), DetectionConfig::from_config(&cfg), cfg.upstream_url.clone(), cfg.upstream_api_key.clone())
+        (cfg.bearer_token.clone(), cfg.enforced_bearer_token.clone(), cfg.allowlists_regex.clone(), DetectionConfig::from_config(&cfg), cfg.upstream_url.clone(), cfg.upstream_api_key.clone())
     };
 
     // Development: optional auto-decision header to bypass UI for testing.
@@ -153,8 +153,10 @@ pub async fn chat_completions_handler(
     };
 
     let auth_header = headers.get("authorization").and_then(|h| h.to_str().ok());
-    let expected_auth = format!("Bearer {}", bearer_token);
-    if auth_header != Some(&expected_auth) {
+    let expected_local = format!("Bearer {}", bearer_token);
+    let authorized = auth_header == Some(&expected_local)
+        || enforced_bearer_token.as_ref().is_some_and(|t| auth_header == Some(&format!("Bearer {}", t)));
+    if !authorized {
         warn!("Unauthorized access attempt");
         return (StatusCode::UNAUTHORIZED, "Unauthorized").into_response();
     }

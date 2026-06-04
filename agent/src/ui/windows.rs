@@ -455,11 +455,17 @@ pub fn spawn_settings_window(
         
         <div class="main">
             <!-- Connectivity Tab -->
-            <div id="general" class="tab-content active">
+                <div id="general" class="tab-content active">
                 <h1>Deployment & Connectivity</h1>
                 <p class="desc">
                     NodeGuarder is an <b>OpenAI-compatible proxy</b>. Point any AI app at it and we intercept secrets before they leave your machine.
                 </p>
+
+                <!-- AI Tools card (shown first so users see what's already set up) -->
+                <div class="card" id="aiToolsCard" style="display:none;">
+                    <div class="card-title">AI Tools on This Machine</div>
+                    <div id="aiToolsBody"></div>
+                </div>
 
                 <div id="connLockBanner" class="lock-banner" style="display: none;">
                     <span>UPSTREAM LLM CONFIGURATION IS MANAGED BY YOUR ORGANIZATION POLICY</span>
@@ -485,14 +491,22 @@ pub fn spawn_settings_window(
                 <!-- Flow diagram -->
                 <div style="display: flex; flex-direction: column; align-items: center; gap: 0px; margin: 16px 0 8px 0; user-select: none;">
                     <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.25); border-radius: 8px; padding: 12px 18px; text-align: center; width: 100%; box-sizing: border-box;">
-                        <div style="font-size: 12px; color: #818cf8; font-weight: 700; letter-spacing: 0.05em;">YOUR IDE (Cursor / Continue.dev / Windsurf)</div>
+                        <div style="font-size: 12px; color: #818cf8; font-weight: 700; letter-spacing: 0.05em;">Your AI Tools (Cursor, Continue.dev, Windsurf etc)</div>
                     </div>
-                    <div style="color: var(--text-muted); font-size: 11px; padding: 4px 0;">⬇ POST /v1/chat/completions (Bearer {token_trunc})</div>
+                    <div style="display: flex; flex-direction: column; align-items: center; padding: 8px 0;">
+                        <div style="width: 2px; height: 16px; background: var(--text-muted);"></div>
+                        <div style="width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid var(--text-muted);"></div>
+                        <div style="color: var(--text-muted); font-size: 11px; padding: 6px 0 0 0;">POST http://127.0.0.1:{port}/v1/chat/completions (Bearer {token_trunc})</div>
+                    </div>
                     <div style="background: var(--card); border: 1px solid var(--accent); border-radius: 8px; padding: 14px 18px; text-align: center; width: 100%; box-sizing: border-box; box-shadow: 0 0 12px rgba(99, 102, 241, 0.15);">
                         <div style="font-size: 12px; color: var(--accent); font-weight: 700; letter-spacing: 0.05em;">NODEGUARDER AGENT</div>
                         <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">scan for secrets → HITL modal → redact/allow/block</div>
                     </div>
-                    <div style="color: var(--text-muted); font-size: 11px; padding: 4px 0;">⬇ cleaned request forwarded</div>
+                    <div style="display: flex; flex-direction: column; align-items: center; padding: 8px 0;">
+                        <div style="width: 2px; height: 16px; background: var(--text-muted);"></div>
+                        <div style="width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid var(--text-muted);"></div>
+                        <div style="color: var(--text-muted); font-size: 11px; padding: 6px 0 0 0;">cleaned request forwarded</div>
+                    </div>
                     <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 12px 18px; text-align: center; width: 100%; box-sizing: border-box;">
                         <div style="font-size: 12px; color: #10b981; font-weight: 700; letter-spacing: 0.05em;">UPSTREAM LLM (configured below)</div>
                     </div>
@@ -504,14 +518,6 @@ pub fn spawn_settings_window(
                         NodeGuarder is a <b>middleman</b>. After scanning your prompt, it forwards the (possibly redacted) request to the URL you set here.
                     </p>
 
-                    <div class="label">Provider</div>
-                    <select id="providerSelect" class="rule-input" style="width:100%;margin-bottom:16px;" onchange="onProviderChange()">
-                        <option value="https://api.openai.com/v1">OpenAI</option>
-                        <option value="http://localhost:11434/v1">Ollama</option>
-                        <option value="https://models.inference.ai.azure.com">GitHub Models</option>
-                        <option value="__custom__">Custom</option>
-                    </select>
-
                     <div class="label">Upstream Base URL</div>
                     <div style="display: flex; gap: 10px; margin-bottom: 8px;">
                         <input type="text" id="upstreamUrlInput" class="rule-input" value="{upstream_url}" style="flex-grow: 1;">
@@ -519,8 +525,11 @@ pub fn spawn_settings_window(
                     </div>
                     <div id="upstreamStatusRow" style="display:none;margin-bottom:16px;font-size:12px;"></div>
                     <div id="upstreamSaved" style="display: none; font-size: 12px; color: #10b981; font-weight: 600;">Saved.</div>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px;">
+                        e.g. <code>https://api.openai.com/v1</code> or <code>http://localhost:11434/v1</code>
+                    </p>
 
-                    <div class="label" style="margin-top: 24px;">Upstream API Key</div>
+                    <div class="label" style="margin-top: 16px;">Upstream API Key</div>
                     <div style="display: flex; gap: 10px; margin-bottom: 8px;">
                         <input type="password" id="upstreamApiKeyInput" class="rule-input" value="{upstream_api_key}" placeholder="sk-... or leave empty for local models" style="flex-grow: 1;">
                         <button id="saveUpstreamKeyBtn" class="action" onclick="saveUpstreamApiKey()">SAVE</button>
@@ -529,12 +538,6 @@ pub fn spawn_settings_window(
                     <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px;">
                         Leave empty for Ollama / local models (no auth). Set your API key for OpenAI, Azure, GitHub Models, etc.
                     </p>
-                </div>
-
-                <!-- AI Tools card -->
-                <div class="card" id="aiToolsCard" style="display:none;">
-                    <div class="card-title">AI Tools on This Machine</div>
-                    <div id="aiToolsBody"></div>
                 </div>
 
             </div>
@@ -1048,19 +1051,6 @@ pub fn spawn_settings_window(
                 showToast('API key saved', 2000);
             }}
 
-            function onProviderChange() {{
-                var select = document.getElementById('providerSelect');
-                var urlInput = document.getElementById('upstreamUrlInput');
-                var val = select.value;
-                if (val === '__custom__') {{
-                    urlInput.readOnly = false;
-                    urlInput.value = config.upstream_url;
-                    return;
-                }}
-                urlInput.readOnly = false;
-                urlInput.value = val;
-            }}
-
             window.updateDiscovery = (data) => {{
                 config.discovery = data;
                 renderAiTools();
@@ -1314,12 +1304,7 @@ pub fn spawn_settings_window(
                     protBanner.style.display = managed ? 'flex' : 'none';
                 }}
 
-                // Connectivity tab - provider select, upstream URL and API key
-                var providerSelect = document.getElementById('providerSelect');
-                if (providerSelect) {{
-                    providerSelect.disabled = managed;
-                    providerSelect.style.opacity = managed ? '0.5' : '1';
-                }}
+                // Connectivity tab - upstream URL and API key
                 var upstreamRow = document.getElementById('upstreamUrlInput');
                 if (upstreamRow) {{
                     upstreamRow.disabled = managed;
@@ -1461,19 +1446,6 @@ pub fn spawn_settings_window(
                 logsIntervalId = setInterval(fetchLogs, 5000);
                 document.getElementById('upstreamUrlInput').value = config.upstream_url;
                 document.getElementById('upstreamApiKeyInput').value = config.upstream_api_key;
-                // Set provider dropdown to match current upstream URL
-                var providerSelect = document.getElementById('providerSelect');
-                if (providerSelect) {{
-                    var matched = false;
-                    for (var i = 0; i < providerSelect.options.length; i++) {{
-                        if (providerSelect.options[i].value === config.upstream_url) {{
-                            providerSelect.selectedIndex = i;
-                            matched = true;
-                            break;
-                        }}
-                    }}
-                    if (!matched) providerSelect.value = '__custom__';
-                }}
                 // Trigger environment scan
                 window.ipc.postMessage('SCAN_ENVIRONMENT');
                 document.getElementById('ocrToggle').checked = config.enable_ocr;

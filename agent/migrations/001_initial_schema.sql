@@ -50,6 +50,7 @@ CREATE TABLE policies (
     enable_ocr BOOLEAN,
     disable_atr_auto_update BOOLEAN,
     allow_custom_allowlists BOOLEAN NOT NULL DEFAULT true,
+    bearer_token TEXT,
     detection_overrides JSONB DEFAULT '[]'::jsonb,
     custom_regex JSONB DEFAULT '[]'::jsonb,
     allowlists JSONB DEFAULT '[]'::jsonb,

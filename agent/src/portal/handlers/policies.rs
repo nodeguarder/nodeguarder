@@ -149,8 +149,8 @@ async fn create_policy(
         r#"INSERT INTO policies
            (org_id, name, description, redaction_enforced, upstream_url, upstream_api_key,
             bind_port, enable_ocr, disable_atr_auto_update, allow_custom_allowlists,
-            detection_overrides, custom_regex, allowlists, target_mode, target_regex, updated_by)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+            bearer_token, detection_overrides, custom_regex, allowlists, target_mode, target_regex, updated_by)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
            RETURNING *"#,
     )
     .bind(user.org_id)
@@ -163,6 +163,7 @@ async fn create_policy(
     .bind(req.enable_ocr)
     .bind(req.disable_atr_auto_update)
     .bind(req.allow_custom_allowlists.unwrap_or(true))
+    .bind(&req.bearer_token)
     .bind(detection)
     .bind(regex)
     .bind(allowlists)
@@ -212,6 +213,7 @@ async fn create_policy(
             "enable_ocr": policy.enable_ocr,
             "disable_atr_auto_update": policy.disable_atr_auto_update,
             "allow_custom_allowlists": policy.allow_custom_allowlists,
+            "bearer_token": policy.bearer_token,
             "enabled_detection_categories": policy.enabled_detection_categories,
             "custom_regex": policy.custom_regex,
             "allowlists": policy.allowlists,
@@ -257,13 +259,14 @@ async fn update_policy(
            enable_ocr = COALESCE($9, enable_ocr),
            disable_atr_auto_update = COALESCE($10, disable_atr_auto_update),
            allow_custom_allowlists = COALESCE($11, allow_custom_allowlists),
-           detection_overrides = COALESCE($12, detection_overrides),
-           custom_regex = COALESCE($13, custom_regex),
-           allowlists = COALESCE($14, allowlists),
-           target_mode = COALESCE($15, target_mode),
-           target_regex = COALESCE($16, target_regex),
+           bearer_token = COALESCE($12, bearer_token),
+           detection_overrides = COALESCE($13, detection_overrides),
+           custom_regex = COALESCE($14, custom_regex),
+           allowlists = COALESCE($15, allowlists),
+           target_mode = COALESCE($16, target_mode),
+           target_regex = COALESCE($17, target_regex),
            updated_at = NOW(),
-           updated_by = $17
+           updated_by = $18
            WHERE id = $1 AND org_id = $2
            RETURNING *"#,
     )
@@ -278,6 +281,7 @@ async fn update_policy(
     .bind(req.enable_ocr)
     .bind(req.disable_atr_auto_update)
     .bind(req.allow_custom_allowlists)
+    .bind(&req.bearer_token)
     .bind(detection)
     .bind(regex)
     .bind(allowlists)
@@ -337,6 +341,7 @@ async fn update_policy(
             "enable_ocr": policy.enable_ocr,
             "disable_atr_auto_update": policy.disable_atr_auto_update,
             "allow_custom_allowlists": policy.allow_custom_allowlists,
+            "bearer_token": policy.bearer_token,
             "enabled_detection_categories": policy.enabled_detection_categories,
             "custom_regex": policy.custom_regex,
             "allowlists": policy.allowlists,

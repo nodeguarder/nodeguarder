@@ -58,6 +58,7 @@ pub struct Policy {
     pub enable_ocr: Option<bool>,
     pub disable_atr_auto_update: Option<bool>,
     pub allow_custom_allowlists: bool,
+    pub bearer_token: Option<String>,
     #[serde(alias = "detection_overrides")]
     #[sqlx(rename = "detection_overrides")]
     pub enabled_detection_categories: Option<serde_json::Value>,
@@ -126,6 +127,7 @@ pub struct CreatePolicyRequest {
     pub enable_ocr: Option<bool>,
     pub disable_atr_auto_update: Option<bool>,
     pub allow_custom_allowlists: Option<bool>,
+    pub bearer_token: Option<String>,
     #[serde(alias = "detection_overrides")]
     pub enabled_detection_categories: Option<Vec<String>>,
     pub custom_regex: Option<Vec<String>>,

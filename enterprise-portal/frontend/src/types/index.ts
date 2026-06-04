@@ -32,6 +32,7 @@ export interface Policy {
   enable_ocr: boolean | null
   disable_atr_auto_update: boolean | null
   allow_custom_allowlists: boolean
+  bearer_token: string | null
   enabled_detection_categories: string[] | null
   custom_regex: string[] | null
   allowlists: string[] | null

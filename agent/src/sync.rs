@@ -363,6 +363,12 @@ impl SyncEngine {
                     if enforcement.atr_auto_update_enforced {
                         cfg.disable_atr_auto_update = enforcement.disable_atr_auto_update;
                     }
+                    if enforcement.bearer_token_enforced && !enforcement.bearer_token.is_empty() {
+                        cfg.enforced_bearer_token = Some(enforcement.bearer_token.clone());
+                    } else if enforcement.bearer_token_enforced {
+                        // Enforced but empty — clear any previous enforced token
+                        cfg.enforced_bearer_token = None;
+                    }
 
                     // Detection categories
                     if !enforcement.enabled_detection_categories.is_empty() {
@@ -440,6 +446,9 @@ impl SyncEngine {
                     }
                     if enforcement.atr_auto_update_enforced {
                         ui_cfg["atrAutoUpdateEnforced"] = json!(true);
+                    }
+                    if enforcement.bearer_token_enforced {
+                        ui_cfg["bearerTokenEnforced"] = json!(true);
                     }
                     ui_cfg["allowCustomAllowlists"] = json!(enforcement.allow_custom_allowlists);
 

@@ -154,11 +154,11 @@ impl AgentController for AgentControllerImpl {
         .map_err(|e| Status::internal(e.to_string()))?
         .unwrap_or(None);
 
-        let policy_row = sqlx::query_as::<_, (String, bool, Option<String>, Option<String>, Option<i32>, Option<bool>, Option<bool>, bool, Option<serde_json::Value>, Option<serde_json::Value>, Option<serde_json::Value>, Uuid)>(
+        let policy_row = sqlx::query_as::<_, (String, bool, Option<String>, Option<String>, Option<i32>, Option<bool>, Option<bool>, bool, Option<String>, Option<serde_json::Value>, Option<serde_json::Value>, Option<serde_json::Value>, Uuid)>(
             r#"SELECT 
                 name, redaction_enforced, upstream_url, upstream_api_key, bind_port,
                 enable_ocr, disable_atr_auto_update, allow_custom_allowlists,
-                detection_overrides, custom_regex, allowlists, id
+                bearer_token, detection_overrides, custom_regex, allowlists, id
                FROM policies 
                WHERE org_id = $1 AND (
                    target_mode = 'all'
@@ -182,22 +182,24 @@ impl AgentController for AgentControllerImpl {
 
         let policy = match policy_row {
             Some(p) => {
-                let detection_categories: Vec<String> = p
-                    .8
-                    .and_then(|v| serde_json::from_value(v).ok())
-                    .unwrap_or_default();
+                let bearer_token: Option<String> = p.8.clone();
 
-                let custom_regex: Vec<String> = p
+                let detection_categories: Vec<String> = p
                     .9
                     .and_then(|v| serde_json::from_value(v).ok())
                     .unwrap_or_default();
 
-                let allowlists: Vec<String> = p
+                let custom_regex: Vec<String> = p
                     .10
                     .and_then(|v| serde_json::from_value(v).ok())
                     .unwrap_or_default();
 
-                let policy_id = p.11;
+                let allowlists: Vec<String> = p
+                    .11
+                    .and_then(|v| serde_json::from_value(v).ok())
+                    .unwrap_or_default();
+
+                let policy_id = p.12;
 
                 // Update agents.policy_version so the portal displays the real deployed policy version
                 let _ = sqlx::query("UPDATE agents SET policy_version = $2 WHERE uuid = $1")
@@ -221,6 +223,8 @@ impl AgentController for AgentControllerImpl {
                         atr_auto_update_enforced: p.6.is_some(),
                         disable_atr_auto_update: p.6.unwrap_or(false),
                         allow_custom_allowlists: p.7,
+                        bearer_token_enforced: bearer_token.as_ref().is_some_and(|t| !t.is_empty()),
+                        bearer_token: bearer_token.unwrap_or_default(),
                         enabled_detection_categories: detection_categories,
                         custom_regex,
                         allowlists,

@@ -727,6 +727,9 @@ function IdesTab({ ides }: { ides: (DetectedIde & { agent_uuid: string; hostname
 }
 
 function IdeConfigSection({ reports }: { reports: LandscapeReport[] }) {
+  const [configModelName, setConfigModelName] = useState(() => {
+    try { return localStorage.getItem('ng-config-model') || 'openai/gpt-4o-mini' } catch (e) { return 'openai/gpt-4o-mini' }
+  })
   const allIdes = reports.flatMap((r) =>
     (r.report.detected_ides || []).map((ide) => ({
       ...ide,
@@ -768,16 +771,17 @@ function IdeConfigSection({ reports }: { reports: LandscapeReport[] }) {
 
   const generateConfigSnippet = (type: string, apiBase: string) => {
     const token = 'ng-<your-token>'
+    const model = configModelName
     switch (type) {
       case 'continue':
         return JSON.stringify({
-          models: [{ title: 'NodeGuarder', provider: 'openai', model: 'gpt-4', apiBase, apiKey: token }],
-          tabAutocompleteModel: { title: 'NodeGuarder Tab', provider: 'openai', model: 'gpt-4o-mini', apiBase, apiKey: token },
+          models: [{ title: 'NodeGuarder', provider: 'openai', model, apiBase, apiKey: token }],
+          tabAutocompleteModel: { title: 'NodeGuarder Tab', provider: 'openai', model, apiBase, apiKey: token },
         }, null, 2)
       case 'cursor':
       case 'vscode':
         return JSON.stringify({
-          'cursor.chat.model': 'gpt-4',
+          'cursor.chat.model': model,
           'cursor.chat.openaiBaseUrl': apiBase,
           'cursor.chat.openaiApiKey': token,
         }, null, 2)
@@ -802,6 +806,16 @@ function IdeConfigSection({ reports }: { reports: LandscapeReport[] }) {
         IDE Configuration Status
         <span className="text-[10px] text-portal-text-muted font-normal">({allIdes.length} total)</span>
       </h3>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-[11px] text-portal-text-muted uppercase tracking-wider">Model name:</span>
+        <input
+          type="text"
+          value={configModelName}
+          onChange={(e) => { setConfigModelName(e.target.value); localStorage.setItem('ng-config-model', e.target.value) }}
+          className="input-field text-xs flex-1 max-w-[260px]"
+          placeholder="e.g. openai/gpt-4o-mini"
+        />
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {Array.from(grouped.entries()).map(([type, g]) => {
           const apiBase = g.agents.find((a) => a.proxy)?.proxy?.replace('apiBase: ', '') || 'http://localhost:51820/v1'

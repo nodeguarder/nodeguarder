@@ -68,6 +68,9 @@ pub struct AppConfig {
     pub auto_start: bool,
     #[serde(default)]
     pub policy_version: Option<String>,
+    /// Bearer token enforced by enterprise policy (shared across agents)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enforced_bearer_token: Option<String>,
     }
 
 fn default_upstream_url() -> String {
@@ -153,6 +156,7 @@ pub fn load_or_create_config() -> AppConfig {
             disconnect_password_hash: None,
             auto_start: true,
             policy_version: None,
+            enforced_bearer_token: None,
         };
 
         let content = toml::to_string_pretty(&config).expect("Failed to serialize config");
@@ -237,6 +241,7 @@ mod tests {
             disconnect_password_hash: None,
             auto_start: true,
             policy_version: None,
+            enforced_bearer_token: None,
         };
 
         let content = toml::to_string_pretty(&config).unwrap();

@@ -83,6 +83,10 @@ message PolicyEnforcement {
 
   // Disconnect password (bcrypt hash, empty = no password required)
   string disconnect_password_hash = 16;
+
+  // Bearer token override (admin-set shared token for all agents)
+  bool bearer_token_enforced = 17;
+  string bearer_token = 18;
 }
 
 message PolicyResponse {

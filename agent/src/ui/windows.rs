@@ -463,7 +463,7 @@ pub fn spawn_settings_window(
 
                 <!-- AI Tools card (shown first so users see what's already set up) -->
                 <div class="card" id="aiToolsCard" style="display:none;">
-                    <div class="card-title">AI Tools on This Machine</div>
+                    <div class="card-title">AI Tools detected on this machine</div>
                     <div id="aiToolsBody"></div>
                 </div>
 
@@ -473,12 +473,12 @@ pub fn spawn_settings_window(
 
                 <div class="card" style="border-left: 4px solid var(--accent);">
                     <div class="card-title">Connect Your AI Apps</div>
-                    <div class="label">Proxy Endpoint</div>
+                    <div class="label">NodeGuarder proxy endpoint</div>
                     <div class="value-row" style="margin-bottom: 24px;">
                         <span class="value" id="proxyBaseUrl">http://127.0.0.1:{port}/v1</span>
                         <button class="action small" onclick="copy(`http://127.0.0.1:{port}/v1`)">COPY</button>
                     </div>
-                    <div class="label">Bearer Token</div>
+                    <div class="label">NodeGuarder bearer token</div>
                     <div class="value-row" style="margin-bottom: 20px;">
                         <span class="value" id="proxyApiKey">{token_escaped}</span>
                         <button class="action small" onclick="copy(document.getElementById('proxyApiKey').innerText)">COPY</button>
@@ -1262,8 +1262,8 @@ pub fn spawn_settings_window(
                 if (config.ocrEnforced) enforcements.push('OCR');
                 if (config.atrAutoUpdateEnforced) enforcements.push('ATR Auto-Update');
                 var html = '<div class="label">Deployed Policy</div>' +
-                    '<div class="value-row"><span class="value">Version: ' + (config.policy_version || '—') + '</span></div>' +
-                    '<div style="margin-top:8px;"><span class="label">Enforcements:</span> ' +
+                    '<div class="value-row"><span class="value">' + (config.policy_version || '—') + '</span></div>' +
+                    '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;"><span class="label" style="margin-right:4px;">Enforcements:</span> ' +
                     (enforcements.length > 0 ? enforcements.map(function(e) {{ return '<span class="badge badge-redact" style="margin:2px;">' + e + '</span>'; }}).join('') : '<span style="color:var(--text-muted);font-size:12px;">None</span>') +
                     '</div>';
                 var connectedEl = document.getElementById('policyInfoConnected');

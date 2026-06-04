@@ -27,7 +27,7 @@ CREATE TABLE agents (
     ip_address VARCHAR(45),
     status VARCHAR(20) NOT NULL DEFAULT 'offline' CHECK (status IN ('online', 'offline', 'revoked')),
     last_seen TIMESTAMPTZ,
-    policy_version VARCHAR(20) DEFAULT '0',
+    policy_version VARCHAR(255) DEFAULT '0',
     agent_version VARCHAR(20),
     identity_key_pem TEXT,
     cert_pem TEXT,

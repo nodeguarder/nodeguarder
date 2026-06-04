@@ -266,7 +266,7 @@ export default function AgentDetail() {
                 <div className="text-sm text-portal-text">{agent.agent_version || '\u2014'}</div>
               </div>
               <div>
-                    <div className="text-xs text-portal-text-muted mb-1 uppercase tracking-wider">Policy Version</div>
+                    <div className="text-xs text-portal-text-muted mb-1 uppercase tracking-wider">Policy</div>
                 <div className="text-sm text-portal-text">{agent.policy_version || '\u2014'}</div>
               </div>
               <div>

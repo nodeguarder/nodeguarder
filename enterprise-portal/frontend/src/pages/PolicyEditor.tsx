@@ -315,7 +315,7 @@ export default function PolicyEditor() {
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Bind Port</label>
+                  <label className={labelClass}>NodeGuarder bind port</label>
                   <input
                     type="number"
                     value={form.bind_port}
@@ -324,7 +324,7 @@ export default function PolicyEditor() {
                   />
                 </div>
                 <div>
-                  <label className={labelClass}>Bearer Token (shared across agents)</label>
+                  <label className={labelClass}>NodeGuarder bearer token (shared across agents)</label>
                   <input
                     type="text"
                     value={form.bearer_token}

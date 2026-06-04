@@ -32,6 +32,7 @@ export default function GetStarted() {
   const [adminGrpcUrl, setAdminGrpcUrl] = useState('')
   const [copied, setCopied] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [enrollMethod, setEnrollMethod] = useState<'ui' | 'mdm'>('ui')
 
   useEffect(() => {
@@ -283,14 +284,33 @@ export default function GetStarted() {
                     via Intune, Group Policy, or your MDM. The agent will auto-enroll on next start.
                   </p>
                   {enrollmentCode ? (
-                    <a
-                      href={downloadProvisioningFile(enrollmentCode)}
-                      download="provisioning.toml"
+                    <button
+                      onClick={async () => {
+                        setDownloading(true)
+                        try {
+                          await downloadProvisioningFile(enrollmentCode)
+                          showToast('Provisioning config downloaded', 'success')
+                        } catch (err: any) {
+                          showToast(err.message, 'error')
+                        } finally {
+                          setDownloading(false)
+                        }
+                      }}
+                      disabled={downloading}
                       className="btn-primary inline-flex items-center gap-2 text-xs"
                     >
-                      <Download className="w-4 h-4" />
-                      Download provisioning.toml
-                    </a>
+                      {downloading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          Downloading...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="w-4 h-4" />
+                          Download provisioning.toml
+                        </>
+                      )}
+                    </button>
                   ) : (
                     <p className="text-xs text-portal-text-muted italic">Generate a code above first</p>
                   )}

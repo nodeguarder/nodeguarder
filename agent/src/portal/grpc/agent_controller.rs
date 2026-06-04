@@ -199,17 +199,17 @@ impl AgentController for AgentControllerImpl {
                     .and_then(|v| serde_json::from_value(v).ok())
                     .unwrap_or_default();
 
-                let policy_id = p.12;
+                let policy_name = p.0.clone();
 
-                // Update agents.policy_version so the portal displays the real deployed policy version
+                // Update agents.policy_version so the portal displays the real deployed policy name
                 let _ = sqlx::query("UPDATE agents SET policy_version = $2 WHERE uuid = $1")
                     .bind(&req.agent_uuid)
-                    .bind(policy_id.to_string())
+                    .bind(&policy_name)
                     .execute(&self.pool)
                     .await;
 
                 PolicyResponse {
-                    policy_version: policy_id.to_string(),
+                    policy_version: policy_name,
                     enforcement: Some(PolicyEnforcement {
                         redaction_enforced: p.1,
                         upstream_url_enforced: p.2.is_some(),
@@ -328,6 +328,9 @@ impl AgentController for AgentControllerImpl {
         .ok_or_else(|| Status::not_found("Agent not found"))?
         .0;
 
+        let agent_uuid = Uuid::parse_str(&batch.agent_uuid)
+            .map_err(|e| Status::invalid_argument(format!("Invalid agent_uuid: {}", e)))?;
+
         for m in batch.metrics.iter() {
             sqlx::query(
                 r#"INSERT INTO agent_request_metrics 
@@ -338,7 +341,7 @@ impl AgentController for AgentControllerImpl {
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)"#,
             )
             .bind(org_id)
-            .bind(&batch.agent_uuid)
+            .bind(agent_uuid)
             .bind(m.timestamp_ms)
             .bind(&m.session_id)
             .bind(&m.model_requested)

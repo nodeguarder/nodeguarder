@@ -145,8 +145,24 @@ export async function generateCode(ttl_hours?: number): Promise<EnrollmentCode &
   return { ...resp.code, admin_grpc_url: resp.admin_grpc_url }
 }
 
-export function downloadProvisioningFile(code: string): string {
-  return `${API_BASE}/enrollment-codes/${encodeURIComponent(code)}/provisioning-file`
+export async function downloadProvisioningFile(code: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/enrollment-codes/${encodeURIComponent(code)}/provisioning-file`, {
+    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+  })
+  if (res.status === 401) {
+    clearAuth()
+    throw new Error('Unauthorized')
+  }
+  if (!res.ok) throw new Error('Download failed')
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'provisioning.toml'
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 export function revokeCode(code: string): Promise<void> {

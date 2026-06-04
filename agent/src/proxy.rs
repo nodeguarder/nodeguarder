@@ -194,12 +194,19 @@ pub async fn chat_completions_handler(
         let last_user_idx = messages.iter().rposition(|m|
             m.get("role").and_then(|r| r.as_str()) == Some("user")
         );
-        if let Some(idx) = last_user_idx {
-            let msg = &mut messages[idx];
-            let extracted = extract_text_from_content(msg.get("content").unwrap_or(&Value::Null), enable_ocr).await;
+        for i in 0..messages.len() {
+            if messages[i].get("role").and_then(|r| r.as_str()) != Some("user") {
+                continue;
+            }
+            let extracted = extract_text_from_content(messages[i].get("content").unwrap_or(&Value::Null), enable_ocr).await;
             if !extracted.is_empty() {
                 let check = scan_and_redact(&extracted, &allowlists_regex, &detection_config, state.atr_engine.as_ref());
                 if check.flagged {
+                if last_user_idx.map_or(true, |idx| i != idx) {
+                    replace_content(&mut messages[i], &check.scrubbed_text);
+                    continue;
+                }
+                let msg = &mut messages[i];
                 let enforce = state.config.read().unwrap().enforce_redaction;
                 let (tx, rx) = oneshot::channel();
                 let has_attachment = message_has_attachment(msg.get("content").unwrap_or(&Value::Null));
@@ -225,6 +232,7 @@ pub async fn chat_completions_handler(
                                 detection_method: check.detection_method.clone(),
                                 session_id: session_id.clone(),
                                 user_name: whoami::username().unwrap_or_default(),
+                                timeout_triggered: false,
                             });
                         }
                         crate::ui::events::InterventionDecision::Block => {
@@ -239,6 +247,7 @@ pub async fn chat_completions_handler(
                                 detection_method: check.detection_method.clone(),
                                 session_id: session_id.clone(),
                                 user_name: whoami::username().unwrap_or_default(),
+                                timeout_triggered: false,
                             });
                             let block_latency = t0.elapsed();
                             state.metrics.push(RequestMetric {
@@ -271,6 +280,7 @@ pub async fn chat_completions_handler(
                                 detection_method: check.detection_method.clone(),
                                 session_id: session_id.clone(),
                                 user_name: whoami::username().unwrap_or_default(),
+                                timeout_triggered: false,
                             });
                             replace_content(msg, &check.scrubbed_text);
                         }
@@ -289,6 +299,7 @@ pub async fn chat_completions_handler(
                                 detection_method: check.detection_method.clone(),
                                 session_id: session_id.clone(),
                                 user_name: whoami::username().unwrap_or_default(),
+                                timeout_triggered: false,
                             });
                         }
                         Ok(Ok(InterventionDecision::Block)) => {
@@ -303,6 +314,7 @@ pub async fn chat_completions_handler(
                                 detection_method: check.detection_method.clone(),
                                 session_id: session_id.clone(),
                                 user_name: whoami::username().unwrap_or_default(),
+                                timeout_triggered: false,
                             });
                             let block_latency = t0.elapsed();
                             state.metrics.push(RequestMetric {
@@ -323,7 +335,7 @@ pub async fn chat_completions_handler(
                             });
                             return (StatusCode::FORBIDDEN, "Request blocked by user").into_response();
                         }
-                        _ => {
+                        Ok(Ok(InterventionDecision::Redact)) => {
                             let uuid = state.config.read().unwrap().uuid.clone();
                             audit::log_event(audit::AuditLog {
                                 timestamp: chrono::Utc::now().to_rfc3339(),
@@ -335,6 +347,39 @@ pub async fn chat_completions_handler(
                                 detection_method: check.detection_method.clone(),
                                 session_id: session_id.clone(),
                                 user_name: whoami::username().unwrap_or_default(),
+                                timeout_triggered: false,
+                            });
+                            replace_content(msg, &check.scrubbed_text);
+                        }
+                        Ok(Err(_)) => {
+                            let uuid = state.config.read().unwrap().uuid.clone();
+                            audit::log_event(audit::AuditLog {
+                                timestamp: chrono::Utc::now().to_rfc3339(),
+                                agent_uuid: uuid,
+                                content_type: check.content_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
+                                action_taken: "REDACT".to_string(),
+                                preview: check.scrubbed_text.clone(),
+                                severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
+                                detection_method: check.detection_method.clone(),
+                                session_id: session_id.clone(),
+                                user_name: whoami::username().unwrap_or_default(),
+                                timeout_triggered: false,
+                            });
+                            replace_content(msg, &check.scrubbed_text);
+                        }
+                        Err(_) => {
+                            let uuid = state.config.read().unwrap().uuid.clone();
+                            audit::log_event(audit::AuditLog {
+                                timestamp: chrono::Utc::now().to_rfc3339(),
+                                agent_uuid: uuid,
+                                content_type: check.content_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
+                                action_taken: "REDACT".to_string(),
+                                preview: check.scrubbed_text.clone(),
+                                severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
+                                detection_method: check.detection_method.clone(),
+                                session_id: session_id.clone(),
+                                user_name: whoami::username().unwrap_or_default(),
+                                timeout_triggered: true,
                             });
                             replace_content(msg, &check.scrubbed_text);
                         }
@@ -538,6 +583,7 @@ pub async fn chat_completions_handler(
                                                     detection_method: check.detection_method.clone(),
                                                     session_id: session_id.clone(),
                                                     user_name: whoami::username().unwrap_or_default(),
+                                                    timeout_triggered: false,
                                                 });
                                                 choice["delta"]["content"] = json!(check.scrubbed_text);
                                             }
@@ -651,6 +697,7 @@ pub async fn files_handler(
                                 detection_method: "REGEX".to_string(),
                                 session_id: session_id.clone(),
                                 user_name: whoami::username().unwrap_or_default(),
+                                timeout_triggered: false,
                         });
                         form = form.part("file", reqwest::multipart::Part::bytes(original_bytes)
                             .file_name(file_name)
@@ -667,6 +714,7 @@ pub async fn files_handler(
                                 detection_method: "REGEX".to_string(),
                                 session_id: session_id.clone(),
                                 user_name: whoami::username().unwrap_or_default(),
+                                timeout_triggered: false,
                         });
                         files_blocked = true;
                         block_reason = reason;

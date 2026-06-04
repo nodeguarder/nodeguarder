@@ -24,6 +24,8 @@ pub struct AuditLog {
     pub session_id: String,
     #[serde(default)]
     pub user_name: String,
+    #[serde(default)]
+    pub timeout_triggered: bool,
 }
 
 fn load_or_create_key() -> [u8; 32] {

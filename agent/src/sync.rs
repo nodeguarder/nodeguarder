@@ -278,7 +278,7 @@ impl SyncEngine {
                 preview: l.preview.clone(),
                 severity: l.severity.clone(),
                 detection_method: l.detection_method.clone(),
-                timeout_triggered: false,
+                timeout_triggered: l.timeout_triggered,
                 policy_enforced: true,
                 session_id: l.session_id.clone(),
                 user_name: l.user_name.clone(),

@@ -1,3 +1,20 @@
+## v1.0.18
+
+- **Security Fix:** Scan all user messages in conversation history (not just the last one) to prevent data leaks when clients re-send full cached history
+- **Fix:** Download provisioning.toml now includes auth token (was returning 401)
+- **Fix:** HITL timeout is now correctly recorded in audit logs (`timeout_triggered: true`)
+- **Fix:** Agent's `policy_version` now stores the policy name instead of raw UUID (portal Agent Detail + agent UI show readable name)
+- **Fix:** Widen `policy_version` column to VARCHAR(255) to fit policy names
+- **Fix:** `agent_request_metrics.agent_uuid` now correctly parses UUID (was failing with type mismatch)
+- **UI:** Enforcement badges in agent "Enterprise Management" tab now wrap properly with flex layout
+- **UI:** Renamed labels for clarity — "AI Tools on This Machine" → "AI Tools detected on this machine", "Proxy Endpoint" → "NodeGuarder proxy endpoint", "Bearer Token" → "NodeGuarder bearer token" (agent UI + portal policy editor)
+
+## v1.0.17
+
+- **Feature:** Add policy-enforced bearer token support for agents (shared secret mode)
+- **Feature:** Dynamic model name in onboarding config snippets (use the model name from the selected upstream, not hardcoded "gpt-4o")
+- **Fix:** Auto-start respects previous user preference on setting open/update
+
 ## v1.0.16
 
 - **Fix:** Streaming requests now check upstream HTTP status before wrapping as SSE — upstream errors propagate properly instead of silent "no response"

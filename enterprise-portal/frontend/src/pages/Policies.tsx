@@ -5,12 +5,10 @@ import {
   Plus,
   Edit3,
   Trash2,
-  Upload,
   AlertTriangle,
-  Check,
   Users,
 } from 'lucide-react'
-import { getPolicies, deletePolicy, deployPolicy, getGroups } from '@/api/client'
+import { getPolicies, deletePolicy, getGroups } from '@/api/client'
 import { formatDate } from '@/lib/utils'
 import { showToast } from '@/components/Toast'
 import type { Policy, AgentGroup } from '@/types'
@@ -21,8 +19,6 @@ export default function Policies() {
   const [groups, setGroups] = useState<AgentGroup[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [deploying, setDeploying] = useState<string | null>(null)
-  const [deployResult, setDeployResult] = useState<{ id: string } | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   const groupMap = new Map(groups.map((g) => [g.id, g.name]))
@@ -64,18 +60,19 @@ export default function Policies() {
     }
   }
 
-  const handleDeploy = async (id: string) => {
-    setDeploying(id)
-    try {
-      await deployPolicy(id)
-      setDeployResult({ id })
-      showToast('Policy deployed to agents', 'success')
-      setTimeout(() => setDeployResult(null), 3000)
-    } catch (err: any) {
-      showToast(err.message, 'error')
-    } finally {
-      setDeploying(null)
-    }
+  const isEnforced = (p: Policy): boolean => {
+    if (p.redaction_enforced) return true
+    if (p.upstream_url) return true
+    if (p.upstream_api_key) return true
+    if (p.bind_port) return true
+    if (p.enable_ocr) return true
+    if (p.disable_atr_auto_update) return true
+    if (p.bearer_token) return true
+    if (p.enabled_detection_categories && p.enabled_detection_categories.length > 0) return true
+    if (p.custom_regex && p.custom_regex.length > 0) return true
+    if (p.allowlists && p.allowlists.length > 0) return true
+    if (!p.allow_custom_allowlists) return true
+    return false
   }
 
   return (
@@ -128,7 +125,7 @@ export default function Policies() {
                   <div>
                     <h3 className="text-sm font-semibold text-portal-text">{policy.name}</h3>
                     <div className="text-[10px] text-portal-text-muted uppercase tracking-wider">
-                      {policy.redaction_enforced ? 'Enforced' : 'Permissive'}
+                      {isEnforced(policy) ? 'Enforced' : 'Permissive'}
                     </div>
                   </div>
                 </div>
@@ -145,8 +142,8 @@ export default function Policies() {
                 {policy.description || 'No description'}
               </p>
               <div className="flex flex-wrap gap-1.5 mb-4">
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${policy.redaction_enforced ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'}`}>
-                  {policy.redaction_enforced ? 'Enforced' : 'Permissive'}
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isEnforced(policy) ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'}`}>
+                  {isEnforced(policy) ? 'Enforced' : 'Permissive'}
                 </span>
                 {policy.target_mode === 'all' ? (
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/30">
@@ -166,32 +163,7 @@ export default function Policies() {
               </div>
               <div className="flex items-center justify-between pt-3 border-t border-portal-border">
                 <span className="text-[10px] text-portal-text-muted">Updated {formatDate(policy.updated_at)}</span>
-                <div className="flex items-center gap-2">
-                  {deployResult?.id === policy.id && (
-                    <span className="text-[10px] text-portal-success flex items-center gap-1">
-                      <Check className="w-3 h-3" />
-                      Activated
-                    </span>
-                  )}
-                  <button
-                    onClick={() => handleDeploy(policy.id)}
-                    disabled={deploying === policy.id}
-                    title="Applied on next agent heartbeat (up to 30s)"
-                    className="btn-ghost text-[10px] py-1 px-2.5 flex items-center gap-1"
-                  >
-                    {deploying === policy.id ? (
-                      <>
-                        <div className="w-3 h-3 border-2 border-portal-accent/30 border-t-portal-accent rounded-full animate-spin" />
-                        Activating
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-3 h-3" />
-                        Activate
-                      </>
-                    )}
-                  </button>
-                </div>
+                <span className="text-[10px] text-portal-text-muted">Applied on next agent heartbeat</span>
               </div>
             </div>
           ))}

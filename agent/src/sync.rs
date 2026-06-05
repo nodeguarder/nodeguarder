@@ -370,19 +370,18 @@ impl SyncEngine {
                         cfg.enforced_bearer_token = None;
                     }
 
-                    // Detection categories
-                    if !enforcement.enabled_detection_categories.is_empty() {
-                        cfg.detect_api_keys = enforcement.enabled_detection_categories.contains(&"api_keys".to_string());
-                        cfg.detect_db_credentials = enforcement.enabled_detection_categories.contains(&"db_credentials".to_string());
-                        cfg.detect_pii = enforcement.enabled_detection_categories.contains(&"pii".to_string());
-                        cfg.detect_injection = enforcement.enabled_detection_categories.contains(&"injection".to_string());
-                        cfg.detect_code_execution = enforcement.enabled_detection_categories.contains(&"code_execution".to_string());
-                        cfg.detect_social_engineering = enforcement.enabled_detection_categories.contains(&"social_engineering".to_string());
-                        cfg.detect_skill_compromise = enforcement.enabled_detection_categories.contains(&"skill_compromise".to_string());
-                        cfg.detect_excessive_autonomy = enforcement.enabled_detection_categories.contains(&"excessive_autonomy".to_string());
-                        cfg.detect_model_abuse = enforcement.enabled_detection_categories.contains(&"model_abuse".to_string());
-                        cfg.detect_data_poisoning = enforcement.enabled_detection_categories.contains(&"data_poisoning".to_string());
-                    }
+                    // Detection categories — always override with policy values
+                    // Empty list means no categories are enabled on the agent
+                    cfg.detect_api_keys = enforcement.enabled_detection_categories.contains(&"api_keys".to_string());
+                    cfg.detect_db_credentials = enforcement.enabled_detection_categories.contains(&"db_credentials".to_string());
+                    cfg.detect_pii = enforcement.enabled_detection_categories.contains(&"pii".to_string());
+                    cfg.detect_injection = enforcement.enabled_detection_categories.contains(&"injection".to_string());
+                    cfg.detect_code_execution = enforcement.enabled_detection_categories.contains(&"code_execution".to_string());
+                    cfg.detect_social_engineering = enforcement.enabled_detection_categories.contains(&"social_engineering".to_string());
+                    cfg.detect_skill_compromise = enforcement.enabled_detection_categories.contains(&"skill_compromise".to_string());
+                    cfg.detect_excessive_autonomy = enforcement.enabled_detection_categories.contains(&"excessive_autonomy".to_string());
+                    cfg.detect_model_abuse = enforcement.enabled_detection_categories.contains(&"model_abuse".to_string());
+                    cfg.detect_data_poisoning = enforcement.enabled_detection_categories.contains(&"data_poisoning".to_string());
 
                     // Disconnect password hash
                     cfg.disconnect_password_hash = if enforcement.disconnect_password_hash.is_empty() {
@@ -412,7 +411,7 @@ impl SyncEngine {
                     let mut ui_cfg = json!({
                         "enforce_redaction": cfg.enforce_redaction,
                         "redactionEnforced": enforcement.redaction_enforced,
-                        "detectionTogglesEnforced": !enforcement.enabled_detection_categories.is_empty(),
+                        "detectionTogglesEnforced": true,
                         "disconnect_password_required": cfg.disconnect_password_hash.is_some(),
                         "detect_api_keys": cfg.detect_api_keys,
                         "detect_db_credentials": cfg.detect_db_credentials,

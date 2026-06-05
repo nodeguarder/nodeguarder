@@ -27,7 +27,7 @@ CREATE TABLE agents (
     ip_address VARCHAR(45),
     status VARCHAR(20) NOT NULL DEFAULT 'offline' CHECK (status IN ('online', 'offline', 'revoked')),
     last_seen TIMESTAMPTZ,
-    policy_version VARCHAR(255) DEFAULT '0',
+    policy_version VARCHAR(20) DEFAULT '0',
     agent_version VARCHAR(20),
     identity_key_pem TEXT,
     cert_pem TEXT,
@@ -50,7 +50,6 @@ CREATE TABLE policies (
     enable_ocr BOOLEAN,
     disable_atr_auto_update BOOLEAN,
     allow_custom_allowlists BOOLEAN NOT NULL DEFAULT true,
-    bearer_token TEXT,
     detection_overrides JSONB DEFAULT '[]'::jsonb,
     custom_regex JSONB DEFAULT '[]'::jsonb,
     allowlists JSONB DEFAULT '[]'::jsonb,
@@ -105,12 +104,11 @@ CREATE TABLE enrollment_codes (
 CREATE INDEX idx_codes_org_id ON enrollment_codes(org_id);
 CREATE INDEX idx_codes_code ON enrollment_codes(code);
 
--- Seed default organization and admin user (password: NodeGuarder#DM1n)
--- IMPORTANT: Change this password after first login!
-INSERT INTO organizations (id, name) VALUES (uuid_generate_v4(), 'Default Organization');
+-- Seed default organization and admin user (password: admin123)
+INSERT INTO organizations (id, name) VALUES ('00000000-0000-0000-0000-000000000001', 'Default Organization');
 
--- Password is bcrypt hash of 'NodeGuarder#DM1n'
+-- Password is bcrypt hash of 'admin123'
 INSERT INTO users (org_id, email, password_hash, display_name, role)
-VALUES ((SELECT id FROM organizations WHERE name = 'Default Organization'), 'admin@nodeguarder.local',
-        '$2b$12$5JciT5xMjB6hMjLbUi0btectaqd.OBWdTkmp7aZcS.xWBwTcNIdZC',
+VALUES ('00000000-0000-0000-0000-000000000001', 'admin@nodeguarder.local',
+        '$2b$12$IKwfE3mzO2FAIh3g/yG61OnJtZRg7Bj7U7TEVWJ9/odrxeMHFieN.',
         'Admin', 'ADMIN');

@@ -115,7 +115,7 @@ export default function PolicyEditor() {
           disable_atr_auto_update: p.disable_atr_auto_update || false,
           allow_custom_allowlists: p.allow_custom_allowlists,
           bearer_token: p.bearer_token || '',
-          enabled_detection_categories: existing.length > 0 ? existing : [...ALL_DETECTION_KEYS],
+          enabled_detection_categories: existing,
           custom_regex: p.custom_regex || [],
           allowlists: p.allowlists || [],
           target_mode: p.target_mode,

@@ -479,7 +479,7 @@ pub fn spawn_settings_window(
                         <button class="action small" onclick="copy(`http://127.0.0.1:{port}/v1`)">COPY</button>
                     </div>
                     <div class="label">NodeGuarder bearer token</div>
-                    <div class="value-row" style="margin-bottom: 20px;">
+                    <div id="bearerTokenRow" class="value-row" style="margin-bottom: 20px;">
                         <span class="value" id="proxyApiKey">{token_escaped}</span>
                         <button class="action small" onclick="copy(document.getElementById('proxyApiKey').innerText)">COPY</button>
                     </div>
@@ -806,7 +806,7 @@ pub fn spawn_settings_window(
                         <div class="model-icon">🧠</div>
                         <div>
                             <div class="model-name">DeBERTa-v3 (Prompt Injection)</div>
-                            <div class="model-detail">184M parameters &middot; ~704MB on disk &middot; CPU optimized</div>
+                            <div class="model-detail">184M parameters &middot; ~704MB on disk &middot; <span id="modelHardware">loading...</span></div>
                         </div>
                     </div>
                 </div>
@@ -1254,18 +1254,8 @@ pub fn spawn_settings_window(
             }}
 
             function renderPolicyInfo() {{
-                var enforcements = [];
-                if (config.redactionEnforced) enforcements.push('Redaction');
-                if (config.upstreamUrlEnforced) enforcements.push('Upstream URL');
-                if (config.upstreamApiKeyEnforced) enforcements.push('Upstream API Key');
-                if (config.bindPortEnforced) enforcements.push('Bind Port');
-                if (config.ocrEnforced) enforcements.push('OCR');
-                if (config.atrAutoUpdateEnforced) enforcements.push('ATR Auto-Update');
                 var html = '<div class="label">Deployed Policy</div>' +
-                    '<div class="value-row"><span class="value">' + (config.policy_version || '—') + '</span></div>' +
-                    '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;align-items:center;"><span class="label" style="margin-right:4px;">Enforcements:</span> ' +
-                    (enforcements.length > 0 ? enforcements.map(function(e) {{ return '<span class="badge badge-redact" style="margin:2px;">' + e + '</span>'; }}).join('') : '<span style="color:var(--text-muted);font-size:12px;">None</span>') +
-                    '</div>';
+                    '<div class="value-row"><span class="value">' + (config.policy_version || '—') + '</span></div>';
                 var connectedEl = document.getElementById('policyInfoConnected');
                 var disconnectedEl = document.getElementById('policyInfoDisconnected');
                 if (connectedEl) connectedEl.innerHTML = html;
@@ -1372,6 +1362,8 @@ pub fn spawn_settings_window(
                     const dotEl = document.getElementById('advModelDot');
                     if (dotEl) dotEl.className = 'dot ' + (hw.includes('CPU') ? 'dot-offline' : 'dot-online');
                 }}
+                const mh = document.getElementById('modelHardware');
+                if (mh) mh.innerText = hw + ' optimized';
             }};
 
             window.updateConfig = (newCfg) => {{

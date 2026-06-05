@@ -27,7 +27,6 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/api/v1/policies/:id", get(get_policy))
         .route("/api/v1/policies/:id", patch(update_policy))
         .route("/api/v1/policies/:id", delete(delete_policy))
-        .route("/api/v1/policies/:id/deploy", post(deploy_policy))
 }
 
 async fn list_policies(
@@ -374,33 +373,4 @@ async fn delete_policy(
     Ok(Json(json!({"status": "deleted"})))
 }
 
-async fn deploy_policy(
-    State(state): State<Arc<AppState>>,
-    user: AuthenticatedUser,
-    Path(id): Path<Uuid>,
-) -> Result<Json<Value>, StatusCode> {
-    let policy =
-        sqlx::query_as::<_, Policy>("SELECT * FROM policies WHERE id = $1 AND org_id = $2")
-            .bind(id)
-            .bind(user.org_id)
-            .fetch_optional(&state.pool)
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-            .ok_or(StatusCode::NOT_FOUND)?;
 
-    let updated_by = resolve_user_id(&state.pool, &user).await;
-    let _updated = sqlx::query("UPDATE policies SET updated_at = NOW(), updated_by = $2 WHERE id = $1")
-        .bind(id)
-        .bind(updated_by)
-        .execute(&state.pool)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .rows_affected();
-
-    Ok(Json(json!({
-        "status": "deployed",
-        "policy_id": policy.id,
-        "target_mode": policy.target_mode,
-        "target_regex": policy.target_regex,
-    })))
-}

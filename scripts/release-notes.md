@@ -1,3 +1,16 @@
+## v1.0.19
+
+- **Fix:** Reverted `001_initial_schema.sql` to original content — modified migration files were causing `VersionMismatch` errors on upgrade; schema changes moved to new `010_add_bearer_token.sql` and `011_widen_policy_version.sql`
+- **Fix:** Removed redundant "Activate" button in policy list (create/edit already updates `updated_at`; button did nothing)
+- **Fix:** Enforced badge in policy list now checks all enforcement fields (upstream_url, bind_port, OCR, ATR, bearer_token, detection categories, custom_regex, allowlists, etc.) instead of only `redaction_enforced`
+- **Fix:** Empty detection categories now correctly disable all toggles on the agent (previously treated as "skip update" — toggles stayed enabled)
+- **Fix:** PolicyEditor no longer resets empty detection categories to all 10 defaults on reload
+- **Fix:** Bearer token display in agent Connectivity tab is greyed out when enforced by policy
+- **UI:** Removed enforcement badges list from agent Enterprise Management tab (redundant — info shown in Protection/Connectivity tabs)
+- **UI:** Model hardware text in agent Advanced tab now shows dynamically ("CPU optimized" / "GPU optimized") based on actual runtime
+- **UI:** Removed upstream provider dropdown from Dashboard and LLM Landscape pages (users configure in policy view)
+- **UI:** LLM Landscape Suggestions tab now shows policy count ("1 policy set") instead of "Next: configure your upstream LLM"; removed duplicate "upstream_url needed" card
+
 ## v1.0.18
 
 - **Security Fix:** Scan all user messages in conversation history (not just the last one) to prevent data leaks when clients re-send full cached history

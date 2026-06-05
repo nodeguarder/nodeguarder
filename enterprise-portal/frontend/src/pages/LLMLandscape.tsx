@@ -5,20 +5,12 @@ import {
   ChevronDown, ChevronRight, Brain, Lightbulb, Search, Plus, ArrowRight,
   Code, Layers, Terminal, BarChart,
 } from 'lucide-react'
-import { getEnvironmentLandscape, getEnvironmentSuggestions } from '@/api/client'
+import { getDashboard, getEnvironmentLandscape, getEnvironmentSuggestions } from '@/api/client'
 import { showToast } from '@/components/Toast'
 import type { LLMLandscape, LandscapeReport, ConfigSuggestion, DetectedEndpoint, DetectedIde, DetectedEnvVar } from '@/types'
 
 const AUTO_REFRESH_MS = 30000
 const PER_PAGE = 10
-
-const UPSTREAM_PROVIDERS = [
-  { label: 'GitHub Models', url: 'https://models.inference.ai.azure.com', icon: Globe },
-  { label: 'Azure OpenAI', url: 'https://<resource>.openai.azure.com/v1', icon: Globe },
-  { label: 'OpenAI', url: 'https://api.openai.com/v1', icon: Globe },
-  { label: 'Ollama (detected)', url: 'http://localhost:11434/v1', icon: Server },
-  { label: 'Custom', url: '', icon: Server },
-] as const
 
 const TABS = [
   { id: 'agents', label: 'Agents', icon: Monitor },
@@ -52,18 +44,21 @@ export default function LLMLandscape() {
     }
   })
   const [filteredAgent, setFilteredAgent] = useState<string | null>(null)
+  const [totalPolicies, setTotalPolicies] = useState(0)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const fetchData = useCallback(async () => {
     try {
-      const [landscapeRes, suggestionsRes] = await Promise.all([
+      const [landscapeRes, suggestionsRes, dashboardRes] = await Promise.all([
         getEnvironmentLandscape({ page, per_page: PER_PAGE, search: search || undefined }),
         getEnvironmentSuggestions(search || undefined),
+        getDashboard(),
       ])
       setLandscape(landscapeRes.landscape)
       setReports(landscapeRes.reports || [])
       setSuggestions(suggestionsRes.suggestions || [])
       setTotal(landscapeRes.total)
+      setTotalPolicies(dashboardRes.total_policies)
       setError('')
     } catch (err: any) {
       setError(err.message)
@@ -336,6 +331,7 @@ export default function LLMLandscape() {
                   handleDismissSuggestion={handleDismissSuggestion}
                   isIdeConfigCategory={isIdeConfigCategory}
                   reports={reports}
+                  totalPolicies={totalPolicies}
                 />
               )}
             </div>
@@ -726,7 +722,7 @@ function IdesTab({ ides }: { ides: (DetectedIde & { agent_uuid: string; hostname
   )
 }
 
-function IdeConfigSection({ reports }: { reports: LandscapeReport[] }) {
+function IdeConfigSection({ reports, totalPolicies }: { reports: LandscapeReport[]; totalPolicies: number }) {
   const [configModelName, setConfigModelName] = useState(() => {
     try { return localStorage.getItem('ng-config-model') || 'openai/gpt-4o-mini' } catch (e) { return 'openai/gpt-4o-mini' }
   })
@@ -741,7 +737,6 @@ function IdeConfigSection({ reports }: { reports: LandscapeReport[] }) {
   if (allIdes.length === 0) return null
 
   const navigate = useNavigate()
-  const [upstreamUrl, setUpstreamUrl] = useState('https://models.inference.ai.azure.com')
   const anyConfigured = Array.from(
     new Map<string, boolean>(
       allIdes.map((ide) => [
@@ -856,62 +851,15 @@ function IdeConfigSection({ reports }: { reports: LandscapeReport[] }) {
         <div className="mt-3 pt-3 border-t border-portal-border flex items-center justify-between gap-3">
           <div className="text-xs text-portal-text-muted flex items-center gap-2">
             <ArrowRight className="w-3.5 h-3.5 text-portal-accent" />
-            Next: configure your upstream LLM
+            {totalPolicies > 0 ? `${totalPolicies} polic${totalPolicies === 1 ? 'y' : 'ies'} set` : 'No policy set'}
           </div>
-          <div className="flex items-center gap-1.5">
-            <ProviderSelect value={upstreamUrl} onChange={setUpstreamUrl} />
-            <button
-              onClick={() => navigate('/policies/new', { state: { suggestion: { category: 'upstream_url', description: 'From LLM Landscape', suggested_value: upstreamUrl, priority: 'high', affected_agent_count: 1 } } })}
-              className="btn-ghost text-[10px] py-1.5 px-2 flex items-center gap-1"
-            >
-              <Plus className="w-3 h-3" />
-              Create Policy
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function ProviderSelect({ value, onChange }: { value: string; onChange: (url: string) => void }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  const selected = UPSTREAM_PROVIDERS.find((p) => p.url === value)
-  const Icon = selected?.icon ?? Server
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen(!open)}
-        className="btn-ghost text-xs flex items-center gap-1.5 py-1.5 px-2 min-w-[140px]"
-      >
-        <Icon className="w-3.5 h-3.5" />
-        <span className="truncate">{selected?.label ?? 'Custom'}</span>
-        <ChevronDown className="w-3 h-3 ml-auto opacity-50" />
-      </button>
-      {open && (
-        <div className="absolute right-0 top-full mt-1 bg-portal-card border border-portal-border rounded-lg shadow-xl z-10 min-w-[200px] overflow-hidden">
-          {UPSTREAM_PROVIDERS.map((p) => (
-            <button
-              key={p.label}
-              onClick={() => { onChange(p.url); setOpen(false) }}
-              className={'w-full text-left flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/5 transition-colors ' + (p.url === value ? 'text-portal-accent' : 'text-portal-text')}
-            >
-              <p.icon className="w-3.5 h-3.5 opacity-60" />
-              <span className="flex-1 truncate">{p.label}</span>
-              {p.url && <span className="text-[10px] text-portal-text-muted truncate max-w-[120px]">{p.url}</span>}
-            </button>
-          ))}
+          <button
+            onClick={() => navigate('/policies/new')}
+            className="btn-ghost text-[10px] py-1.5 px-2 flex items-center gap-1"
+          >
+            <Plus className="w-3 h-3" />
+            Create Policy
+          </button>
         </div>
       )}
     </div>
@@ -921,7 +869,7 @@ function ProviderSelect({ value, onChange }: { value: string; onChange: (url: st
 function SuggestionsTab({
   scopedSuggestions, displaySuggestions, showAllSuggestions, setShowAllSuggestions,
   filteredAgent, setFilteredAgent,
-  handleCreatePolicyFromSuggestion, handleDismissSuggestion, isIdeConfigCategory, reports,
+  handleCreatePolicyFromSuggestion, handleDismissSuggestion, isIdeConfigCategory, reports, totalPolicies,
 }: {
   scopedSuggestions: ConfigSuggestion[]
   displaySuggestions: ConfigSuggestion[]
@@ -933,24 +881,13 @@ function SuggestionsTab({
   handleDismissSuggestion: (key: string) => void
   isIdeConfigCategory: (cat: string) => boolean
   reports: LandscapeReport[]
+  totalPolicies: number
 }) {
-  const [providerOverrides, setProviderOverrides] = useState<Map<string, string>>(new Map())
-
   const hasIdeConfig = reports.some((r) => (r.report.detected_ides?.length ?? 0) > 0)
-  const hasUpstreamSuggestion = scopedSuggestions.some((s) => s.category === 'upstream_url')
-
-  const handleCreatePolicyWithOverride = (s: ConfigSuggestion) => {
-    const override = providerOverrides.get(`${s.category}::${s.suggested_value}`)
-    if (override) {
-      handleCreatePolicyFromSuggestion({ ...s, suggested_value: override })
-    } else {
-      handleCreatePolicyFromSuggestion(s)
-    }
-  }
 
   return (
     <div>
-      <IdeConfigSection reports={reports} />
+      <IdeConfigSection reports={reports} totalPolicies={totalPolicies} />
 
       {scopedSuggestions.length === 0 && !hasIdeConfig ? (
         <div className="text-center py-8 text-portal-text-muted">
@@ -968,39 +905,6 @@ function SuggestionsTab({
             )}
           </div>
           <div className="space-y-2">
-            {!hasUpstreamSuggestion && hasIdeConfig && (
-              <div className="flex items-start gap-3 bg-portal-bg rounded-lg p-3 border border-amber-500/30">
-                <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0 bg-amber-400" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-amber-400">upstream_url</span>
-                    <span className="text-[10px] text-portal-accent bg-portal-accent/10 px-1.5 py-0.5 rounded">needed</span>
-                  </div>
-                  <div className="text-sm text-portal-text">IDE is configured but no upstream LLM is set. Choose a provider to forward requests through NodeGuarder.</div>
-                </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0 self-center">
-                  <ProviderSelect
-                    value={providerOverrides.get('upstream_url::_proactive') ?? UPSTREAM_PROVIDERS[0].url}
-                    onChange={(url) => setProviderOverrides((m) => new Map(m).set('upstream_url::_proactive', url))}
-                  />
-                  <button
-                    onClick={() => handleCreatePolicyFromSuggestion({
-                      category: 'upstream_url',
-                      description: 'IDE upstream LLM',
-                      suggested_value: providerOverrides.get('upstream_url::_proactive') ?? UPSTREAM_PROVIDERS[0].url,
-                      priority: 'high',
-                      affected_agent_count: reports.filter((r) => (r.report.detected_ides?.length ?? 0) > 0).length,
-                      agents: reports.filter((r) => (r.report.detected_ides?.length ?? 0) > 0).map((r) => ({ agent_uuid: r.agent_uuid, hostname: r.hostname })),
-                    })}
-                    className="btn-ghost text-xs flex items-center gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Create Policy
-                  </button>
-                </div>
-              </div>
-            )}
-
             {displaySuggestions.map((s, i) => (
               <div key={i} className="flex items-start gap-3 bg-portal-bg rounded-lg p-3 border border-portal-border/50">
                 <div className={'w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ' + (
@@ -1030,22 +934,14 @@ function SuggestionsTab({
                       Copy Config
                     </button>
                   ) : (
-                    <>
-                      {s.category === 'upstream_url' && (
-                        <ProviderSelect
-                          value={providerOverrides.get(`${s.category}::${s.suggested_value}`) ?? s.suggested_value}
-                          onChange={(url) => setProviderOverrides((m) => new Map(m).set(`${s.category}::${s.suggested_value}`, url))}
-                        />
-                      )}
-                      <button
-                        onClick={() => handleCreatePolicyWithOverride(s)}
-                        className="btn-ghost text-xs flex items-center gap-1.5"
-                        title="Create policy from this suggestion"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        Create Policy
-                      </button>
-                    </>
+                    <button
+                      onClick={() => handleCreatePolicyFromSuggestion(s)}
+                      className="btn-ghost text-xs flex items-center gap-1.5"
+                      title="Create policy from this suggestion"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Create Policy
+                    </button>
                   )}
                   <button
                     onClick={() => handleDismissSuggestion(`${s.category}::${s.suggested_value}`)}

@@ -158,7 +158,6 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [activitySource, setActivitySource] = useState<'api' | 'none'>('none')
   const [landscapeReports, setLandscapeReports] = useState<LandscapeReport[]>([])
-  const [upstreamUrl, setUpstreamUrl] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -266,8 +265,6 @@ export default function Dashboard() {
       <PipelineCard
         data={data}
         reports={landscapeReports}
-        upstreamUrl={upstreamUrl}
-        setUpstreamUrl={setUpstreamUrl}
         navigate={navigate}
       />
 
@@ -407,11 +404,9 @@ export default function Dashboard() {
   )
 }
 
-function PipelineCard({ data, reports, upstreamUrl, setUpstreamUrl, navigate }: {
+function PipelineCard({ data, reports, navigate }: {
   data: DashboardSummary | null
   reports: LandscapeReport[]
-  upstreamUrl: string
-  setUpstreamUrl: (v: string) => void
   navigate: ReturnType<typeof useNavigate>
 }) {
   const [configModelName, setConfigModelName] = useState(() => {
@@ -427,8 +422,6 @@ function PipelineCard({ data, reports, upstreamUrl, setUpstreamUrl, navigate }: 
   const totalAgents = data?.total_agents ?? 0
   const onlineAgents = data?.online_agents ?? 0
   const agentPct = totalAgents ? Math.round((onlineAgents / totalAgents) * 100) : 0
-
-  const defaultUrl = upstreamUrl || 'https://models.inference.ai.azure.com'
 
   const stage = (icon: React.ReactNode, label: string, status: 'ok' | 'warn' | 'empty', statusLabel: string, action: React.ReactNode) => (
     <div className="flex items-center gap-3 bg-portal-bg rounded-lg p-3 border border-portal-border/50 flex-1 min-w-0">
@@ -498,15 +491,12 @@ function PipelineCard({ data, reports, upstreamUrl, setUpstreamUrl, navigate }: 
           'Upstream LLM',
           data && data.total_policies > 0 ? 'ok' : 'warn',
           data && data.total_policies > 0 ? `${data.total_policies} polic${data.total_policies === 1 ? 'y' : 'ies'}` : 'No policy set',
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <ProviderSelect value={defaultUrl} onChange={setUpstreamUrl} />
-            <button
-              onClick={() => navigate('/policies/new', { state: { suggestion: { category: 'upstream_url', description: 'Dashboard upstream LLM', suggested_value: defaultUrl, priority: 'high', affected_agent_count: 1 } } })}
-              className="btn-ghost text-[10px] py-1.5 px-2"
-            >
-              Create
-            </button>
-          </div>
+          <button
+            onClick={() => navigate('/policies/new')}
+            className="btn-ghost text-[10px] py-1.5 px-2 flex-shrink-0"
+          >
+            Create
+          </button>
         )}
       </div>
     </div>

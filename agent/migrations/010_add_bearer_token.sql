@@ -1,0 +1,1 @@
+ALTER TABLE policies ADD COLUMN IF NOT EXISTS bearer_token TEXT;

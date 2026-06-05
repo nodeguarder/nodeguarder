@@ -1,0 +1,1 @@
+ALTER TABLE agents ALTER COLUMN policy_version TYPE VARCHAR(255);

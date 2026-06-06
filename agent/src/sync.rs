@@ -166,7 +166,6 @@ impl SyncEngine {
 
                     let _ = self.ui_proxy.send_event(UiEvent::UpdateConfigInUI(json!({
                         "enrolled": true,
-                        "orgId": res.org_id,
                         "connected": true,
                     }).to_string()));
 
@@ -202,7 +201,6 @@ impl SyncEngine {
 
         let _ = self.ui_proxy.send_event(UiEvent::UpdateConfigInUI(json!({
             "enrolled": false,
-            "orgId": "N/A",
             "connected": false,
             "redactionEnforced": false,
             "upstreamUrlEnforced": false,
@@ -351,7 +349,7 @@ impl SyncEngine {
                     if enforcement.upstream_url_enforced {
                         cfg.upstream_url = enforcement.upstream_url.clone();
                     }
-                    if enforcement.upstream_api_key_enforced {
+                    if enforcement.upstream_api_key_enforced && !enforcement.upstream_api_key.is_empty() {
                         cfg.upstream_api_key = Some(enforcement.upstream_api_key.clone());
                     }
                     if enforcement.bind_port_enforced && enforcement.bind_port > 0 {

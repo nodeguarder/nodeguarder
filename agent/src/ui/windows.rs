@@ -718,8 +718,6 @@ pub fn spawn_settings_window(
                             <div class="dot dot-online"></div>
                             <span style="color: #10b981; font-weight: 700;">ENROLLED & CONNECTED</span>
                         </div>
-                        <div class="label">Organization ID</div>
-                        <div class="value-row"><span class="value" id="orgIdConnected">--</span></div>
                         <div id="policyInfoConnected" style="margin-top: 15px;"></div>
                         <p style="font-size: 13px; color: var(--text-muted); margin-top: 15px;">Hardware identity and mTLS certificates are managed by the platform.</p>
                         <button class="action danger" onclick="disconnect()" style="margin-top: 20px;">REMOVE ENROLLMENT</button>
@@ -730,8 +728,6 @@ pub fn spawn_settings_window(
                             <div class="dot dot-warning"></div>
                             <span style="color: #f59e0b; font-weight: 700;">ENROLLED — DISCONNECTED</span>
                         </div>
-                        <div class="label">Organization ID</div>
-                        <div class="value-row"><span class="value" id="orgIdDisconnected">--</span></div>
                         <div id="policyInfoDisconnected" style="margin-top: 15px;"></div>
                         <p style="font-size: 13px; color: var(--text-muted); margin-top: 15px;">Connection to the Admin Platform is currently unavailable. The agent will automatically reconnect.</p>
                         <button class="action danger" onclick="disconnect()" style="margin-top: 20px;">REMOVE ENROLLMENT</button>
@@ -914,7 +910,6 @@ pub fn spawn_settings_window(
                 logs: {logs_json},
                 enrolled: {enrolled},
                 connected: false,
-                orgId: "{org_id}",
                 enable_ocr: {enable_ocr},
                 upstream_url: "{upstream_url}",
                 upstream_api_key: "{upstream_api_key}",
@@ -1239,11 +1234,9 @@ pub fn spawn_settings_window(
                     if(config.connected) {{
                         document.getElementById('enrolledConnectedStatus').style.display = 'block';
                         document.getElementById('enrolledDisconnectedStatus').style.display = 'none';
-                        document.getElementById('orgIdConnected').innerText = config.orgId || '--';
                     }} else {{
                         document.getElementById('enrolledConnectedStatus').style.display = 'none';
                         document.getElementById('enrolledDisconnectedStatus').style.display = 'block';
-                        document.getElementById('orgIdDisconnected').innerText = config.orgId || '--';
                     }}
                     renderPolicyInfo();
                 }} else {{
@@ -1464,7 +1457,6 @@ pub fn spawn_settings_window(
         enforce_redaction = config.enforce_redaction,
         logs_json = logs_json,
         enrolled = enrolled,
-        org_id = config.enrolled_admin.clone().unwrap_or("N/A".to_string()),
         enable_ocr = config.enable_ocr,
         detect_api_keys = config.detect_api_keys,
         detect_db_credentials = config.detect_db_credentials,

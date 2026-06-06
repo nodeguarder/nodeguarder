@@ -1,3 +1,10 @@
+## v1.0.20
+
+- **Fix:** Metrics API queries now cast `AVG()` results to double precision to fix 500 error on `/usage` page (PostgreSQL returns `NUMERIC` but Rust expects `FLOAT8`)
+- **Fix:** Enterprise policy sync no longer clears `upstream_api_key` when the policy has an empty value — user-set API key is preserved
+- **Fix:** Removed unused `post` import in policies handler to clean up build warning
+- **UI:** Removed Organization ID display from agent Enterprise Management tab (redundant — enrolled/connected status is sufficient)
+
 ## v1.0.19
 
 - **Fix:** Reverted `001_initial_schema.sql` to original content — modified migration files were causing `VersionMismatch` errors on upgrade; schema changes moved to new `010_add_bearer_token.sql` and `011_widen_policy_version.sql`

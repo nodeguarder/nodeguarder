@@ -136,9 +136,9 @@ async fn get_metrics_summary(
             COUNT(*) FILTER (WHERE was_cached)::bigint,
             COUNT(*) FILTER (WHERE was_blocked)::bigint,
             COUNT(*) FILTER (WHERE was_redacted)::bigint,
-            COALESCE(AVG(total_latency_ms), 0),
-            COALESCE(AVG(detection_latency_ms), 0),
-            COALESCE(AVG(upstream_latency_ms), 0),
+            COALESCE(AVG(total_latency_ms)::double precision, 0),
+            COALESCE(AVG(detection_latency_ms)::double precision, 0),
+            COALESCE(AVG(upstream_latency_ms)::double precision, 0),
             COALESCE(SUM(prompt_tokens), 0)::bigint,
             COALESCE(SUM(completion_tokens), 0)::bigint,
             COUNT(DISTINCT agent_uuid)::bigint,
@@ -184,7 +184,7 @@ async fn get_metrics_per_model(
             COUNT(*)::bigint,
             COALESCE(SUM(prompt_tokens), 0)::bigint,
             COALESCE(SUM(completion_tokens), 0)::bigint,
-            COALESCE(AVG(total_latency_ms), 0),
+            COALESCE(AVG(total_latency_ms)::double precision, 0),
             COUNT(*) FILTER (WHERE was_cached)::bigint
            FROM agent_request_metrics
            WHERE org_id = $1
@@ -265,7 +265,7 @@ async fn get_metrics_per_agent(
             agent_uuid::text,
             COUNT(*)::bigint,
             COALESCE(SUM(total_tokens), 0)::bigint,
-            COALESCE(AVG(total_latency_ms), 0),
+            COALESCE(AVG(total_latency_ms)::double precision, 0),
             COUNT(*) FILTER (WHERE was_cached)::bigint
            FROM agent_request_metrics
            WHERE org_id = $1

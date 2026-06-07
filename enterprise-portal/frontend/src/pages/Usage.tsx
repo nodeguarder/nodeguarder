@@ -1,10 +1,24 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, LineChart, Line } from 'recharts'
-import { Brain, DollarSign, Activity, Database } from 'lucide-react'
+import { Brain, FileText, Activity, Database } from 'lucide-react'
 import MetricCard from '@/components/MetricCard'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import { getMetricsSummary, getMetricsDaily, getMetricsPerModel, getMetricsPerAgent } from '@/api/client'
 import type { MetricsSummary, DailyMetric, PerModelMetric, PerAgentMetric } from '@/types'
+
+type DateRange = '24h' | '7d' | '30d'
+
+const RANGE_LABELS: Record<DateRange, string> = {
+  '24h': 'last 24 hours',
+  '7d': 'last 7 days',
+  '30d': 'last 30 days',
+}
+
+const RANGE_MS: Record<DateRange, number> = {
+  '24h': 86_400_000,
+  '7d': 604_800_000,
+  '30d': 2_592_000_000,
+}
 
 export default function Usage() {
   const [summary, setSummary] = useState<MetricsSummary | null>(null)
@@ -13,13 +27,18 @@ export default function Usage() {
   const [perAgent, setPerAgent] = useState<PerAgentMetric[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [range, setRange] = useState<DateRange>('24h')
 
-  useEffect(() => {
+  const fetchAll = useCallback(() => {
+    setLoading(true)
+    setError('')
+    const now = Date.now()
+    const from = now - RANGE_MS[range]
     Promise.all([
-      getMetricsSummary(),
-      getMetricsDaily(),
-      getMetricsPerModel(),
-      getMetricsPerAgent(),
+      getMetricsSummary({ from, to: now }),
+      getMetricsDaily({ from, to: now }),
+      getMetricsPerModel({ from, to: now }),
+      getMetricsPerAgent({ from, to: now }),
     ])
       .then(([s, d, m, a]) => {
         setSummary(s)
@@ -29,7 +48,13 @@ export default function Usage() {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [])
+  }, [range])
+
+  useEffect(() => { fetchAll() }, [fetchAll])
+
+  const totalTokens = summary
+    ? summary.total_prompt_tokens + summary.total_completion_tokens
+    : 0
 
   if (error) {
     return (
@@ -47,11 +72,26 @@ export default function Usage() {
     <div>
       <div className="mb-6">
         <h1 className="page-title">API Usage</h1>
-        <p className="text-sm text-portal-text-muted">
-          {summary
-            ? `${summary.total_requests.toLocaleString()} requests in the last 24h across ${summary.unique_agents} agents`
-            : 'Loading...'}
-        </p>
+        <div className="flex items-center gap-3 mt-2">
+          {(['24h', '7d', '30d'] as DateRange[]).map((r) => (
+            <button
+              key={r}
+              onClick={() => setRange(r)}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                range === r
+                  ? 'bg-portal-accent/20 text-portal-accent border border-portal-accent/30'
+                  : 'text-portal-text-muted hover:text-portal-text bg-white/5 hover:bg-white/10 border border-transparent'
+              }`}
+            >
+              {r}
+            </button>
+          ))}
+          <span className="text-xs text-portal-text-muted ml-1">
+            {summary
+              ? `${summary.total_requests.toLocaleString()} requests in ${RANGE_LABELS[range]} across ${summary.unique_agents} agents`
+              : ''}
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
@@ -68,9 +108,9 @@ export default function Usage() {
           loading={loading}
         />
         <MetricCard
-          label="Est. Cost (USD)"
-          value={summary ? `$${summary.estimated_cost_usd.toFixed(4)}` : '$0.00'}
-          icon={<DollarSign className="w-5 h-5" />}
+          label="Total Tokens"
+          value={summary ? totalTokens.toLocaleString() : '0'}
+          icon={<FileText className="w-5 h-5" />}
           loading={loading}
         />
         <MetricCard
@@ -84,7 +124,7 @@ export default function Usage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <ErrorBoundary>
           <div className="bg-portal-card border border-portal-border rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-portal-text mb-4">Daily Requests (30 days)</h3>
+            <h3 className="text-sm font-semibold text-portal-text mb-4">Daily Requests</h3>
             {daily.length === 0 ? (
               <div className="text-sm text-portal-text-muted text-center py-8">No data yet</div>
             ) : (
@@ -107,21 +147,21 @@ export default function Usage() {
 
         <ErrorBoundary>
           <div className="bg-portal-card border border-portal-border rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-portal-text mb-4">Daily Cost (USD)</h3>
+            <h3 className="text-sm font-semibold text-portal-text mb-4">Daily Token Usage</h3>
             {daily.length === 0 ? (
               <div className="text-sm text-portal-text-muted text-center py-8">No data yet</div>
             ) : (
               <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={daily}>
+                <LineChart data={daily.map(d => ({ ...d, total_tokens: d.total_prompt_tokens + d.total_completion_tokens }))}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
                   <XAxis dataKey="date" tick={{ fill: '#94a3b8', fontSize: 11 }} />
                   <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
                   <RechartsTooltip
                     contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px', color: '#e2e8f0' }}
-                    formatter={(value: number) => [`$${value.toFixed(4)}`, 'Cost']}
+                    formatter={(value: number) => [value.toLocaleString(), 'Tokens']}
                   />
                   <Legend />
-                  <Line type="monotone" dataKey="estimated_cost_usd" name="Cost" stroke="#f59e0b" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="total_tokens" name="Tokens" stroke="#f59e0b" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             )}
@@ -144,7 +184,7 @@ export default function Usage() {
                       <th className="text-right py-2 px-4">Requests</th>
                       <th className="text-right py-2 px-4">Avg Latency</th>
                       <th className="text-right py-2 px-4">Cached</th>
-                      <th className="text-right py-2 pl-4">Cost</th>
+                      <th className="text-right py-2 pl-4">Tokens</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -154,7 +194,7 @@ export default function Usage() {
                         <td className="text-right py-2 px-4 text-portal-text">{m.request_count.toLocaleString()}</td>
                         <td className="text-right py-2 px-4 text-portal-text-muted">{m.avg_latency_ms.toFixed(0)}ms</td>
                         <td className="text-right py-2 px-4 text-portal-text-muted">{m.cached_count}</td>
-                        <td className="text-right py-2 pl-4 text-portal-text font-mono">${m.estimated_cost_usd.toFixed(4)}</td>
+                        <td className="text-right py-2 pl-4 text-portal-text font-mono">{(m.total_prompt_tokens + m.total_completion_tokens).toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>

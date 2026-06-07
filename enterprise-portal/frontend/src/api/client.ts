@@ -295,18 +295,34 @@ export function getAgentMetrics(uuid: string, params?: { limit?: number; offset?
   return request(`/agents/${uuid}/metrics${q ? '?' + q : ''}`)
 }
 
-export function getMetricsSummary(): Promise<MetricsSummary> {
-  return request('/organization/metrics/summary')
+export function getMetricsSummary(range?: { from?: number; to?: number }): Promise<MetricsSummary> {
+  const qs = new URLSearchParams()
+  if (range?.from) qs.set('from', String(range.from))
+  if (range?.to) qs.set('to', String(range.to))
+  const q = qs.toString()
+  return request(`/organization/metrics/summary${q ? '?' + q : ''}`)
 }
 
-export function getMetricsPerModel(): Promise<PerModelMetric[]> {
-  return request('/organization/metrics/per-model')
+export function getMetricsPerModel(range?: { from?: number; to?: number }): Promise<PerModelMetric[]> {
+  const qs = new URLSearchParams()
+  if (range?.from) qs.set('from', String(range.from))
+  if (range?.to) qs.set('to', String(range.to))
+  const q = qs.toString()
+  return request(`/organization/metrics/per-model${q ? '?' + q : ''}`)
 }
 
-export function getMetricsDaily(): Promise<DailyMetric[]> {
-  return request('/organization/metrics/daily')
+export function getMetricsDaily(range?: { from?: number; to?: number }): Promise<DailyMetric[]> {
+  const qs = new URLSearchParams()
+  if (range?.from) qs.set('from', String(range.from))
+  if (range?.to) qs.set('to', String(range.to))
+  const q = qs.toString()
+  return request(`/organization/metrics/daily${q ? '?' + q : ''}`)
 }
 
-export function getMetricsPerAgent(): Promise<PerAgentMetric[]> {
-  return request('/organization/metrics/per-agent')
+export function getMetricsPerAgent(range?: { from?: number; to?: number }): Promise<PerAgentMetric[]> {
+  const qs = new URLSearchParams()
+  if (range?.from) qs.set('from', String(range.from))
+  if (range?.to) qs.set('to', String(range.to))
+  const q = qs.toString()
+  return request(`/organization/metrics/per-agent${q ? '?' + q : ''}`)
 }

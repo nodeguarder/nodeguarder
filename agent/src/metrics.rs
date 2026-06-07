@@ -55,6 +55,7 @@ impl MetricsCollector {
     }
 }
 
+#[allow(dead_code)]
 pub fn estimate_cost(model: &str, prompt_tokens: u64, completion_tokens: u64) -> f64 {
     let model = model.to_lowercase();
     let (input_price, output_price) = if model.contains("gpt-4") && model.contains("turbo") {

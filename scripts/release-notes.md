@@ -1,3 +1,12 @@
+## v1.0.21
+
+- **Fix:** Policy `bearer_token` and `upstream_api_key` now properly returned by GET/list endpoints (were missing from JSON response, causing frontend to show empty values)
+- **Fix:** Saving a policy with empty `bearer_token` or `upstream_api_key` no longer overwrites the stored value (COALESCE → NULLIF to treat empty string as "don't change")
+- **UI:** Usage page now shows total tokens instead of estimated cost, with 24h/7d/30d date range filtering on all metrics (summary, daily chart, per-model, per-agent)
+- **Tech:** All 4 metrics API endpoints (`summary`, `daily`, `per-model`, `per-agent`) now accept optional `from`/`to` query parameters for flexible time range queries
+- **Tech:** Removed `estimated_cost_usd` from backend and frontend types (no longer computed or displayed)
+- **Tech:** Cleaned up unused parenthesis warnings in metrics handlers, suppressed dead_code warning on `estimate_cost()`
+
 ## v1.0.20
 
 - **Fix:** Metrics API queries now cast `AVG()` results to double precision to fix 500 error on `/usage` page (PostgreSQL returns `NUMERIC` but Rust expects `FLOAT8`)

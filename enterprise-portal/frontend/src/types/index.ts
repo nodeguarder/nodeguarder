@@ -227,7 +227,6 @@ export interface MetricsSummary {
   avg_upstream_latency_ms: number
   total_prompt_tokens: number
   total_completion_tokens: number
-  estimated_cost_usd: number
   unique_agents: number
   unique_models: number
 }
@@ -239,7 +238,6 @@ export interface PerModelMetric {
   total_completion_tokens: number
   avg_latency_ms: number
   cached_count: number
-  estimated_cost_usd: number
 }
 
 export interface DailyMetric {
@@ -248,7 +246,6 @@ export interface DailyMetric {
   cached_count: number
   total_prompt_tokens: number
   total_completion_tokens: number
-  estimated_cost_usd: number
 }
 
 export interface PerAgentMetric {

@@ -41,6 +41,12 @@ pub struct MetricsQuery {
     pub offset: Option<i64>,
 }
 
+#[derive(Deserialize)]
+pub struct MetricsRangeQuery {
+    pub from: Option<i64>,
+    pub to: Option<i64>,
+}
+
 #[derive(Serialize)]
 pub struct MetricsSummary {
     pub total_requests: i64,
@@ -52,7 +58,6 @@ pub struct MetricsSummary {
     pub avg_upstream_latency_ms: f64,
     pub total_prompt_tokens: i64,
     pub total_completion_tokens: i64,
-    pub estimated_cost_usd: f64,
     pub unique_agents: i64,
     pub unique_models: i64,
 }
@@ -65,7 +70,6 @@ pub struct PerModelRow {
     pub total_completion_tokens: i64,
     pub avg_latency_ms: f64,
     pub cached_count: i64,
-    pub estimated_cost_usd: f64,
 }
 
 #[derive(Serialize)]
@@ -75,7 +79,6 @@ pub struct DailyRow {
     pub cached_count: i64,
     pub total_prompt_tokens: i64,
     pub total_completion_tokens: i64,
-    pub estimated_cost_usd: f64,
 }
 
 #[derive(Serialize)]
@@ -129,7 +132,9 @@ async fn get_agent_metrics(
 async fn get_metrics_summary(
     State(state): State<Arc<AppState>>,
     user: AuthenticatedUser,
+    Query(range): Query<MetricsRangeQuery>,
 ) -> Result<Json<MetricsSummary>, (StatusCode, String)> {
+    let from = range.from.unwrap_or(chrono::Utc::now().timestamp_millis() - 86400000);
     let row = sqlx::query_as::<_, (i64, i64, i64, i64, f64, f64, f64, i64, i64, i64, i64)>(
         r#"SELECT
             COUNT(*)::bigint,
@@ -145,18 +150,15 @@ async fn get_metrics_summary(
             COUNT(DISTINCT model_used)::bigint
            FROM agent_request_metrics
            WHERE org_id = $1
-           AND timestamp_ms > (EXTRACT(EPOCH FROM NOW()) * 1000 - 86400000)::bigint"#,
+           AND timestamp_ms >= $2::bigint
+           AND ($3::bigint IS NULL OR timestamp_ms <= $3::bigint)"#,
     )
     .bind(user.org_id)
+    .bind(from)
+    .bind(range.to)
     .fetch_one(&state.pool)
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-    let estimated = crate::metrics::estimate_cost(
-        "gpt-4",
-        row.7 as u64,
-        row.8 as u64,
-    );
 
     Ok(Json(MetricsSummary {
         total_requests: row.0,
@@ -168,7 +170,6 @@ async fn get_metrics_summary(
         avg_upstream_latency_ms: row.6,
         total_prompt_tokens: row.7,
         total_completion_tokens: row.8,
-        estimated_cost_usd: estimated,
         unique_agents: row.9,
         unique_models: row.10,
     }))
@@ -177,7 +178,9 @@ async fn get_metrics_summary(
 async fn get_metrics_per_model(
     State(state): State<Arc<AppState>>,
     user: AuthenticatedUser,
+    Query(range): Query<MetricsRangeQuery>,
 ) -> Result<Json<Vec<PerModelRow>>, (StatusCode, String)> {
+    let from = range.from.unwrap_or(chrono::Utc::now().timestamp_millis() - 86400000);
     let rows = sqlx::query_as::<_, (String, i64, i64, i64, f64, i64)>(
         r#"SELECT
             model_used,
@@ -188,28 +191,27 @@ async fn get_metrics_per_model(
             COUNT(*) FILTER (WHERE was_cached)::bigint
            FROM agent_request_metrics
            WHERE org_id = $1
-           AND timestamp_ms > (EXTRACT(EPOCH FROM NOW()) * 1000 - 86400000)::bigint
+           AND timestamp_ms >= $2::bigint
+           AND ($3::bigint IS NULL OR timestamp_ms <= $3::bigint)
            GROUP BY model_used
            ORDER BY COUNT(*) DESC"#,
     )
     .bind(user.org_id)
+    .bind(from)
+    .bind(range.to)
     .fetch_all(&state.pool)
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     let result: Vec<PerModelRow> = rows
         .into_iter()
-        .map(|(model, count, pt, ct, avg_lat, cached)| {
-            let cost = crate::metrics::estimate_cost(&model, pt as u64, ct as u64);
-            PerModelRow {
-                model,
-                request_count: count,
-                total_prompt_tokens: pt,
-                total_completion_tokens: ct,
-                avg_latency_ms: avg_lat,
-                cached_count: cached,
-                estimated_cost_usd: cost,
-            }
+        .map(|(model, count, pt, ct, avg_lat, cached)| PerModelRow {
+            model,
+            request_count: count,
+            total_prompt_tokens: pt,
+            total_completion_tokens: ct,
+            avg_latency_ms: avg_lat,
+            cached_count: cached,
         })
         .collect();
 
@@ -219,7 +221,9 @@ async fn get_metrics_per_model(
 async fn get_metrics_daily(
     State(state): State<Arc<AppState>>,
     user: AuthenticatedUser,
+    Query(range): Query<MetricsRangeQuery>,
 ) -> Result<Json<Vec<DailyRow>>, (StatusCode, String)> {
+    let from = range.from.unwrap_or(chrono::Utc::now().timestamp_millis() - 2592000000);
     let rows = sqlx::query_as::<_, (String, i64, i64, i64, i64)>(
         r#"SELECT
             to_char(to_timestamp(timestamp_ms / 1000)::date, 'YYYY-MM-DD'),
@@ -229,27 +233,26 @@ async fn get_metrics_daily(
             COALESCE(SUM(completion_tokens), 0)::bigint
            FROM agent_request_metrics
            WHERE org_id = $1
-           AND timestamp_ms > (EXTRACT(EPOCH FROM NOW()) * 1000 - 2592000000)::bigint
+           AND timestamp_ms >= $2::bigint
+           AND ($3::bigint IS NULL OR timestamp_ms <= $3::bigint)
            GROUP BY to_char(to_timestamp(timestamp_ms / 1000)::date, 'YYYY-MM-DD')
            ORDER BY 1"#,
     )
     .bind(user.org_id)
+    .bind(from)
+    .bind(range.to)
     .fetch_all(&state.pool)
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     let result: Vec<DailyRow> = rows
         .into_iter()
-        .map(|(date, count, cached, pt, ct)| {
-            let cost = crate::metrics::estimate_cost("gpt-4", pt as u64, ct as u64);
-            DailyRow {
-                date,
-                request_count: count,
-                cached_count: cached,
-                total_prompt_tokens: pt,
-                total_completion_tokens: ct,
-                estimated_cost_usd: cost,
-            }
+        .map(|(date, count, cached, pt, ct)| DailyRow {
+            date,
+            request_count: count,
+            cached_count: cached,
+            total_prompt_tokens: pt,
+            total_completion_tokens: ct,
         })
         .collect();
 
@@ -259,7 +262,9 @@ async fn get_metrics_daily(
 async fn get_metrics_per_agent(
     State(state): State<Arc<AppState>>,
     user: AuthenticatedUser,
+    Query(range): Query<MetricsRangeQuery>,
 ) -> Result<Json<Vec<PerAgentRow>>, (StatusCode, String)> {
+    let from = range.from.unwrap_or(chrono::Utc::now().timestamp_millis() - 86400000);
     let rows = sqlx::query_as::<_, (String, i64, i64, f64, i64)>(
         r#"SELECT
             agent_uuid::text,
@@ -269,11 +274,14 @@ async fn get_metrics_per_agent(
             COUNT(*) FILTER (WHERE was_cached)::bigint
            FROM agent_request_metrics
            WHERE org_id = $1
-           AND timestamp_ms > (EXTRACT(EPOCH FROM NOW()) * 1000 - 86400000)::bigint
+           AND timestamp_ms >= $2::bigint
+           AND ($3::bigint IS NULL OR timestamp_ms <= $3::bigint)
            GROUP BY agent_uuid
            ORDER BY COUNT(*) DESC"#,
     )
     .bind(user.org_id)
+    .bind(from)
+    .bind(range.to)
     .fetch_all(&state.pool)
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;

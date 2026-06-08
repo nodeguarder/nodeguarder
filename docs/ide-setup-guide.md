@@ -108,6 +108,47 @@ If your IDE allows a custom OpenAI endpoint, use:
 
 ---
 
+## Aider
+
+Set environment variables to route through NodeGuarder:
+
+```bash
+export OPENAI_API_BASE=http://localhost:51820/v1
+export OPENAI_API_KEY=ng-<your-token-here>
+
+aider --model gpt-4
+```
+
+Or add to `~/.aider.conf.yml`:
+
+```yaml
+openai-api-base-url: http://localhost:51820/v1
+openai-api-key: ng-<your-token-here>
+model: gpt-4
+```
+
+---
+
+## Cline (VS Code Extension)
+
+In VS Code, set the following in your `settings.json`:
+
+```json
+{
+  "cline.openaiApiBase": "http://localhost:51820/v1",
+  "cline.openaiApiKey": "ng-<your-token-here>",
+  "cline.model": "gpt-4"
+}
+```
+
+Or via the Cline extension settings UI:
+1. Open **Extensions** → **Cline** → Extension Settings
+2. Set **OpenAI Base URL** to `http://localhost:51820/v1`
+3. Set **API Key** to `ng-<your-token-here>`
+4. Set **Model** to match a route pattern (e.g., `gpt-4`)
+
+---
+
 ## Upstream Routing
 
 After the agent scans the prompt, it forwards the cleaned request to an

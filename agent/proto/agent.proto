@@ -98,6 +98,14 @@ message PolicyEnforcement {
 
   // Upstream routing table (replaces single upstream_url/upstream_api_key)
   repeated UpstreamRoute upstream_routes = 19;
+
+  // On-detection action
+  // "permissive" = show modal with Allow/Redact/Block (default)
+  // "enforced_redact" = show modal with Redact/Block only (replaces redaction_enforced=true)
+  // "enforced_block" = show modal with Block only
+  // "auto_redact" = skip modal, always redact
+  // "auto_block" = skip modal, always block
+  string on_detection = 20;
 }
 
 message PolicyResponse {

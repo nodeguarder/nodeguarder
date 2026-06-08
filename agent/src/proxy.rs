@@ -242,15 +242,16 @@ pub async fn chat_completions_handler(
                     continue;
                 }
                 let msg = &mut messages[i];
-                let enforce = state.config.read().unwrap().enforce_redaction;
+                let on_detection = state.config.read().unwrap().on_detection.clone();
                 let (tx, rx) = oneshot::channel();
                 let has_attachment = message_has_attachment(msg.get("content").unwrap_or(&Value::Null));
                 let hit = DetectionHit {
                     flagged_text: extracted.clone(),
                     content_type: check.content_type.clone().unwrap_or_else(|| "SECRET".to_string()),
                     severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
-                    enforce_redaction: enforce,
-                    has_redact: !has_attachment,
+                    enforce_redaction: on_detection == "enforced_redact" || on_detection == "enforced_block",
+                    has_redact: !has_attachment && on_detection != "auto_block" && on_detection != "enforced_block",
+                    on_detection: on_detection.clone(),
                     redaction_resolver: tx,
                 };
                 if let Some(dec_ref) = auto_decision.as_ref() {
@@ -319,6 +320,50 @@ pub async fn chat_completions_handler(
                             });
                             replace_content(msg, &check.scrubbed_text);
                         }
+                    }
+                } else if on_detection == "auto_redact" || on_detection == "auto_block" {
+                    let uuid = state.config.read().unwrap().uuid.clone();
+                    let action = if on_detection == "auto_block" && has_attachment {
+                        // Files can't be redacted; block instead
+                        "BLOCK"
+                    } else if on_detection == "auto_redact" {
+                        "REDACT"
+                    } else {
+                        "BLOCK"
+                    };
+                    audit::log_event(audit::AuditLog {
+                        timestamp: chrono::Utc::now().to_rfc3339(),
+                        agent_uuid: uuid,
+                        content_type: check.content_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
+                        action_taken: action.to_string(),
+                        preview: check.scrubbed_text.clone(),
+                        severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
+                        detection_method: check.detection_method.clone(),
+                        session_id: session_id.clone(),
+                        user_name: whoami::username().unwrap_or_default(),
+                        timeout_triggered: false,
+                    });
+                    let latency = t0.elapsed();
+                    if action == "BLOCK" {
+                        state.metrics.push(RequestMetric {
+                            timestamp_ms: chrono::Utc::now().timestamp_millis(),
+                            session_id: session_id.clone(),
+                            model_requested: model.clone(),
+                            model_used: model.clone(),
+                            prompt_tokens: Some(0),
+                            completion_tokens: Some(0),
+                            total_tokens: Some(0),
+                            total_latency_ms: latency.as_millis() as u64,
+                            detection_latency_ms: latency.as_millis() as u64,
+                            upstream_latency_ms: 0,
+                            was_cached: false,
+                            was_blocked: true,
+                            was_redacted: false,
+                            upstream_status: 0,
+                        });
+                        return (StatusCode::FORBIDDEN, "Request blocked by policy").into_response();
+                    } else {
+                        replace_content(msg, &check.scrubbed_text);
                     }
                 } else if state.hit_sender.send(UiEvent::TriggerHitModal(hit)).is_ok() {
                     match timeout(Duration::from_secs(15), rx).await {
@@ -705,18 +750,37 @@ pub async fn files_handler(
                         .mime_str(&content_type).unwrap());
                 }
                 ScrutinyResult::Block(reason, det_type, original_bytes) => {
-                    let enforce = state.config.read().unwrap().enforce_redaction;
+                    let on_detection = state.config.read().unwrap().on_detection.clone();
                     let (tx, rx) = oneshot::channel();
                     let hit = DetectionHit {
                         flagged_text: reason.clone(),
                         content_type: format!("FILE_ATTACHMENT: {}", det_type),
                         severity: "CRITICAL".to_string(),
-                        enforce_redaction: enforce,
+                        enforce_redaction: on_detection == "enforced_redact" || on_detection == "enforced_block",
                         has_redact: false,
+                        on_detection: on_detection.clone(),
                         redaction_resolver: tx,
                     };
                     let mut allowed = false;
-                    if state.hit_sender.send(UiEvent::TriggerHitModal(hit)).is_ok() {
+                    if on_detection == "auto_redact" || on_detection == "auto_block" {
+                        // Files can't be redacted — always block
+                        let uuid = state.config.read().unwrap().uuid.clone();
+                        audit::log_event(audit::AuditLog {
+                            timestamp: chrono::Utc::now().to_rfc3339(),
+                            agent_uuid: uuid,
+                            content_type: det_type.clone(),
+                            action_taken: "BLOCK".to_string(),
+                            preview: reason.clone(),
+                            severity: crate::detector::severity_for_type(Some(&det_type)).to_string(),
+                            detection_method: "REGEX".to_string(),
+                            session_id: session_id.clone(),
+                            user_name: whoami::username().unwrap_or_default(),
+                            timeout_triggered: false,
+                        });
+                        files_blocked = true;
+                        block_reason = format!("Blocked by policy: {}", reason);
+                        continue;
+                    } else if state.hit_sender.send(UiEvent::TriggerHitModal(hit)).is_ok() {
                         match timeout(Duration::from_secs(15), rx).await {
                             Ok(Ok(InterventionDecision::Allow)) => {
                                 allowed = true;

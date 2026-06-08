@@ -60,8 +60,21 @@ export default function Policies() {
     }
   }
 
+  const onDetectionLabel = (p: Policy): string => {
+    const mode = p.on_detection || 'permissive'
+    switch (mode) {
+      case 'permissive': return 'Permissive'
+      case 'enforced_redact': return 'Enforce Redact'
+      case 'enforced_block': return 'Enforce Block'
+      case 'auto_redact': return 'Auto-Redact'
+      case 'auto_block': return 'Auto-Block'
+      default: return mode
+    }
+  }
+
   const isEnforced = (p: Policy): boolean => {
-    if (p.redaction_enforced) return true
+    const mode = p.on_detection || 'permissive'
+    if (mode !== 'permissive') return true
     if (p.upstream_url) return true
     if (p.upstream_api_key) return true
     if (p.bind_port) return true
@@ -125,7 +138,7 @@ export default function Policies() {
                   <div>
                     <h3 className="text-sm font-semibold text-portal-text">{policy.name}</h3>
                     <div className="text-[10px] text-portal-text-muted uppercase tracking-wider">
-                      {isEnforced(policy) ? 'Enforced' : 'Permissive'}
+                      {onDetectionLabel(policy)}
                     </div>
                   </div>
                 </div>
@@ -143,7 +156,7 @@ export default function Policies() {
               </p>
               <div className="flex flex-wrap gap-1.5 mb-4">
                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isEnforced(policy) ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'}`}>
-                  {isEnforced(policy) ? 'Enforced' : 'Permissive'}
+                  {onDetectionLabel(policy)}
                 </span>
                 {policy.target_mode === 'all' ? (
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/30">

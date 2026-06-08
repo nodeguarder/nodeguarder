@@ -23,8 +23,8 @@ pub struct AppConfig {
     pub allowlists_regex: Vec<String>,
     #[serde(default)]
     pub enrolled_admin: Option<String>,
-    #[serde(default)]
-    pub enforce_redaction: bool,
+    #[serde(default = "default_on_detection")]
+    pub on_detection: String,
 
     // Enterprise Sync Fields
     #[serde(default)]
@@ -83,6 +83,10 @@ pub struct AppConfig {
 
 fn default_upstream_url() -> String {
     "https://api.openai.com/v1".to_string()
+}
+
+fn default_on_detection() -> String {
+    "permissive".to_string()
 }
 
 fn default_true() -> bool {
@@ -164,7 +168,7 @@ pub fn load_or_create_config() -> AppConfig {
             bind_port: default_bind_port(),
             allowlists_regex: vec![],
             enrolled_admin: None,
-            enforce_redaction: false,
+            on_detection: default_on_detection(),
             admin_url: None,
             identity_key_pem: None,
             admin_cert_pem: None,
@@ -212,7 +216,9 @@ pub fn save_config(config: &AppConfig) {
 
 pub fn add_allowlist_rule(rule: &str) -> bool {
     let mut config = load_or_create_config();
-    if config.enforce_redaction {
+    if config.on_detection == "enforced_block"
+        || config.on_detection == "auto_block"
+    {
         return false;
     }
     if !config.allowlists_regex.contains(&rule.to_string()) {
@@ -225,7 +231,9 @@ pub fn add_allowlist_rule(rule: &str) -> bool {
 
 pub fn remove_allowlist_rule(rule: &str) -> bool {
     let mut config = load_or_create_config();
-    if config.enforce_redaction {
+    if config.on_detection == "enforced_block"
+        || config.on_detection == "auto_block"
+    {
         return false;
     }
     if let Some(pos) = config.allowlists_regex.iter().position(|r| r == rule) {
@@ -254,7 +262,7 @@ mod tests {
             bind_port: 51820,
             allowlists_regex: vec!["rule1".to_string()],
             enrolled_admin: None,
-            enforce_redaction: false,
+            on_detection: "permissive".to_string(),
             admin_url: None,
             identity_key_pem: None,
             admin_cert_pem: None,

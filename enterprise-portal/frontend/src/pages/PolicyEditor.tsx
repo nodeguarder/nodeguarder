@@ -46,6 +46,7 @@ const emptyForm = {
   description: '',
   version: 0,
   redaction_enforced: true,
+  on_detection: 'enforced_redact' as string,
   upstream_url: '',
   upstream_api_key: '',
   bind_port: DEFAULT_BIND_PORT,
@@ -117,6 +118,7 @@ export default function PolicyEditor() {
           description: p.description || '',
           version: p.version,
           redaction_enforced: p.redaction_enforced,
+          on_detection: p.on_detection || 'permissive',
           upstream_url: p.upstream_url || '',
           upstream_api_key: '',
           bind_port: p.bind_port || DEFAULT_BIND_PORT,
@@ -173,13 +175,17 @@ export default function PolicyEditor() {
     if (!form.name) return
     setSaving(true)
     try {
+      const payload = {
+        ...form,
+        redaction_enforced: form.on_detection === 'enforced_redact' || form.on_detection === 'enforced_block',
+      }
       if (isEditing) {
-        const { upstream_api_key, ...rest } = form
-        const payload = apiKeyTouched ? form : rest
-        await updatePolicy(id!, payload)
+        const { upstream_api_key, ...rest } = payload
+        const finalPayload = apiKeyTouched ? payload : rest
+        await updatePolicy(id!, finalPayload)
         showToast('Policy updated', 'success')
       } else {
-        await createPolicy(form)
+        await createPolicy(payload)
         showToast('Policy created', 'success')
       }
       navigate('/policies')
@@ -292,24 +298,32 @@ export default function PolicyEditor() {
                 <p className="text-[10px] text-portal-text-muted -mt-2">Version increments automatically on each update. Lower priority = higher precedence.</p>
               )}
               <div className="flex items-center gap-6 flex-wrap">
-                <label className="flex items-center gap-2.5">
-                  <input
-                    type="checkbox"
-                    checked={form.redaction_enforced}
-                    onChange={(e) => setForm({ ...form, redaction_enforced: e.target.checked })}
-                    className="accent-portal-accent w-4 h-4"
-                  />
-                  <span className="text-sm text-portal-text">Redaction Enforced</span>
-                </label>
-                <label className="flex items-center gap-2.5">
-                  <input
-                    type="checkbox"
-                    checked={form.allow_custom_allowlists}
-                    onChange={(e) => setForm({ ...form, allow_custom_allowlists: e.target.checked })}
-                    className="accent-portal-accent w-4 h-4"
-                  />
-                  <span className="text-sm text-portal-text">Allow Custom Allowlists</span>
-                </label>
+                <div>
+                  <label className={labelClass}>On Detection Action</label>
+                  <select
+                    value={form.on_detection}
+                    onChange={(e) => setForm({ ...form, on_detection: e.target.value })}
+                    className={inputClass}
+                  >
+                    <option value="permissive">Permissive (Allow/Redact/Block modal)</option>
+                    <option value="enforced_redact">Enforce Redaction (Redact/Block modal)</option>
+                    <option value="enforced_block">Enforce Block (Block-only modal)</option>
+                    <option value="auto_redact">Auto-Redact (no modal, always redact)</option>
+                    <option value="auto_block">Auto-Block (no modal, always block)</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={form.allow_custom_allowlists}
+                      onChange={(e) => setForm({ ...form, allow_custom_allowlists: e.target.checked })}
+                      className="accent-portal-accent w-4 h-4"
+                    />
+                    <span className="text-sm text-portal-text">Allow Local Trusted Patterns</span>
+                  </label>
+                  <span className="text-[10px] text-portal-text-muted ml-6">When unchecked, agents cannot add/remove local allowlist rules. Independent of the on-detection action above.</span>
+                </div>
               </div>
             </div>
           )}

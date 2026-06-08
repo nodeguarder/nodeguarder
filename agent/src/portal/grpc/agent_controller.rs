@@ -154,9 +154,9 @@ impl AgentController for AgentControllerImpl {
         .map_err(|e| Status::internal(e.to_string()))?
         .unwrap_or(None);
 
-        let policy_row = sqlx::query_as::<_, (String, bool, Option<String>, Option<String>, Option<i32>, Option<bool>, Option<bool>, bool, Option<String>, Option<serde_json::Value>, Option<serde_json::Value>, Option<serde_json::Value>, Uuid, i32, i32)>(
+        let policy_row = sqlx::query_as::<_, (String, String, Option<String>, Option<String>, Option<i32>, Option<bool>, Option<bool>, bool, Option<String>, Option<serde_json::Value>, Option<serde_json::Value>, Option<serde_json::Value>, Uuid, i32, i32)>(
             r#"SELECT 
-                name, redaction_enforced, upstream_url, upstream_api_key, bind_port,
+                name, on_detection, upstream_url, upstream_api_key, bind_port,
                 enable_ocr, disable_atr_auto_update, allow_custom_allowlists,
                 bearer_token, detection_overrides, custom_regex, allowlists, id,
                 priority, version
@@ -244,7 +244,8 @@ impl AgentController for AgentControllerImpl {
                 PolicyResponse {
                     policy_version: version_string,
                     enforcement: Some(PolicyEnforcement {
-                        redaction_enforced: p.1,
+                        redaction_enforced: p.1 == "enforced_redact" || p.1 == "enforced_block",
+                        on_detection: p.1.clone(),
                         upstream_url_enforced: p.2.is_some(),
                         upstream_url: p.2.unwrap_or_default(),
                         upstream_api_key_enforced: p.3.is_some(),

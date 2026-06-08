@@ -193,7 +193,7 @@ impl SyncEngine {
         cfg.enrolled_admin = None;
         cfg.admin_url = None;
         cfg.admin_cert_pem = None;
-        cfg.enforce_redaction = false;
+        cfg.on_detection = "permissive".to_string();
         cfg.disconnect_password_hash = None;
         save_config(&cfg);
         
@@ -202,7 +202,7 @@ impl SyncEngine {
         let _ = self.ui_proxy.send_event(UiEvent::UpdateConfigInUI(json!({
             "enrolled": false,
             "connected": false,
-            "redactionEnforced": false,
+            "on_detection": "permissive",
             "upstreamUrlEnforced": false,
             "upstreamApiKeyEnforced": false,
             "bindPortEnforced": false,
@@ -344,7 +344,12 @@ impl SyncEngine {
                     let mut cfg = self.config.write().unwrap();
 
                     // Apply enforcement fields
-                    cfg.enforce_redaction = enforcement.redaction_enforced;
+                    if enforcement.on_detection.is_empty() {
+                        // Backward compat: use redaction_enforced boolean
+                        cfg.on_detection = if enforcement.redaction_enforced { "enforced_redact" } else { "permissive" }.to_string();
+                    } else {
+                        cfg.on_detection = enforcement.on_detection.clone();
+                    }
 
                     // Upstream routes — use if available, otherwise fall back to legacy single URL/key
                     if !enforcement.upstream_routes.is_empty() {
@@ -428,8 +433,7 @@ impl SyncEngine {
 
                     // Build UI update payload
                     let mut ui_cfg = json!({
-                        "enforce_redaction": cfg.enforce_redaction,
-                        "redactionEnforced": enforcement.redaction_enforced,
+                        "on_detection": cfg.on_detection,
                         "detectionTogglesEnforced": !enforcement.enabled_detection_categories.is_empty(),
                         "disconnect_password_required": cfg.disconnect_password_hash.is_some(),
                         "detect_api_keys": cfg.detect_api_keys,

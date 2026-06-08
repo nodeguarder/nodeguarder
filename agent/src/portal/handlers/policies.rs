@@ -81,6 +81,7 @@ fn build_policy_json(policy: &Policy, group_ids: &[Uuid], routes: &[UpstreamRout
         "version": policy.version,
         "priority": policy.priority,
         "redaction_enforced": policy.redaction_enforced,
+        "on_detection": policy.on_detection,
         "upstream_url": policy.upstream_url,
         "upstream_api_key": policy.upstream_api_key,
         "bind_port": policy.bind_port,
@@ -187,19 +188,24 @@ async fn create_policy(
 
     let updated_by = resolve_user_id(&state.pool, &user).await;
 
+    let on_detection = req.on_detection.clone().unwrap_or_else(|| {
+        if req.redaction_enforced.unwrap_or(false) { "enforced_redact".to_string() } else { "permissive".to_string() }
+    });
+
     let policy = sqlx::query_as::<_, Policy>(
         r#"INSERT INTO policies
-           (org_id, name, description, redaction_enforced, upstream_url, upstream_api_key,
+           (org_id, name, description, redaction_enforced, on_detection, upstream_url, upstream_api_key,
             bind_port, enable_ocr, disable_atr_auto_update, allow_custom_allowlists,
             bearer_token, detection_overrides, custom_regex, allowlists, target_mode, target_regex,
             priority, version, updated_by)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
            RETURNING *"#,
     )
     .bind(user.org_id)
     .bind(&req.name)
     .bind(&req.description)
     .bind(req.redaction_enforced.unwrap_or(false))
+    .bind(&on_detection)
     .bind(&req.upstream_url)
     .bind(&req.upstream_api_key)
     .bind(req.bind_port)
@@ -296,22 +302,23 @@ async fn update_policy(
            name = COALESCE($3, name),
            description = COALESCE($4, description),
            redaction_enforced = COALESCE($5, redaction_enforced),
-           upstream_url = COALESCE($6, upstream_url),
-           upstream_api_key = CASE WHEN $7::text IS NOT NULL AND $7::text = '' THEN NULL WHEN $7 IS NOT NULL THEN $7 ELSE upstream_api_key END,
-           bind_port = COALESCE($8, bind_port),
-           enable_ocr = COALESCE($9, enable_ocr),
-           disable_atr_auto_update = COALESCE($10, disable_atr_auto_update),
-           allow_custom_allowlists = COALESCE($11, allow_custom_allowlists),
-           bearer_token = CASE WHEN $12::text IS NOT NULL AND $12::text = '' THEN NULL WHEN $12 IS NOT NULL THEN $12 ELSE bearer_token END,
-           detection_overrides = COALESCE($13, detection_overrides),
-           custom_regex = COALESCE($14, custom_regex),
-           allowlists = COALESCE($15, allowlists),
-           target_mode = COALESCE($16, target_mode),
-           target_regex = COALESCE($17, target_regex),
-           priority = COALESCE($19, priority),
+           on_detection = COALESCE($6, on_detection),
+           upstream_url = COALESCE($7, upstream_url),
+           upstream_api_key = CASE WHEN $8::text IS NOT NULL AND $8::text = '' THEN NULL WHEN $8 IS NOT NULL THEN $8 ELSE upstream_api_key END,
+           bind_port = COALESCE($9, bind_port),
+           enable_ocr = COALESCE($10, enable_ocr),
+           disable_atr_auto_update = COALESCE($11, disable_atr_auto_update),
+           allow_custom_allowlists = COALESCE($12, allow_custom_allowlists),
+           bearer_token = CASE WHEN $13::text IS NOT NULL AND $13::text = '' THEN NULL WHEN $13 IS NOT NULL THEN $13 ELSE bearer_token END,
+           detection_overrides = COALESCE($14, detection_overrides),
+           custom_regex = COALESCE($15, custom_regex),
+           allowlists = COALESCE($16, allowlists),
+           target_mode = COALESCE($17, target_mode),
+           target_regex = COALESCE($18, target_regex),
+           priority = COALESCE($20, priority),
            version = version + 1,
            updated_at = NOW(),
-           updated_by = $18
+           updated_by = $19
            WHERE id = $1 AND org_id = $2
            RETURNING *"#,
     )
@@ -320,6 +327,7 @@ async fn update_policy(
     .bind(&req.name)
     .bind(&req.description)
     .bind(req.redaction_enforced)
+    .bind(&req.on_detection)
     .bind(&req.upstream_url)
     .bind(&req.upstream_api_key)
     .bind(req.bind_port)

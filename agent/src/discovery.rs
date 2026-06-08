@@ -416,7 +416,127 @@ fn detect_ides() -> Vec<DetectedIde> {
         }
     }
 
+    // Check for Aider config
+    if let Some(aider) = detect_aider(&home) {
+        ides.push(aider);
+    }
+
+    // Check for Cline (VS Code extension)
+    if let Some(cline) = detect_cline(&home) {
+        ides.push(cline);
+    }
+
     ides
+}
+
+/// Check for Aider config file
+fn detect_aider(home: &str) -> Option<DetectedIde> {
+    let aider_paths = &[
+        format!(r"{}\.aider.conf.yml", home),
+        format!(r"{}\.aider.conf", home),
+        format!("{}/.aider.conf.yml", home),
+        format!("{}/.aider.conf", home),
+        format!(r"{}\.config\aider\config.yml", home),
+        format!("{}/.config/aider/config.yml", home),
+    ];
+
+    for path_str in aider_paths {
+        let config_path = std::path::Path::new(&path_str);
+        if !config_path.exists() {
+            continue;
+        }
+        if let Ok(content) = std::fs::read_to_string(config_path) {
+            let mut proxy_settings = None;
+            // Try YAML parsing
+            if let Ok(yaml) = serde_yaml::from_str::<serde_json::Value>(&content) {
+                let api_base = yaml.get("openai-api-base-url")
+                    .or_else(|| yaml.get("openai_api_base_url"))
+                    .or_else(|| yaml.get("api-base-url"))
+                    .and_then(|v| v.as_str());
+                if let Some(url) = api_base {
+                    proxy_settings = Some(format!("apiBase: {}", url));
+                }
+                let model = yaml.get("model").and_then(|v| v.as_str());
+                if let Some(m) = model {
+                    proxy_settings = proxy_settings.map(|s| format!("{}, model: {}", s, m))
+                        .or_else(|| Some(format!("model: {}", m)));
+                }
+            }
+            // Fallback: try flat key=value format
+            if proxy_settings.is_none() {
+                for line in content.lines() {
+                    let line = line.trim();
+                    if let Some((key, value)) = line.split_once('=') {
+                        let key = key.trim().to_lowercase();
+                        let value = value.trim().trim_matches('"').to_string();
+                        if key == "openai-api-base-url" || key == "openai_api_base_url" || key == "api-base-url" {
+                            proxy_settings = Some(format!("apiBase: {}", value));
+                        }
+                    }
+                }
+            }
+            return Some(DetectedIde {
+                ide_type: "aider".to_string(),
+                config_path: config_path.to_string_lossy().to_string(),
+                copilot_enabled: None,
+                proxy_settings,
+                is_running: false,
+            });
+        }
+    }
+    None
+}
+
+/// Check for Cline (VS Code extension) config
+fn detect_cline(home: &str) -> Option<DetectedIde> {
+    // Check VSCode settings for cline.* keys
+    let vscode_settings = std::path::Path::new(home)
+        .join(r"AppData\Roaming\Code\User\settings.json");
+    let vscodium_settings = std::path::Path::new(home)
+        .join(r"AppData\Roaming\VSCodium\User\settings.json");
+
+    for settings_path in &[vscode_settings, vscodium_settings] {
+        if settings_path.exists() {
+            if let Some(settings) = read_vscode_settings(settings_path) {
+                let api_base = settings.get("cline.openaiApiBase")
+                    .or_else(|| settings.get("cline.openaiBaseUrl"))
+                    .and_then(|v| v.as_str())
+                    .map(|s| format!("apiBase: {}", s));
+                let model = settings.get("cline.model")
+                    .and_then(|v| v.as_str());
+                let proxy = match (&api_base, model) {
+                    (Some(base), Some(m)) => Some(format!("{}, model: {}", base, m)),
+                    (Some(base), None) => Some(base.clone()),
+                    (None, Some(m)) => Some(format!("model: {}", m)),
+                    (None, None) => None,
+                };
+                if proxy.is_some() || settings.get("cline.openaiApiKey").is_some() {
+                    return Some(DetectedIde {
+                        ide_type: "cline".to_string(),
+                        config_path: settings_path.to_string_lossy().to_string(),
+                        copilot_enabled: None,
+                        proxy_settings: proxy,
+                        is_running: false,
+                    });
+                }
+            }
+        }
+    }
+
+    // Check if Cline extension is installed
+    let ext_dir = std::path::Path::new(home)
+        .join(r".vscode\extensions\saoudrizwan.claude-dev");
+    if ext_dir.exists() {
+        return Some(DetectedIde {
+            ide_type: "cline".to_string(),
+            config_path: ext_dir.to_string_lossy().to_string(),
+            copilot_enabled: None,
+            proxy_settings: None,
+            is_running: false,
+        });
+    }
+
+    None
 }
 
 /// Detect environment variables related to LLMs

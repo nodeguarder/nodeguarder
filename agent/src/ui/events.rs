@@ -14,6 +14,7 @@ pub struct DetectionHit {
     pub severity: String,
     pub enforce_redaction: bool,
     pub has_redact: bool,
+    pub on_detection: String,
     pub redaction_resolver: oneshot::Sender<InterventionDecision>,
 }
 
@@ -25,6 +26,7 @@ impl fmt::Debug for DetectionHit {
             .field("severity", &self.severity)
             .field("enforce_redaction", &self.enforce_redaction)
             .field("has_redact", &self.has_redact)
+            .field("on_detection", &self.on_detection)
             .field("redaction_resolver", &"oneshot::Sender")
             .finish()
     }

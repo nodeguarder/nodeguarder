@@ -80,11 +80,29 @@ jobs:
           VERSION=$(grep '^version = ' agent/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
+      - name: Pre-pull base images with retry
+        run: |
+          for i in 1 2 3; do
+            docker pull node:20-alpine && docker pull nginx:alpine && break
+            echo "Docker pull failed (attempt $i), retrying in 15s..."
+            sleep 15
+          done
+
       - name: Build API Docker image
-        run: docker build -f agent/Dockerfile.portal -t portal-api agent
+        run: |
+          for i in 1 2 3; do
+            docker build --pull -f agent/Dockerfile.portal -t portal-api agent && break
+            echo "Docker build failed (attempt $i), retrying in 10s..."
+            sleep 10
+          done
 
       - name: Build UI Docker image
-        run: docker build -t portal-ui enterprise-portal/frontend
+        run: |
+          for i in 1 2 3; do
+            docker build --pull -t portal-ui enterprise-portal/frontend && break
+            echo "Docker build failed (attempt $i), retrying in 10s..."
+            sleep 10
+          done
 
       - name: Prepare portal bundle
         run: |

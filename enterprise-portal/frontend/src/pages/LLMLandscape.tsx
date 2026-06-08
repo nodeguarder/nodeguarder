@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Radio, Monitor, Server, Globe, Key, AlertTriangle, CheckCircle,
   ChevronDown, ChevronRight, Brain, Lightbulb, Search, Plus, ArrowRight,
-  Code, Layers, Terminal, BarChart,
+  Code, Layers, Terminal, BarChart, Bot, MessageSquare,
 } from 'lucide-react'
 import { getDashboard, getEnvironmentLandscape, getEnvironmentSuggestions } from '@/api/client'
 import { showToast } from '@/components/Toast'
@@ -92,6 +92,8 @@ export default function LLMLandscape() {
     switch (type) {
       case 'cursor': return <Terminal className="w-4 h-4" />
       case 'continue': return <Code className="w-4 h-4" />
+      case 'aider': return <Bot className="w-4 h-4" />
+      case 'cline': return <MessageSquare className="w-4 h-4" />
       default: return <Monitor className="w-4 h-4" />
     }
   }

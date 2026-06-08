@@ -132,9 +132,7 @@ pub fn spawn_hit_modal(
                 Severity: <span style="color: {severity_color}; font-weight: 700;">{severity_badge}</span> | Detection Method: Regex + Semantic Check
             </div>
             <div class="preview-box">{preview_text}</div>
-            <div id="enforceBanner" class="enforce-banner">
-                Admin has enforced redaction. Allow button disabled.
-            </div>
+            <div id="enforceBanner" class="enforce-banner"></div>
         </div>
         <div class="footer">
             <div class="timeout" id="timeoutText">Timeout in <span id="timer" style="color:#fff">15</span>s</div>
@@ -146,11 +144,16 @@ pub fn spawn_hit_modal(
         </div>
         <script>
             let time = 15;
-            let enforce = {enforce_redaction};
+            let mode = '{on_detection}';
             let hasRedact = {has_redact};
             
-            if (enforce) {{
+            if (mode === 'enforced_redact') {{
                 document.getElementById('enforceBanner').style.display = 'block';
+                document.getElementById('enforceBanner').textContent = 'Admin has enforced redaction. Allow button disabled.';
+                document.getElementById('btnAllow').style.display = 'none';
+            }} else if (mode === 'enforced_block') {{
+                document.getElementById('enforceBanner').style.display = 'block';
+                document.getElementById('enforceBanner').textContent = 'Policy enforced — only Block is available.';
                 document.getElementById('btnAllow').style.display = 'none';
             }}
             if (!hasRedact) {{
@@ -185,7 +188,7 @@ pub fn spawn_hit_modal(
         severity_color = severity_color,
         severity_badge = severity_badge,
         preview_text = html_escape(&hit.flagged_text),
-        enforce_redaction = hit.enforce_redaction,
+        on_detection = hit.on_detection,
         has_redact = hit.has_redact,
     );
 
@@ -903,7 +906,7 @@ pub fn spawn_settings_window(
 
             let config = {{
                 allowlists: {allowlist_json},
-                enforce_redaction: {enforce_redaction},
+                on_detection: "{on_detection}",
                 logs: {logs_json},
                 enrolled: {enrolled},
                 connected: false,
@@ -1249,7 +1252,7 @@ pub fn spawn_settings_window(
                 }}
                 config.allowlists.forEach(rule => {{
                     const tr = document.createElement('tr');
-                    const canDelete = !config.enrolled && config.allowCustomAllowlists && !config.enforce_redaction;
+                    const canDelete = !config.enrolled && config.allowCustomAllowlists && config.on_detection !== 'enforced_block' && config.on_detection !== 'auto_block';
                     tr.innerHTML = `
                         <td style="font-family: monospace; font-size: 13px;">${{rule}}</td>
                         <td style="text-align: right;">
@@ -1524,7 +1527,7 @@ pub fn spawn_settings_window(
         port = port,
         version = env!("CARGO_PKG_VERSION"),
         allowlist_json = allowlist_json,
-        enforce_redaction = config.enforce_redaction,
+        on_detection = config.on_detection,
         logs_json = logs_json,
         enrolled = enrolled,
         bearer_token_enforced = bearer_token_enforced,

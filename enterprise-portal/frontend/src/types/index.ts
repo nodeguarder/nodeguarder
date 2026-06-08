@@ -36,6 +36,7 @@ export interface Policy {
   version: number
   priority: number
   redaction_enforced: boolean
+  on_detection: string | null
   upstream_url: string | null
   upstream_api_key: string | null
   bind_port: number | null

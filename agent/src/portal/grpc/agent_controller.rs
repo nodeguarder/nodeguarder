@@ -142,7 +142,7 @@ impl AgentController for AgentControllerImpl {
         .map_err(|e| Status::internal(e.to_string()))?
         .ok_or_else(|| Status::not_found("Agent not found or revoked"))?;
 
-        let org_id = agent.1;
+        let (hostname, org_id) = (agent.0.clone(), agent.1);
 
         // Fetch org disconnect password hash
         let disconnect_password_hash: Option<String> = sqlx::query_scalar(
@@ -154,11 +154,12 @@ impl AgentController for AgentControllerImpl {
         .map_err(|e| Status::internal(e.to_string()))?
         .unwrap_or(None);
 
-        let policy_row = sqlx::query_as::<_, (String, bool, Option<String>, Option<String>, Option<i32>, Option<bool>, Option<bool>, bool, Option<String>, Option<serde_json::Value>, Option<serde_json::Value>, Option<serde_json::Value>, Uuid)>(
+        let policy_row = sqlx::query_as::<_, (String, bool, Option<String>, Option<String>, Option<i32>, Option<bool>, Option<bool>, bool, Option<String>, Option<serde_json::Value>, Option<serde_json::Value>, Option<serde_json::Value>, Uuid, i32, i32)>(
             r#"SELECT 
                 name, redaction_enforced, upstream_url, upstream_api_key, bind_port,
                 enable_ocr, disable_atr_auto_update, allow_custom_allowlists,
-                bearer_token, detection_overrides, custom_regex, allowlists, id
+                bearer_token, detection_overrides, custom_regex, allowlists, id,
+                priority, version
                FROM policies 
                WHERE org_id = $1 AND (
                    target_mode = 'all'
@@ -170,12 +171,17 @@ impl AgentController for AgentControllerImpl {
                            WHERE pa.policy_id = policies.id AND agm.agent_uuid = $2
                        )
                    )
+                   OR (
+                       target_mode = 'hostname_regex'
+                       AND $3 ~ target_regex
+                   )
                )
-               ORDER BY updated_at DESC
+               ORDER BY priority ASC, updated_at DESC
                LIMIT 1"#,
         )
         .bind(org_id)
         .bind(&req.agent_uuid)
+        .bind(&hostname)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| Status::internal(e.to_string()))?;
@@ -200,16 +206,43 @@ impl AgentController for AgentControllerImpl {
                     .unwrap_or_default();
 
                 let policy_name = p.0.clone();
+                let policy_ver = p.14;
+                let policy_id = p.12;
 
-                // Update agents.policy_version so the portal displays the real deployed policy name
+                let version_string = format!("{} v{}", policy_name, policy_ver);
+
+                // Load upstream routes
+                let db_routes = sqlx::query_as::<_, (String, String, Option<String>, Option<String>, i32)>(
+                    "SELECT match_pattern, url, api_key, api_key_source, priority
+                     FROM policy_upstream_routes
+                     WHERE policy_id = $1
+                     ORDER BY priority ASC, created_at ASC",
+                )
+                .bind(policy_id)
+                .fetch_all(&self.pool)
+                .await
+                .unwrap_or_default();
+
+                let upstream_routes: Vec<crate::portal::grpc::agent::UpstreamRoute> = db_routes
+                    .into_iter()
+                    .map(|(mp, url, key, source, prio)| crate::portal::grpc::agent::UpstreamRoute {
+                        match_pattern: mp,
+                        url,
+                        api_key: key.unwrap_or_default(),
+                        api_key_source: source.unwrap_or_default(),
+                        priority: prio,
+                    })
+                    .collect();
+
+                // Update agents.policy_version so the portal displays the name + version
                 let _ = sqlx::query("UPDATE agents SET policy_version = $2 WHERE uuid = $1")
                     .bind(&req.agent_uuid)
-                    .bind(&policy_name)
+                    .bind(&version_string)
                     .execute(&self.pool)
                     .await;
 
                 PolicyResponse {
-                    policy_version: policy_name,
+                    policy_version: version_string,
                     enforcement: Some(PolicyEnforcement {
                         redaction_enforced: p.1,
                         upstream_url_enforced: p.2.is_some(),
@@ -229,6 +262,7 @@ impl AgentController for AgentControllerImpl {
                         custom_regex,
                         allowlists,
                         disconnect_password_hash: disconnect_password_hash.unwrap_or_default(),
+                        upstream_routes,
                     }),
                     signature: vec![],
                 }

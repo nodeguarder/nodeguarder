@@ -430,6 +430,11 @@ fn run_agent() {
                     UiEvent::UpdateUpstreamUrl(url) => {
                         let mut cfg = config_lock_ui.write().unwrap();
                         cfg.upstream_url = url.clone();
+                        // Keep routes in sync: update the catch-all route
+                        let url_for_route = url.clone();
+                        if let Some(route) = cfg.upstream_routes.iter_mut().find(|r| r.match_pattern == "*") {
+                            route.url = url_for_route;
+                        }
                         config::save_config(&cfg);
                         info!("Upstream URL updated to: {}", url);
                         let json = serde_json::json!({"upstream_url": &url}).to_string();
@@ -441,9 +446,27 @@ fn run_agent() {
                     UiEvent::UpdateUpstreamApiKey(key) => {
                         let mut cfg = config_lock_ui.write().unwrap();
                         // Empty string means "no auth" (local model). Store None for clean serialization.
-                        cfg.upstream_api_key = if key.is_empty() { None } else { Some(key.clone()) };
+                        let new_key = if key.is_empty() { None } else { Some(key.clone()) };
+                        cfg.upstream_api_key = new_key.clone();
+                        // Keep old fields in sync for backward compat: update the catch-all route
+                        if let Some(route) = cfg.upstream_routes.iter_mut().find(|r| r.match_pattern == "*") {
+                            route.api_key = new_key;
+                        }
                         config::save_config(&cfg);
                         info!("Upstream API key updated (set: {})", !key.is_empty());
+                    }
+                    UiEvent::UpdateUpstreamRoutes(routes) => {
+                        let mut cfg = config_lock_ui.write().unwrap();
+                        // Extract catch-all values before mutating cfg
+                        let catch_all_data = routes.iter().find(|r| r.match_pattern == "*")
+                            .map(|r| (r.url.clone(), r.api_key.clone()));
+                        cfg.upstream_routes = routes;
+                        if let Some((url, api_key)) = catch_all_data {
+                            cfg.upstream_url = url;
+                            cfg.upstream_api_key = api_key;
+                        }
+                        config::save_config(&cfg);
+                        info!("Upstream routes updated ({} routes)", cfg.upstream_routes.len());
                     }
                     UiEvent::ToggleAtrAutoUpdate(disabled) => {
                         let mut cfg = config_lock_ui.write().unwrap();

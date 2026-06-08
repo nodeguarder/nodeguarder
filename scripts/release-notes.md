@@ -1,11 +1,21 @@
-## v1.0.21
+## v1.0.22
 
-- **Fix:** Policy `bearer_token` and `upstream_api_key` now properly returned by GET/list endpoints (were missing from JSON response, causing frontend to show empty values)
-- **Fix:** Saving a policy with empty `bearer_token` or `upstream_api_key` no longer overwrites the stored value (COALESCE → NULLIF to treat empty string as "don't change")
-- **UI:** Usage page now shows total tokens instead of estimated cost, with 24h/7d/30d date range filtering on all metrics (summary, daily chart, per-model, per-agent)
-- **Tech:** All 4 metrics API endpoints (`summary`, `daily`, `per-model`, `per-agent`) now accept optional `from`/`to` query parameters for flexible time range queries
-- **Tech:** Removed `estimated_cost_usd` from backend and frontend types (no longer computed or displayed)
-- **Tech:** Cleaned up unused parenthesis warnings in metrics handlers, suppressed dead_code warning on `estimate_cost()`
+- **Rename:** "Connectivity" → "Gateway" across agent UI nav, heading, description, and all doc files
+- **Feature:** Policy version auto-increment (displayed as `v3` in portal cards, stored as `"PolicyName v3"` on agent)
+- **Feature:** Policy priority field (default 100, lower = higher priority) for conflict resolution — agent picks highest-priority policy
+- **Feature:** Per-field detection enforcement toggles (replaces blanket `config.enrolled`; each detection category independently controlled)
+- **Feature:** Multi-upstream routing with model-pattern glob matching (e.g., `gpt-4*` → OpenAI, `*llama*` → Ollama)
+- **Feature:** Env var key source (`env:OPENAI_API_KEY`) — API keys never transmitted from portal to agent
+- **Feature:** Interactive route table editor in agent Gateway tab (local mode) and read-only locked view (enterprise mode)
+- **UI:** Policy cards show version badge, priority badge, and route count
+- **UI:** Policy editor adds version display, priority input, and upstream routes table with ENV toggle and warning alert
+- **Tech:** Migration `012_policy_priority_version.sql` — adds `priority INT DEFAULT 100` + `version INT DEFAULT 1` to policies
+- **Tech:** Migration `013_upstream_routes.sql` — new `policy_upstream_routes` table, seeds existing single-upstream policies as `*` catch-all routes
+- **Tech:** Agent sidecar `glob_match()` + `find_matching_route()` for model-based routing at proxy layer
+- **Tech:** Backward compatible — legacy `upstream_url`/`upstream_api_key` synthesized as `*` route when routes table empty
+- **Docs:** New `docs/upstream-routing.md` — dedicated architecture reference with glob reference, credential resolution, central gateway pattern
+
+## v1.0.21
 
 ## v1.0.20
 

@@ -55,6 +55,7 @@ pub enum UiEvent {
     UpdateHardwareStatus(String),
     UpdateUpstreamUrl(String),
     UpdateUpstreamApiKey(String),
+    UpdateUpstreamRoutes(Vec<crate::config::UpstreamRouteConfig>),
     ToggleAtrAutoUpdate(bool),
     ToggleAutoStart(bool),
     ScanEnvironment,

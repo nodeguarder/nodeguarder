@@ -160,10 +160,18 @@ export default function Policies() {
                     {policy.custom_regex?.length} regex rules
                   </span>
                 )}
+                {policy.upstream_routes && policy.upstream_routes.length > 0 && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                    {policy.upstream_routes.length} route{policy.upstream_routes.length > 1 ? 's' : ''}
+                  </span>
+                )}
               </div>
               <div className="flex items-center justify-between pt-3 border-t border-portal-border">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-black/30 text-portal-text-muted">v{policy.version}</span>
+                  <span className="text-[10px] text-portal-text-muted">Priority {policy.priority}</span>
+                </div>
                 <span className="text-[10px] text-portal-text-muted">Updated {formatDate(policy.updated_at)}</span>
-                <span className="text-[10px] text-portal-text-muted">Applied on next agent heartbeat</span>
               </div>
             </div>
           ))}

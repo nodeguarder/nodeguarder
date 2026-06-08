@@ -8,17 +8,18 @@ A local security proxy that sits between your AI coding tools (IDE) and the LLM 
 Your IDE (Cursor / Continue.dev / Windsurf)
      │
      ▼  POST /v1/chat/completions (Bearer ng-xxx...)
+┌─────────────────────────────────────────────┐
+│  NodeGuarder Agent                          │
+│  • Scans prompt for secrets/PII             │
+│  • Shows HITL modal (Redact/Allow/Block)    │
+│  • Routes by model name to matching upstream│
+└──────────────┬──────────────────────────────┘
+               │  cleaned request forwarded
+               │  (model name → glob pattern match)
+               ▼  POST /v1/chat/completions
 ┌─────────────────────────────────────┐
-│  NodeGuarder Agent                  │
-│  • Scans prompt for secrets/PII     │
-│  • Shows HITL modal (Redact/Allow/Block)  │
-│  • Forwards cleaned request         │
-└──────────┬──────────────────────────┘
-           │  cleaned request forwarded
-           ▼  POST /v1/chat/completions
-┌─────────────────────────────────────┐
-│  Upstream LLM                       │
-│  (OpenAI / Local model / Azure)     │
+│  Upstream LLM (route-matched)       │
+│  OpenAI / Azure / Ollama / Gateway  │
 └─────────────────────────────────────┘
 ```
 
@@ -39,12 +40,18 @@ Supports: Cursor, VS Code + Continue.dev, Windsurf, any IDE with custom OpenAI e
 
 See [IDE Setup Guide](../docs/ide-setup-guide.md) for detailed configuration examples for each IDE, including Continue.dev config.json snippets and enterprise deployment via Intune/MDM.
 
-### 3. Configure Upstream LLM
-In NodeGuarder Settings → Connectivity, set where to forward cleaned requests:
+### 3. Configure Upstream Routing
+In NodeGuarder Settings → Gateway, configure one or more upstream routes. Each route specifies a **model pattern** (glob), **URL**, and **API key/credential source**. The agent forwards each request to the first route whose pattern matches the model name in the request.
 
-- `https://api.openai.com/v1` — OpenAI (default)
-- `http://localhost:11434/v1` — Local model (example Ollama)
-- `https://your-resource.openai.azure.com/` — Azure OpenAI
+| Model Pattern | Upstream URL | Auth |
+|--------------|-------------|------|
+| `gpt-4*` | `https://api.openai.com/v1` | Password field |
+| `gpt-3.5*` | `https://api.openai.com/v1` | Password field |
+| `*` | `https://gateway.corp.internal/v1` | `env:OPENAI_API_KEY` |
+
+- **`*` catch-all** — matches any model not matched by a more specific pattern
+- **`env:VARIABLE_NAME`** — reads the API key from an environment variable on the agent machine (key never transmitted from the portal)
+- **First-match wins** — routes are evaluated in priority order; the first matching route handles the request
 
 ## Detection
 

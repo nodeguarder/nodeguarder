@@ -346,11 +346,32 @@ impl SyncEngine {
                     // Apply enforcement fields
                     cfg.enforce_redaction = enforcement.redaction_enforced;
 
-                    if enforcement.upstream_url_enforced {
-                        cfg.upstream_url = enforcement.upstream_url.clone();
-                    }
-                    if enforcement.upstream_api_key_enforced && !enforcement.upstream_api_key.is_empty() {
-                        cfg.upstream_api_key = Some(enforcement.upstream_api_key.clone());
+                    // Upstream routes — use if available, otherwise fall back to legacy single URL/key
+                    if !enforcement.upstream_routes.is_empty() {
+                        cfg.upstream_routes = enforcement.upstream_routes.iter().map(|r| {
+                            let api_key = if !r.api_key_source.is_empty() && r.api_key_source.starts_with("env:") {
+                                std::env::var(r.api_key_source.strip_prefix("env:").unwrap_or("")).ok()
+                            } else if !r.api_key.is_empty() {
+                                Some(r.api_key.clone())
+                            } else {
+                                None
+                            };
+                            crate::config::UpstreamRouteConfig {
+                                match_pattern: r.match_pattern.clone(),
+                                url: r.url.clone(),
+                                api_key,
+                            }
+                        }).collect();
+                    } else if enforcement.upstream_url_enforced {
+                        cfg.upstream_routes = vec![crate::config::UpstreamRouteConfig {
+                            match_pattern: "*".to_string(),
+                            url: enforcement.upstream_url.clone(),
+                            api_key: if enforcement.upstream_api_key_enforced && !enforcement.upstream_api_key.is_empty() {
+                                Some(enforcement.upstream_api_key.clone())
+                            } else {
+                                None
+                            },
+                        }];
                     }
                     if enforcement.bind_port_enforced && enforcement.bind_port > 0 {
                         cfg.bind_port = enforcement.bind_port as u16;
@@ -409,7 +430,7 @@ impl SyncEngine {
                     let mut ui_cfg = json!({
                         "enforce_redaction": cfg.enforce_redaction,
                         "redactionEnforced": enforcement.redaction_enforced,
-                        "detectionTogglesEnforced": true,
+                        "detectionTogglesEnforced": !enforcement.enabled_detection_categories.is_empty(),
                         "disconnect_password_required": cfg.disconnect_password_hash.is_some(),
                         "detect_api_keys": cfg.detect_api_keys,
                         "detect_db_credentials": cfg.detect_db_credentials,
@@ -423,6 +444,8 @@ impl SyncEngine {
                         "detect_data_poisoning": cfg.detect_data_poisoning,
                         "enable_ocr": cfg.enable_ocr,
                         "upstream_url": cfg.upstream_url,
+                        "upstream_api_key_set": cfg.upstream_api_key.is_some(),
+                        "upstream_routes": cfg.upstream_routes,
                         "disable_atr_auto_update": cfg.disable_atr_auto_update,
                         "policy_version": policy.policy_version,
                     });
@@ -446,6 +469,7 @@ impl SyncEngine {
                     }
                     if enforcement.bearer_token_enforced {
                         ui_cfg["bearerTokenEnforced"] = json!(true);
+                        ui_cfg["enforced_bearer_token"] = json!(enforcement.bearer_token);
                     }
                     ui_cfg["allowCustomAllowlists"] = json!(enforcement.allow_custom_allowlists);
 

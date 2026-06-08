@@ -66,6 +66,8 @@ pub struct Policy {
     pub allowlists: Option<serde_json::Value>,
     pub target_mode: String,
     pub target_regex: Option<String>,
+    pub priority: i32,
+    pub version: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub updated_by: Option<Uuid>,
@@ -117,6 +119,22 @@ pub struct ResetPasswordRequest {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct UpstreamRoute {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<Uuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub policy_id: Option<Uuid>,
+    pub match_pattern: String,
+    pub url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_key_source: Option<String>,
+    #[serde(default)]
+    pub priority: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct CreatePolicyRequest {
     pub name: String,
     pub description: Option<String>,
@@ -128,6 +146,7 @@ pub struct CreatePolicyRequest {
     pub disable_atr_auto_update: Option<bool>,
     pub allow_custom_allowlists: Option<bool>,
     pub bearer_token: Option<String>,
+    pub priority: Option<i32>,
     #[serde(alias = "detection_overrides")]
     pub enabled_detection_categories: Option<Vec<String>>,
     pub custom_regex: Option<Vec<String>>,
@@ -135,6 +154,8 @@ pub struct CreatePolicyRequest {
     pub target_mode: Option<String>,
     pub target_regex: Option<String>,
     pub group_ids: Option<Vec<Uuid>>,
+    #[serde(default)]
+    pub upstream_routes: Option<Vec<UpstreamRoute>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -9,17 +9,17 @@ so every prompt is scanned for secrets, PII, and prompt injections.
 Your IDE (Cursor / Continue / Windsurf / JetBrains)
      │
      ▼  POST /v1/chat/completions (Bearer ng-xxx...)
+┌───────────────────────────────────────────┐
+│  NodeGuarder Agent (localhost:51820)      │
+│  • Scans prompt for secrets/PII           │
+│  • Shows HITL verification modal          │
+│  • Routes by model name to matching upstream│
+└──────────────────┬────────────────────────┘
+                   │  model → glob match
+                   ▼  POST /v1/chat/completions
 ┌─────────────────────────────────────┐
-│  NodeGuarder Agent (localhost:51820)│
-│  • Scans prompt for secrets/PII     │
-│  • Shows HITL verification modal    │
-│  • Forwards cleaned request         │
-└──────────┬──────────────────────────┘
-           │  cleaned request forwarded
-           ▼  POST /v1/chat/completions
-┌─────────────────────────────────────┐
-│  Upstream LLM                       │
-│  (OpenAI / Ollama / Azure / etc.)   │
+│  Upstream LLM (route-matched)       │
+│  OpenAI / Ollama / Azure / Gateway  │
 └─────────────────────────────────────┘
 ```
 
@@ -108,20 +108,32 @@ If your IDE allows a custom OpenAI endpoint, use:
 
 ---
 
-## Upstream LLM Configuration
+## Upstream Routing
 
 After the agent scans the prompt, it forwards the cleaned request to an
-upstream LLM. Configure this in the agent **Settings → Connectivity**
+upstream LLM. Configure one or more routes in **Settings → Gateway**
 or in `config.toml`:
 
 ```toml
-[proxy]
-upstream_url = "https://api.openai.com/v1"   # or Ollama, Azure, etc.
-api_key = "sk-..."                            # your real upstream API key
-bind_port = 51820
+[[proxy.upstream_routes]]
+match_pattern = "gpt-4*"
+url = "https://api.openai.com/v1"
+api_key_source = "OPENAI_API_KEY"
+
+[[proxy.upstream_routes]]
+match_pattern = "*"
+url = "https://gateway.corp.internal/v1"
+api_key = "sk-gateway-key"
 ```
 
-Common upstream values:
+Each route has:
+- **Match Pattern** — glob matched against the `model` field in the request
+- **URL** — upstream endpoint
+- **API Key** — literal key, or `env:VARIABLE_NAME` to read from environment
+
+The agent evaluates routes in priority order. The **first matching route** handles the request. A `*` catch-all pattern matches any model.
+
+### Common Upstream Values
 
 | Provider | URL |
 |----------|-----|
@@ -129,7 +141,16 @@ Common upstream values:
 | Ollama (local) | `http://localhost:11434/v1` |
 | Azure OpenAI | `https://<resource>.openai.azure.com/` |
 | Anthropic | `https://api.anthropic.com/v1` |
-| Custom | Your own endpoint |
+| Custom / Gateway | Your own endpoint |
+
+### Route Examples
+
+| Pattern | Matches |
+|---------|---------|
+| `gpt-4*` | `gpt-4`, `gpt-4-turbo`, `gpt-4-32k` |
+| `claude-*-sonnet` | `claude-3-sonnet`, `claude-3-5-sonnet` |
+| `*llama*` | `llama3`, `codellama`, `deepseek-llama` |
+| `*` | Everything (catch-all) |
 
 ---
 

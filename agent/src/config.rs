@@ -4,6 +4,14 @@ use std::fs;
 use std::path::PathBuf;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UpstreamRouteConfig {
+    pub match_pattern: String,
+    pub url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AppConfig {
     pub uuid: String,
     pub bearer_token: String,
@@ -50,7 +58,7 @@ pub struct AppConfig {
     pub detect_model_abuse: bool,
     #[serde(default = "default_true")]
     pub detect_data_poisoning: bool,
-    // Upstream LLM endpoint (OpenAI-compatible)
+    // Upstream LLM endpoint (OpenAI-compatible) — legacy, use upstream_routes instead
     #[serde(default = "default_upstream_url")]
     pub upstream_url: String,
     #[serde(default)]
@@ -58,10 +66,7 @@ pub struct AppConfig {
     /// Disconnect password hash (bcrypt) from org policy
     #[serde(default)]
     pub disconnect_password_hash: Option<String>,
-    /// Upstream LLM API key. Three modes:
-    /// - None (not set) → strip Authorization header (for local models like Ollama)
-    /// - Some("") → strip Authorization header (same as None)
-    /// - Some("sk-...") → replace Authorization header with `Bearer <value>`
+    /// Upstream LLM API key — legacy, use upstream_routes instead
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upstream_api_key: Option<String>,
     #[serde(default = "default_true")]
@@ -71,6 +76,9 @@ pub struct AppConfig {
     /// Bearer token enforced by enterprise policy (shared across agents)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enforced_bearer_token: Option<String>,
+    /// Upstream routing table (replaces single upstream_url/upstream_api_key)
+    #[serde(default)]
+    pub upstream_routes: Vec<UpstreamRouteConfig>,
     }
 
 fn default_upstream_url() -> String {
@@ -89,6 +97,18 @@ fn default_bind_port() -> u16 {
     51820
 }
 
+pub fn effective_upstream_routes(config: &AppConfig) -> Vec<UpstreamRouteConfig> {
+    if !config.upstream_routes.is_empty() {
+        config.upstream_routes.clone()
+    } else {
+        vec![UpstreamRouteConfig {
+            match_pattern: "*".to_string(),
+            url: config.upstream_url.clone(),
+            api_key: config.upstream_api_key.clone(),
+        }]
+    }
+}
+
 pub fn load_or_create_config() -> AppConfig {
     let appdata = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
     let mut config_dir = PathBuf::from(appdata);
@@ -104,6 +124,15 @@ pub fn load_or_create_config() -> AppConfig {
         let content = fs::read_to_string(&config_path).expect("Failed to read config file");
         let mut config: AppConfig = toml::from_str(&content).expect("Failed to parse config.toml");
 
+        // Migrate legacy upstream fields to routes
+        if config.upstream_routes.is_empty() {
+            config.upstream_routes = vec![UpstreamRouteConfig {
+                match_pattern: "*".to_string(),
+                url: config.upstream_url.clone(),
+                api_key: config.upstream_api_key.clone(),
+            }];
+        }
+
         // Clear legacy/default patterns that are now handled internally
         let legacy_patterns = ["ng-[a-zA-Z0-9]{32}", "ng-[a-zA-Z0-9]{31}", "localhost"];
         let original_count = config.allowlists_regex.len();
@@ -111,7 +140,7 @@ pub fn load_or_create_config() -> AppConfig {
             .allowlists_regex
             .retain(|p| !legacy_patterns.contains(&p.as_str()));
 
-        // Save if we cleared any patterns
+        // Save if we cleared any patterns or migrated routes
         if config.allowlists_regex.len() != original_count {
             save_config(&config);
         }
@@ -157,6 +186,11 @@ pub fn load_or_create_config() -> AppConfig {
             auto_start: true,
             policy_version: None,
             enforced_bearer_token: None,
+            upstream_routes: vec![UpstreamRouteConfig {
+                match_pattern: "*".to_string(),
+                url: default_upstream_url(),
+                api_key: None,
+            }],
         };
 
         let content = toml::to_string_pretty(&config).expect("Failed to serialize config");
@@ -242,6 +276,7 @@ mod tests {
             auto_start: true,
             policy_version: None,
             enforced_bearer_token: None,
+            upstream_routes: vec![],
         };
 
         let content = toml::to_string_pretty(&config).unwrap();

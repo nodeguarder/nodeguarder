@@ -20,11 +20,21 @@ export interface Agent {
   created_at: string
 }
 
+export interface UpstreamRoute {
+  match_pattern: string
+  url: string
+  api_key?: string | null
+  api_key_source?: string | null
+  priority: number
+}
+
 export interface Policy {
   id: string
   org_id: string
   name: string
   description: string | null
+  version: number
+  priority: number
   redaction_enforced: boolean
   upstream_url: string | null
   upstream_api_key: string | null
@@ -39,6 +49,7 @@ export interface Policy {
   target_mode: 'all' | 'group'
   target_regex: string | null
   group_ids: string[]
+  upstream_routes: UpstreamRoute[]
   updated_at: string
   updated_by: string | null
 }

@@ -124,6 +124,41 @@ async fn extract_text_from_content(content: &Value, enable_ocr: bool) -> String 
     }
 }
 
+fn glob_match(pattern: &str, name: &str) -> bool {
+    if pattern == "*" {
+        return true;
+    }
+    let pattern_bytes = pattern.as_bytes();
+    let name_bytes = name.as_bytes();
+    let mut pi = 0;
+    let mut ni = 0;
+    let mut backtrack_pi = None;
+    let mut backtrack_ni = 0;
+    while ni < name_bytes.len() {
+        if pi < pattern_bytes.len() && (pattern_bytes[pi] == b'?' || pattern_bytes[pi] == name_bytes[ni]) {
+            pi += 1;
+            ni += 1;
+        } else if pi < pattern_bytes.len() && pattern_bytes[pi] == b'*' {
+            backtrack_pi = Some(pi);
+            backtrack_ni = ni + 1;
+            pi += 1;
+        } else if let Some(bp) = backtrack_pi {
+            pi = bp;
+            ni = backtrack_ni;
+        } else {
+            return false;
+        }
+    }
+    while pi < pattern_bytes.len() && pattern_bytes[pi] == b'*' {
+        pi += 1;
+    }
+    pi == pattern_bytes.len()
+}
+
+fn find_matching_route<'a>(routes: &'a [crate::config::UpstreamRouteConfig], model: &str) -> Option<&'a crate::config::UpstreamRouteConfig> {
+    routes.iter().find(|r| glob_match(&r.match_pattern, model))
+}
+
 pub async fn chat_completions_handler(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -132,9 +167,9 @@ pub async fn chat_completions_handler(
     // 1. Authorization Check (Fetch config under read lock)
     let t0 = Instant::now();
     let session_id = Uuid::new_v4().to_string();
-    let (bearer_token, enforced_bearer_token, allowlists_regex, detection_config, upstream_url, upstream_api_key) = {
+    let (bearer_token, enforced_bearer_token, allowlists_regex, detection_config, upstream_routes) = {
         let cfg = state.config.read().unwrap();
-        (cfg.bearer_token.clone(), cfg.enforced_bearer_token.clone(), cfg.allowlists_regex.clone(), DetectionConfig::from_config(&cfg), cfg.upstream_url.clone(), cfg.upstream_api_key.clone())
+        (cfg.bearer_token.clone(), cfg.enforced_bearer_token.clone(), cfg.allowlists_regex.clone(), DetectionConfig::from_config(&cfg), crate::config::effective_upstream_routes(&cfg))
     };
 
     // Development: optional auto-decision header to bypass UI for testing.
@@ -429,8 +464,12 @@ pub async fn chat_completions_handler(
         }
     }
 
-    // 4. Proxy Upstream
-    let upstream_chat = format!("{}/chat/completions", upstream_url);
+    // 4. Proxy Upstream — route by model name
+    let route = find_matching_route(&upstream_routes, &model)
+        .unwrap_or_else(|| &upstream_routes[0]);
+
+    let upstream_chat = format!("{}/chat/completions", route.url);
+    info!("Routing model '{}' to upstream '{}' via pattern '{}'", model, route.url, route.match_pattern);
     let mut req_builder = state.client.post(&upstream_chat)
         .json(&payload);
     
@@ -443,7 +482,7 @@ pub async fn chat_completions_handler(
         }
     }
 
-    match &upstream_api_key {
+    match &route.api_key {
         Some(key) if !key.is_empty() => {
             req_builder = req_builder.header(axum::http::header::AUTHORIZATION, format!("Bearer {}", key));
         },
@@ -455,8 +494,8 @@ pub async fn chat_completions_handler(
     let upstream_res = match req_builder.send().await {
         Ok(res) => res,
         Err(e) => {
-            warn!("Upstream error: {}", e);
-            return (StatusCode::BAD_GATEWAY, "OpenAI unreachable").into_response();
+            warn!("Upstream error for route '{}' (pattern '{}'): {}", route.url, route.match_pattern, e);
+            return (StatusCode::BAD_GATEWAY, "Upstream unreachable").into_response();
         }
     };
 
@@ -638,9 +677,9 @@ pub async fn files_handler(
 ) -> impl IntoResponse {
     // 1. Authorization Check
     let session_id = Uuid::new_v4().to_string();
-    let (bearer_token, allowlists_regex, enable_ocr, detection_config, upstream_url, upstream_api_key) = {
+    let (bearer_token, allowlists_regex, enable_ocr, detection_config, upstream_routes) = {
         let cfg = state.config.read().unwrap();
-        (cfg.bearer_token.clone(), cfg.allowlists_regex.clone(), cfg.enable_ocr, DetectionConfig::from_config(&cfg), cfg.upstream_url.clone(), cfg.upstream_api_key.clone())
+        (cfg.bearer_token.clone(), cfg.allowlists_regex.clone(), cfg.enable_ocr, DetectionConfig::from_config(&cfg), crate::config::effective_upstream_routes(&cfg))
     };
 
     let auth_header = headers.get("authorization").and_then(|h| h.to_str().ok());
@@ -736,7 +775,15 @@ pub async fn files_handler(
         }))).into_response();
     }
 
-    let upstream_files = format!("{}/files", upstream_url);
+    // For file operations, use the first route (files don't carry a model name)
+    let default_file_route = crate::config::UpstreamRouteConfig {
+        match_pattern: "*".to_string(),
+        url: "https://api.openai.com/v1".to_string(),
+        api_key: None,
+    };
+    let file_route = upstream_routes.first().unwrap_or(&default_file_route);
+
+    let upstream_files = format!("{}/files", file_route.url);
     let mut req_builder = state.client.post(&upstream_files)
         .multipart(form);
 
@@ -749,7 +796,7 @@ pub async fn files_handler(
         }
     }
 
-    match &upstream_api_key {
+    match &file_route.api_key {
         Some(key) if !key.is_empty() => {
             req_builder = req_builder.header(axum::http::header::AUTHORIZATION, format!("Bearer {}", key));
         },
@@ -888,6 +935,9 @@ mod e2e_tests {
             upstream_api_key: None,
             disconnect_password_hash: None,
             auto_start: true,
+            policy_version: None,
+            enforced_bearer_token: None,
+            upstream_routes: vec![],
         }
     }
 

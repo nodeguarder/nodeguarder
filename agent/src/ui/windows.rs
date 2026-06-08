@@ -247,6 +247,7 @@ pub fn spawn_settings_window(
     let allowlist_json = serde_json::to_string(&config.allowlists_regex).unwrap();
     let logs_json = serde_json::to_string(&audit::read_logs()).unwrap();
     let enrolled = config.enrolled_admin.is_some();
+    let bearer_token_enforced = config.enforced_bearer_token.is_some();
 
     let html = format!(
         r#"
@@ -446,7 +447,7 @@ pub fn spawn_settings_window(
 
         <div class="sidebar-layout">
             <div class="sidebar">
-                <div class="nav-item active" onclick="showTab('general', this)">Connectivity</div>
+                <div class="nav-item active" onclick="showTab('general', this)">Gateway</div>
                 <div class="nav-item" onclick="showTab('protection', this)">Protection</div>
                 <div class="nav-item" onclick="showTab('activity', this)">Security Activity</div>
                 <div class="nav-item" onclick="showTab('enterprise', this)">Enterprise Management</div>
@@ -456,9 +457,9 @@ pub fn spawn_settings_window(
         <div class="main">
             <!-- Connectivity Tab -->
                 <div id="general" class="tab-content active">
-                <h1>Deployment & Connectivity</h1>
+                <h1>Gateway</h1>
                 <p class="desc">
-                    NodeGuarder is an <b>OpenAI-compatible proxy</b>. Point any AI app at it and we intercept secrets before they leave your machine.
+                    NodeGuarder is a <b>Local AI Gateway</b>. Configure how AI apps connect through it and where cleaned requests are forwarded.
                 </p>
 
                 <!-- AI Tools card (shown first so users see what's already set up) -->
@@ -479,9 +480,12 @@ pub fn spawn_settings_window(
                         <button class="action small" onclick="copy(`http://127.0.0.1:{port}/v1`)">COPY</button>
                     </div>
                     <div class="label">NodeGuarder bearer token</div>
-                    <div id="bearerTokenRow" class="value-row" style="margin-bottom: 20px;">
+                    <div id="bearerTokenRow" class="value-row" style="margin-bottom: 8px;">
                         <span class="value" id="proxyApiKey">{token_escaped}</span>
                         <button class="action small" onclick="copy(document.getElementById('proxyApiKey').innerText)">COPY</button>
+                    </div>
+                    <div id="bearerTokenManagedBadge" style="display:none;font-size:11px;color:#f59e0b;margin-bottom:8px;padding:4px 8px;background:rgba(245,158,11,0.1);border-radius:4px;border:1px solid rgba(245,158,11,0.2);">
+                        Managed by organization policy
                     </div>
                     <p style="font-size: 12px; color: var(--text-muted);">
                         Set these as your <b>OpenAI Base URL</b> and <b>API Key</b> in any AI app, IDE plugin, or SDK.
@@ -513,30 +517,23 @@ pub fn spawn_settings_window(
                 </div>
 
                 <div class="card">
-                    <div class="card-title">Upstream LLM Provider</div>
+                    <div class="card-title">Upstream Routes</div>
                     <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.6;">
-                        NodeGuarder is a <b>middleman</b>. After scanning your prompt, it forwards the (possibly redacted) request to the URL you set here.
+                        NodeGuarder routes each request to the first matching upstream. The <b>model name</b> in your request determines the destination.
                     </p>
 
-                    <div class="label">Upstream Base URL</div>
-                    <div style="display: flex; gap: 10px; margin-bottom: 8px;">
-                        <input type="text" id="upstreamUrlInput" class="rule-input" value="{upstream_url}" style="flex-grow: 1;">
-                        <button id="saveUpstreamUrlBtn" class="action" onclick="saveUpstreamUrl()">SAVE</button>
+                    <div id="upstreamRoutesContainer">
+                        <!-- Rows rendered by JS -->
                     </div>
-                    <div id="upstreamStatusRow" style="display:none;margin-bottom:16px;font-size:12px;"></div>
-                    <div id="upstreamSaved" style="display: none; font-size: 12px; color: #10b981; font-weight: 600;">Saved.</div>
-                    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px;">
-                        e.g. <code>https://api.openai.com/v1</code> or <code>http://localhost:11434/v1</code>
-                    </p>
+                    <div style="margin-top: 8px;">
+                        <button class="action" id="addRouteBtn" onclick="addRouteRow()">+ Add Route</button>
+                        <button class="action" id="saveRoutesBtn" onclick="saveUpstreamRoutes()" style="margin-left:8px;background:var(--accent);">SAVE ALL</button>
+                    </div>
+                    <div id="upstreamStatusRow" style="display:none;margin-top:8px;font-size:12px;"></div>
 
-                    <div class="label" style="margin-top: 16px;">Upstream API Key</div>
-                    <div style="display: flex; gap: 10px; margin-bottom: 8px;">
-                        <input type="password" id="upstreamApiKeyInput" class="rule-input" value="{upstream_api_key}" placeholder="sk-... or leave empty for local models" style="flex-grow: 1;">
-                        <button id="saveUpstreamKeyBtn" class="action" onclick="saveUpstreamApiKey()">SAVE</button>
-                    </div>
-                    <div id="envVarHint" style="display:none;font-size:12px;color:var(--text-muted);margin-bottom:8px;padding:8px 10px;background:rgba(0,0,0,0.2);border-radius:6px;"></div>
-                    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px;">
-                        Leave empty for Ollama / local models (no auth). Set your API key for OpenAI, Azure, GitHub Models, etc.
+                    <p style="font-size: 12px; color: var(--text-muted); margin-top: 12px;">
+                        Pattern examples: <code>gpt-*</code> matches gpt-4, gpt-4o. <code>*</code> catches everything.
+                        <a href="javascript:void(0)" onclick="showUpstreamHelp()" style="color:var(--accent);">Learn more</a>
                     </p>
                 </div>
 
@@ -911,8 +908,9 @@ pub fn spawn_settings_window(
                 enrolled: {enrolled},
                 connected: false,
                 enable_ocr: {enable_ocr},
-                upstream_url: "{upstream_url}",
-                upstream_api_key: "{upstream_api_key}",
+                upstream_routes: {upstream_routes_json},
+                bearer_token: "{token_escaped}",
+                enforced_bearer_token: "{enforced_token_escaped}",
                 detect_api_keys: {detect_api_keys},
                 detect_db_credentials: {detect_db_credentials},
                 detect_pii: {detect_pii},
@@ -934,6 +932,7 @@ pub fn spawn_settings_window(
                 bindPortEnforced: false,
                 ocrEnforced: false,
                 atrAutoUpdateEnforced: false,
+                bearerTokenEnforced: {bearer_token_enforced},
                 allowCustomAllowlists: true,
                 policy_version: "{policy_version}",
             }};
@@ -1021,29 +1020,83 @@ pub fn spawn_settings_window(
                 renderRules();
             }}
 
-            function saveUpstreamUrl() {{
+            function renderUpstreamRoutes() {{
+                var container = document.getElementById('upstreamRoutesContainer');
+                if (!container) return;
+                var enforced = config.upstreamUrlEnforced;
+                var html = '';
+                html += '<div style="display:grid;grid-template-columns:1fr 2fr 1.5fr auto;gap:6px;font-size:11px;color:var(--text-muted);margin-bottom:6px;padding:0 4px;">';
+                html += '<span>Model Pattern</span><span>Upstream URL</span><span>Auth</span><span></span>';
+                html += '</div>';
+                config.upstream_routes.forEach(function(route, i) {{
+                    var disabled = enforced ? 'disabled' : '';
+                    var lockIcon = enforced ? '🔒 ' : '';
+                    var keyDisplay = route.api_key ? '●●●●●' : (route.api_key_source ? 'env:' + route.api_key_source : '—');
+                    html += '<div class="route-row" style="display:grid;grid-template-columns:1fr 2fr 1.5fr auto;gap:6px;margin-bottom:4px;align-items:center;">';
+                    html += '<input class="rule-input route-pattern" value="' + route.match_pattern + '" ' + disabled + ' style="font-family:monospace;font-size:12px;">';
+                    html += '<input class="rule-input route-url" value="' + route.url + '" ' + disabled + ' style="font-family:monospace;font-size:12px;">';
+                    if (route.api_key_source && route.api_key_source !== '') {{
+                        html += '<span style="font-size:11px;color:var(--text-muted);padding:4px 8px;">env:' + route.api_key_source + '</span>';
+                    }} else {{
+                        var keyVal = route.api_key || '';
+                        html += '<input class="rule-input route-key" type="password" value="' + keyVal + '" placeholder="sk-... or empty" ' + disabled + ' style="font-family:monospace;font-size:12px;">';
+                    }}
+                    if (!enforced) {{
+                        html += '<button class="action small" onclick="removeRouteRow(' + i + ')" style="background:transparent;color:var(--danger);padding:4px 8px;">✕</button>';
+                    }} else {{
+                        html += '<span style="font-size:11px;color:#f59e0b;">' + lockIcon + 'Policy</span>';
+                    }}
+                    html += '</div>';
+                }});
+                container.innerHTML = html;
+                document.getElementById('addRouteBtn').style.display = enforced ? 'none' : '';
+                document.getElementById('saveRoutesBtn').style.display = enforced ? 'none' : '';
+            }}
+
+            function addRouteRow() {{
+                config.upstream_routes.push({{
+                    match_pattern: '*',
+                    url: 'https://api.openai.com/v1',
+                    api_key: null,
+                    api_key_source: null,
+                }});
+                renderUpstreamRoutes();
+            }}
+
+            function removeRouteRow(idx) {{
+                config.upstream_routes.splice(idx, 1);
+                renderUpstreamRoutes();
+            }}
+
+            function saveUpstreamRoutes() {{
                 if (config.upstreamUrlEnforced) {{
                     showToast('This setting is managed by your organization policy.', 3000);
                     return;
                 }}
-                const url = document.getElementById('upstreamUrlInput').value;
-                if (!url) return;
-                config.upstream_url = url;
-                window.ipc.postMessage('SET_UPSTREAM_URL:' + url);
-                document.getElementById('upstreamSaved').style.display = 'block';
-                setTimeout(() => document.getElementById('upstreamSaved').style.display = 'none', 2000);
-                window.ipc.postMessage('CHECK_UPSTREAM:' + url);
+                // Read values from DOM
+                var rows = document.querySelectorAll('.route-row');
+                config.upstream_routes = [];
+                rows.forEach(function(row) {{
+                    var patternInput = row.querySelector('.route-pattern');
+                    var urlInput = row.querySelector('.route-url');
+                    var keyInput = row.querySelector('.route-key');
+                    if (!patternInput || !urlInput) return;
+                    var pattern = patternInput.value.trim();
+                    var url = urlInput.value.trim();
+                    var key = keyInput ? keyInput.value.trim() : null;
+                    if (!pattern || !url) return;
+                    config.upstream_routes.push({{
+                        match_pattern: pattern,
+                        url: url,
+                        api_key: key || null,
+                    }});
+                }});
+                window.ipc.postMessage('SET_UPSTREAM_ROUTES:' + JSON.stringify(config.upstream_routes));
+                showToast('Routes saved (' + config.upstream_routes.length + ' routes)', 2000);
             }}
 
-            function saveUpstreamApiKey() {{
-                if (config.upstreamApiKeyEnforced) {{
-                    showToast('This setting is managed by your organization policy.', 3000);
-                    return;
-                }}
-                const key = document.getElementById('upstreamApiKeyInput').value;
-                config.upstream_api_key = key;
-                window.ipc.postMessage('SET_UPSTREAM_API_KEY:' + key);
-                showToast('API key saved', 2000);
+            function showUpstreamHelp() {{
+                showToast('Patterns: gpt-* matches gpt-4, gpt-4o. claude-* matches claude-sonnet-4. * is catch-all. First match wins.', 5000);
             }}
 
             window.updateDiscovery = (data) => {{
@@ -1264,66 +1317,67 @@ pub fn spawn_settings_window(
             }}
 
             function renderEnforcement() {{
-                var managed = config.enrolled;
+                var enrolled = config.enrolled;
 
-                // All settings are managed when enrolled (Approach A)
-                disableEl('apiKeysToggle', managed);
-                disableEl('dbCredsToggle', managed);
-                disableEl('piiToggle', managed);
-                disableEl('injectionToggle', managed);
-                disableEl('codeExecToggle', managed);
-                disableEl('socialEngToggle', managed);
-                disableEl('skillCompToggle', managed);
-                disableEl('excessAutoToggle', managed);
-                disableEl('modelAbuseToggle', managed);
-                disableEl('dataPoisonToggle', managed);
-                disableEl('ocrToggle', managed);
-                disableEl('atrAutoUpdateToggle', managed);
-                disableEl('autoStartToggle', managed);
+                // Per-field enforcement flags
+                var detectionsManaged = config.detectionTogglesEnforced && enrolled;
+                var upstreamManaged = config.upstreamUrlEnforced && enrolled;
+                var apiKeyManaged = config.upstreamApiKeyEnforced && enrolled;
+                var ocrManaged = config.ocrEnforced && enrolled;
+                var atrManaged = config.atrAutoUpdateEnforced && enrolled;
+                var bearerManaged = config.bearerTokenEnforced && enrolled;
+                var rulesManaged = !config.allowCustomAllowlists && enrolled;
 
-                // Protection tab banner - show whenever enrolled
+                // Detection toggles - per-field enforcement
+                disableEl('apiKeysToggle', detectionsManaged);
+                disableEl('dbCredsToggle', detectionsManaged);
+                disableEl('piiToggle', detectionsManaged);
+                disableEl('injectionToggle', detectionsManaged);
+                disableEl('codeExecToggle', detectionsManaged);
+                disableEl('socialEngToggle', detectionsManaged);
+                disableEl('skillCompToggle', detectionsManaged);
+                disableEl('excessAutoToggle', detectionsManaged);
+                disableEl('modelAbuseToggle', detectionsManaged);
+                disableEl('dataPoisonToggle', detectionsManaged);
+                disableEl('ocrToggle', ocrManaged);
+                disableEl('atrAutoUpdateToggle', atrManaged);
+                disableEl('autoStartToggle', false);
+
+                // Protection tab banner - show when detection categories are enforced
                 var protBanner = document.getElementById('lockBanner');
                 if (protBanner) {{
-                    protBanner.style.display = managed ? 'flex' : 'none';
+                    protBanner.style.display = detectionsManaged ? 'flex' : 'none';
                 }}
 
-                // Connectivity tab - upstream URL and API key
-                var upstreamRow = document.getElementById('upstreamUrlInput');
-                if (upstreamRow) {{
-                    upstreamRow.disabled = managed;
-                    var upstreamClosest = upstreamRow.closest('.value-row') || upstreamRow.parentElement;
-                    upstreamClosest.style.opacity = managed ? '0.5' : '1';
+                // Gateway tab - enforce entire route table when upstream is policy-managed
+                var routesManaged = config.upstreamUrlEnforced && enrolled;
+                if (routesManaged) {{
+                    renderUpstreamRoutes();
                 }}
-                var upstreamKeyRow = document.getElementById('upstreamApiKeyInput');
-                if (upstreamKeyRow) {{
-                    upstreamKeyRow.disabled = managed;
-                    var keyClosest = upstreamKeyRow.closest('.value-row') || upstreamKeyRow.parentElement;
-                    keyClosest.style.opacity = managed ? '0.5' : '1';
-                }}
-                var saveUrlBtn = document.getElementById('saveUpstreamUrlBtn');
-                if (saveUrlBtn) saveUrlBtn.style.display = managed ? 'none' : '';
-                var saveKeyBtn = document.getElementById('saveUpstreamKeyBtn');
-                if (saveKeyBtn) saveKeyBtn.style.display = managed ? 'none' : '';
+                var addBtn = document.getElementById('addRouteBtn');
+                if (addBtn) addBtn.style.display = routesManaged ? 'none' : '';
+                var saveBtn = document.getElementById('saveRoutesBtn');
+                if (saveBtn) saveBtn.style.display = routesManaged ? 'none' : '';
 
-                // Connectivity tab banner - show whenever enrolled
+                // Gateway tab banner - show when upstream routes are enforced
                 var connBanner = document.getElementById('connLockBanner');
                 if (connBanner) {{
-                    connBanner.style.display = managed ? 'flex' : 'none';
+                    connBanner.style.display = upstreamManaged ? 'flex' : 'none';
                 }}
 
-                // Trusted Patterns input - grey out when managed, respect allowCustomAllowlists
+                // Trusted Patterns input - grey out when allowlists are managed
                 var ruleInputRow = document.getElementById('ruleInputRow');
                 if (ruleInputRow) {{
                     var newRuleInput = document.getElementById('newRule');
                     var addRuleBtn = ruleInputRow.querySelector('button');
-                    if (managed) {{
+                    if (rulesManaged) {{
                         ruleInputRow.style.display = 'flex';
                         ruleInputRow.style.opacity = '0.5';
-                        if (newRuleInput) newRuleInput.disabled = !config.allowCustomAllowlists;
-                        if (addRuleBtn) addRuleBtn.style.display = config.allowCustomAllowlists ? '' : 'none';
+                        if (newRuleInput) newRuleInput.disabled = true;
+                        if (addRuleBtn) addRuleBtn.style.display = 'none';
                     }} else {{
                         ruleInputRow.style.opacity = '1';
-                        ruleInputRow.style.display = config.allowCustomAllowlists ? 'flex' : 'none';
+                        ruleInputRow.style.display = enrolled && !config.allowCustomAllowlists ? 'none' : 'flex';
                         if (newRuleInput) newRuleInput.disabled = false;
                         if (addRuleBtn) addRuleBtn.style.display = '';
                     }}
@@ -1331,7 +1385,7 @@ pub fn spawn_settings_window(
                 // Grey out rules table when managed
                 var rulesTable = document.getElementById('rulesTable');
                 if (rulesTable) {{
-                    rulesTable.style.opacity = managed ? '0.5' : '1';
+                    rulesTable.style.opacity = rulesManaged ? '0.5' : '1';
                 }}
             }}
 
@@ -1359,14 +1413,30 @@ pub fn spawn_settings_window(
                 if (mh) mh.innerText = hw + ' optimized';
             }};
 
+            function renderBearerToken() {{
+                var el = document.getElementById('proxyApiKey');
+                var badge = document.getElementById('bearerTokenManagedBadge');
+                if (!el) return;
+                var useEnforced = config.enrolled && config.bearerTokenEnforced && config.enforced_bearer_token;
+                if (useEnforced) {{
+                    el.textContent = config.enforced_bearer_token;
+                    if (badge) badge.style.display = 'block';
+                }} else {{
+                    el.textContent = config.bearer_token || '';
+                    if (badge) badge.style.display = 'none';
+                }}
+            }}
+
             window.updateConfig = (newCfg) => {{
                 config = {{ ...config, ...newCfg }};
                 renderRules();
                 renderLogs();
                 renderEnterprise();
                 renderEnforcement();
-                if (newCfg.upstream_url) {{
-                    document.getElementById('upstreamUrlInput').value = newCfg.upstream_url;
+                renderBearerToken();
+                renderUpstreamRoutes();
+                if (newCfg.upstream_routes) {{
+                    // Routes already updated via renderUpstreamRoutes
                 }}
                 if (newCfg.disable_atr_auto_update !== undefined) {{
                     document.getElementById('atrAutoUpdateToggle').checked = !newCfg.disable_atr_auto_update;
@@ -1427,10 +1497,10 @@ pub fn spawn_settings_window(
                 renderLogs();
                 renderEnterprise();
                 renderEnforcement();
+                renderBearerToken();
+                renderUpstreamRoutes();
                 if (logsIntervalId) clearInterval(logsIntervalId);
                 logsIntervalId = setInterval(fetchLogs, 5000);
-                document.getElementById('upstreamUrlInput').value = config.upstream_url;
-                document.getElementById('upstreamApiKeyInput').value = config.upstream_api_key;
                 // Trigger environment scan
                 window.ipc.postMessage('SCAN_ENVIRONMENT');
                 document.getElementById('ocrToggle').checked = config.enable_ocr;
@@ -1457,6 +1527,7 @@ pub fn spawn_settings_window(
         enforce_redaction = config.enforce_redaction,
         logs_json = logs_json,
         enrolled = enrolled,
+        bearer_token_enforced = bearer_token_enforced,
         enable_ocr = config.enable_ocr,
         detect_api_keys = config.detect_api_keys,
         detect_db_credentials = config.detect_db_credentials,
@@ -1474,10 +1545,10 @@ pub fn spawn_settings_window(
         atr_badge_class = if config.disable_atr_auto_update { "badge-manual" } else { "badge-redact" },
         atr_badge_text = if config.disable_atr_auto_update { "MANUAL" } else { "AUTO" },
         token_escaped = html_escape(&config.bearer_token),
+        enforced_token_escaped = html_escape(&config.enforced_bearer_token.clone().unwrap_or_default()),
         logo_base64 = logo_base64,
         status_str = status_str,
-        upstream_url = config.upstream_url,
-        upstream_api_key = config.upstream_api_key.clone().unwrap_or_default(),
+        upstream_routes_json = serde_json::to_string(&config.upstream_routes).unwrap_or_else(|_| "[]".to_string()),
         policy_version = config.policy_version.clone().unwrap_or_default(),
         token_trunc = {
             let t = &config.bearer_token;
@@ -1539,6 +1610,11 @@ pub fn spawn_settings_window(
             } else if body.starts_with("SET_UPSTREAM_API_KEY:") {
                 let key = body.strip_prefix("SET_UPSTREAM_API_KEY:").unwrap().to_string();
                 let _ = proxy.send_event(UiEvent::UpdateUpstreamApiKey(key));
+            } else if body.starts_with("SET_UPSTREAM_ROUTES:") {
+                let json_str = body.strip_prefix("SET_UPSTREAM_ROUTES:").unwrap().to_string();
+                if let Ok(routes) = serde_json::from_str::<Vec<crate::config::UpstreamRouteConfig>>(&json_str) {
+                    let _ = proxy.send_event(UiEvent::UpdateUpstreamRoutes(routes));
+                }
             } else if body.starts_with("TOGGLE_ATR_AUTO_UPDATE:") {
                 let disabled = body.strip_prefix("TOGGLE_ATR_AUTO_UPDATE:").unwrap() == "true";
                 let _ = proxy.send_event(UiEvent::ToggleAtrAutoUpdate(disabled));

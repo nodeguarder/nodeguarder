@@ -15,10 +15,11 @@ import {
   Eye,
   EyeOff,
   Users,
+  AlertTriangle,
 } from 'lucide-react'
 import { getPolicy, createPolicy, updatePolicy, getGroups } from '@/api/client'
 import { showToast } from '@/components/Toast'
-import type { Policy, AgentGroup, ConfigSuggestion } from '@/types'
+import type { Policy, AgentGroup, ConfigSuggestion, UpstreamRoute } from '@/types'
 
 const DEFAULT_BIND_PORT = 51820
 const ALL_DETECTION_KEYS = [
@@ -43,6 +44,7 @@ const DETECTION_CATEGORIES = [
 const emptyForm = {
   name: '',
   description: '',
+  version: 0,
   redaction_enforced: true,
   upstream_url: '',
   upstream_api_key: '',
@@ -56,6 +58,8 @@ const emptyForm = {
   allowlists: [] as string[],
   target_mode: 'all' as 'all' | 'group',
   group_ids: [] as string[],
+  priority: 100,
+  upstream_routes: [] as UpstreamRoute[],
 }
 
 export default function PolicyEditor() {
@@ -68,6 +72,8 @@ export default function PolicyEditor() {
   const [form, setForm] = useState(emptyForm)
   const [loading, setLoading] = useState(isEditing)
   const [saving, setSaving] = useState(false)
+  const [hasUpstreamApiKey, setHasUpstreamApiKey] = useState(false)
+  const [apiKeyTouched, setApiKeyTouched] = useState(false)
   const [allGroups, setAllGroups] = useState<AgentGroup[]>([])
   const [sections, setSections] = useState({
     general: true,
@@ -104,9 +110,12 @@ export default function PolicyEditor() {
       .then((res) => {
         const p = res.policy
         const existing = p.enabled_detection_categories || []
+        setHasUpstreamApiKey(!!p.upstream_api_key)
+        setApiKeyTouched(false)
         setForm({
           name: p.name,
           description: p.description || '',
+          version: p.version,
           redaction_enforced: p.redaction_enforced,
           upstream_url: p.upstream_url || '',
           upstream_api_key: '',
@@ -118,8 +127,10 @@ export default function PolicyEditor() {
           enabled_detection_categories: existing,
           custom_regex: p.custom_regex || [],
           allowlists: p.allowlists || [],
-          target_mode: p.target_mode,
+          target_mode: p.target_mode as 'all' | 'group',
           group_ids: p.group_ids || [],
+          priority: p.priority || 100,
+          upstream_routes: (p.upstream_routes || []).map(r => ({ ...r })),
         })
       })
       .catch((err) => {
@@ -163,7 +174,9 @@ export default function PolicyEditor() {
     setSaving(true)
     try {
       if (isEditing) {
-        await updatePolicy(id!, form)
+        const { upstream_api_key, ...rest } = form
+        const payload = apiKeyTouched ? form : rest
+        await updatePolicy(id!, payload)
         showToast('Policy updated', 'success')
       } else {
         await createPolicy(form)
@@ -255,6 +268,29 @@ export default function PolicyEditor() {
                   placeholder="Policy description"
                 />
               </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className={labelClass}>Version</label>
+                  <div className="text-sm font-semibold text-portal-text py-2.5 px-3 bg-black/20 rounded-lg border border-portal-border">
+                    {isEditing ? `v${form.version || 1}` : 'v1 (new)'}
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Priority</label>
+                  <input
+                    type="number"
+                    value={form.priority}
+                    onChange={(e) => setForm({ ...form, priority: parseInt(e.target.value) || 100 })}
+                    className={inputClass}
+                    min={1}
+                    max={10000}
+                    placeholder="100"
+                  />
+                </div>
+              </div>
+              {isEditing && (
+                <p className="text-[10px] text-portal-text-muted -mt-2">Version increments automatically on each update. Lower priority = higher precedence.</p>
+              )}
               <div className="flex items-center gap-6 flex-wrap">
                 <label className="flex items-center gap-2.5">
                   <input
@@ -279,7 +315,7 @@ export default function PolicyEditor() {
           )}
         </div>
 
-        {/* Upstream */}
+        {/* Upstream Routes */}
         <div className="bg-portal-card border border-portal-border rounded-xl overflow-hidden">
           <button
             onClick={() => toggleSection('upstream')}
@@ -287,73 +323,167 @@ export default function PolicyEditor() {
           >
             <div className="flex items-center gap-3">
               <Globe className="w-5 h-5 text-portal-accent" />
-              <span className="text-sm font-semibold text-portal-text">Upstream</span>
+              <span className="text-sm font-semibold text-portal-text">Upstream Routes</span>
             </div>
             {sections.upstream ? <ChevronDown className="w-4 h-4 text-portal-text-muted" /> : <ChevronRight className="w-4 h-4 text-portal-text-muted" />}
           </button>
           {sections.upstream && (
             <div className="px-6 pb-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelClass}>Upstream URL</label>
+              <p className="text-[11px] text-portal-text-muted leading-relaxed">
+                Requests are matched against these routes in order (first match wins).
+                The <code className="text-portal-accent">model</code> field in each request determines the destination.
+              </p>
+
+              {/* Route table header */}
+              <div className="grid grid-cols-[1fr_2fr_1.5fr_auto] gap-3 text-[10px] text-portal-text-muted uppercase tracking-wider px-1">
+                <span>Match Pattern</span>
+                <span>Upstream URL</span>
+                <span>Auth</span>
+                <span></span>
+              </div>
+
+              {/* Route rows */}
+              {form.upstream_routes.map((route, i) => (
+                <div key={i} className="grid grid-cols-[1fr_2fr_1.5fr_auto] gap-3 items-center">
                   <input
                     type="text"
-                    value={form.upstream_url}
-                    onChange={(e) => setForm({ ...form, upstream_url: e.target.value })}
+                    value={route.match_pattern}
+                    onChange={(e) => {
+                      const r = [...form.upstream_routes]
+                      r[i] = { ...r[i], match_pattern: e.target.value }
+                      setForm({ ...form, upstream_routes: r })
+                    }}
                     className={inputClass}
-                    placeholder="http://localhost:3000"
+                    placeholder="gpt-*"
                   />
-                </div>
-                <div>
-                  <label className={labelClass}>Upstream API Key</label>
-                  <input
-                    type="password"
-                    value={form.upstream_api_key}
-                    onChange={(e) => setForm({ ...form, upstream_api_key: e.target.value })}
-                    className={inputClass}
-                    placeholder={isEditing && !form.upstream_api_key ? '•••••••• (unchanged if blank)' : 'sk-...'}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>NodeGuarder bind port</label>
-                  <input
-                    type="number"
-                    value={form.bind_port}
-                    onChange={(e) => setForm({ ...form, bind_port: parseInt(e.target.value) || DEFAULT_BIND_PORT })}
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>NodeGuarder bearer token (shared across agents)</label>
                   <input
                     type="text"
-                    value={form.bearer_token}
-                    onChange={(e) => setForm({ ...form, bearer_token: e.target.value })}
+                    value={route.url}
+                    onChange={(e) => {
+                      const r = [...form.upstream_routes]
+                      r[i] = { ...r[i], url: e.target.value }
+                      setForm({ ...form, upstream_routes: r })
+                    }}
                     className={inputClass}
-                    placeholder="ng-... leave empty to keep per-agent tokens"
+                    placeholder="https://api.openai.com/v1"
                   />
+                  <div className="flex items-center gap-2">
+                    {route.api_key_source ? (
+                      <span className="text-xs text-amber-400 bg-amber-400/10 px-2 py-1.5 rounded-lg border border-amber-400/20 w-full">
+                        env:{route.api_key_source}
+                      </span>
+                    ) : (
+                      <input
+                        type="password"
+                        value={route.api_key || ''}
+                        onChange={(e) => {
+                          const r = [...form.upstream_routes]
+                          r[i] = { ...r[i], api_key: e.target.value || null }
+                          setForm({ ...form, upstream_routes: r })
+                        }}
+                        className={inputClass}
+                        placeholder="sk-... or empty"
+                      />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        const r = [...form.upstream_routes]
+                        r[i] = { ...r[i], api_key_source: route.api_key_source ? null : 'OPENAI_API_KEY' }
+                        if (route.api_key_source) r[i].api_key = route.api_key || null
+                        setForm({ ...form, upstream_routes: r })
+                      }}
+                      className="text-[10px] text-portal-text-muted hover:text-portal-accent px-1.5 py-1"
+                      title="Toggle env var source"
+                    >
+                      ENV
+                    </button>
+                    <button
+                      onClick={() => {
+                        const r = form.upstream_routes.filter((_, idx) => idx !== i)
+                        setForm({ ...form, upstream_routes: r })
+                      }}
+                      className="text-portal-danger hover:text-red-300 px-1.5 py-1"
+                      title="Remove route"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Add route button */}
+              <button
+                onClick={() => {
+                  setForm({
+                    ...form,
+                    upstream_routes: [
+                      ...form.upstream_routes,
+                      { match_pattern: '*', url: 'https://api.openai.com/v1', api_key: null, api_key_source: null, priority: form.upstream_routes.length },
+                    ],
+                  })
+                }}
+                className="btn-ghost text-xs flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Route
+              </button>
+
+              {/* Separator — these legacy fields are kept for backward compat */}
+              <div className="border-t border-portal-border pt-4 mt-2">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClass}>NodeGuarder bind port</label>
+                    <input
+                      type="number"
+                      value={form.bind_port}
+                      onChange={(e) => setForm({ ...form, bind_port: parseInt(e.target.value) || DEFAULT_BIND_PORT })}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>NodeGuarder bearer token (shared across agents)</label>
+                    <input
+                      type="text"
+                      value={form.bearer_token}
+                      onChange={(e) => setForm({ ...form, bearer_token: e.target.value })}
+                      className={inputClass}
+                      placeholder="ng-... leave empty to keep per-agent tokens"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-6 flex-wrap mt-4">
+                  <label className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={form.enable_ocr}
+                      onChange={(e) => setForm({ ...form, enable_ocr: e.target.checked })}
+                      className="accent-portal-accent w-4 h-4"
+                    />
+                    <span className="text-sm text-portal-text">Enable OCR</span>
+                  </label>
+                  <label className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={form.disable_atr_auto_update}
+                      onChange={(e) => setForm({ ...form, disable_atr_auto_update: e.target.checked })}
+                      className="accent-portal-accent w-4 h-4"
+                    />
+                    <span className="text-sm text-portal-text">Disable ATR Auto-Update</span>
+                  </label>
                 </div>
               </div>
-              <div className="flex items-center gap-6 flex-wrap">
-                <label className="flex items-center gap-2.5">
-                  <input
-                    type="checkbox"
-                    checked={form.enable_ocr}
-                    onChange={(e) => setForm({ ...form, enable_ocr: e.target.checked })}
-                    className="accent-portal-accent w-4 h-4"
-                  />
-                  <span className="text-sm text-portal-text">Enable OCR</span>
-                </label>
-                <label className="flex items-center gap-2.5">
-                  <input
-                    type="checkbox"
-                    checked={form.disable_atr_auto_update}
-                    onChange={(e) => setForm({ ...form, disable_atr_auto_update: e.target.checked })}
-                    className="accent-portal-accent w-4 h-4"
-                  />
-                  <span className="text-sm text-portal-text">Disable ATR Auto-Update</span>
-                </label>
-              </div>
+
+              {/* Env var warning */}
+              {form.upstream_routes.some(r => r.api_key_source) && (
+                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg px-4 py-3 text-xs flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                  <span>
+                    Some routes use environment variables for API keys. Ensure all targeted agents have the corresponding variables set (e.g. <code className="text-amber-300">OPENAI_API_KEY</code>).
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>

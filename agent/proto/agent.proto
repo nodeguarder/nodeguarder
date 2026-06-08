@@ -53,11 +53,19 @@ message PolicyRequest {
   string current_version = 2;
 }
 
+message UpstreamRoute {
+  string match_pattern = 1;
+  string url = 2;
+  string api_key = 3;
+  string api_key_source = 4;
+  int32 priority = 5;
+}
+
 message PolicyEnforcement {
   // Master toggle
   bool redaction_enforced = 1;
 
-  // Upstream LLM override
+  // Upstream LLM override (deprecated — use upstream_routes)
   bool upstream_url_enforced = 2;
   string upstream_url = 3;
   bool upstream_api_key_enforced = 4;
@@ -87,6 +95,9 @@ message PolicyEnforcement {
   // Bearer token override (admin-set shared token for all agents)
   bool bearer_token_enforced = 17;
   string bearer_token = 18;
+
+  // Upstream routing table (replaces single upstream_url/upstream_api_key)
+  repeated UpstreamRoute upstream_routes = 19;
 }
 
 message PolicyResponse {

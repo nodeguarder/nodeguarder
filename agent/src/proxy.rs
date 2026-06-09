@@ -789,7 +789,7 @@ pub async fn files_handler(
                         let cfg = state.config.read().unwrap();
                         (cfg.on_detection.clone(), cfg.enrolled_admin.is_some())
                     };
-                let on_detection = on_detection;
+                    let on_detection = if enrolled && on_detection == "permissive" { "enforced_redact".to_string() } else { on_detection };
                     let (tx, rx) = oneshot::channel();
                     let hit = DetectionHit {
                         flagged_text: reason.clone(),

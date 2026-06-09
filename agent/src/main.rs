@@ -483,13 +483,15 @@ fn run_agent() {
                         let mut cfg = config_lock_ui.write().unwrap();
                         cfg.auto_start = enabled;
                         config::save_config(&cfg);
-                        set_autostart(enabled);
                         info!("Auto-start on boot: {}", enabled);
                         let json = serde_json::json!({"auto_start": enabled}).to_string();
                         let script = format!("if(window.updateConfig) {{ window.updateConfig({}); }}", json);
                         for (_, (_, webview)) in windows.iter() {
                             let _ = webview.evaluate_script(&script);
                         }
+                        std::thread::spawn(move || {
+                            set_autostart(enabled);
+                        });
                     }
                     UiEvent::UpdateModelStatus(status) => {
                         let script = format!("if(window.updateStatus) {{ window.updateStatus('{}'); }}", status.replace("'", "\\'"));

@@ -451,7 +451,7 @@ pub fn spawn_settings_window(
 
         <div class="sidebar-layout">
             <div class="sidebar">
-                <div class="nav-item active" onclick="showTab('general', this)">Gateway</div>
+                <div class="nav-item active" onclick="showTab('general', this)">Routing</div>
                 <div class="nav-item" onclick="showTab('protection', this)">Protection</div>
                 <div class="nav-item" onclick="showTab('activity', this)">Security Activity</div>
                 <div class="nav-item" onclick="showTab('enterprise', this)">Enterprise Management</div>
@@ -461,9 +461,9 @@ pub fn spawn_settings_window(
         <div class="main">
             <!-- Connectivity Tab -->
                 <div id="general" class="tab-content active">
-                <h1>Gateway</h1>
+                <h1>Routing</h1>
                 <p class="desc">
-                    NodeGuarder is a <b>Local AI Gateway</b>. Configure how AI apps connect through it and where cleaned requests are forwarded.
+                    Configure how AI apps connect through NodeGuarder and where cleaned requests are forwarded.
                 </p>
 
                 <!-- AI Tools card (shown first so users see what's already set up) -->
@@ -526,7 +526,7 @@ pub fn spawn_settings_window(
                         NodeGuarder routes each request to the first matching upstream. The <b>model name</b> in your request determines the destination.
                     </p>
 
-                    <div id="upstreamRoutesContainer">
+                    <div id="upstreamRoutesContainer" style="overflow-x:auto;">
                         <!-- Rows rendered by JS -->
                     </div>
                     <div style="margin-top: 8px;">
@@ -1029,14 +1029,14 @@ pub fn spawn_settings_window(
                 if (!container) return;
                 var enforced = config.upstreamUrlEnforced;
                 var html = '';
-                html += '<div style="display:grid;grid-template-columns:1fr 2fr 1.5fr auto;gap:6px;font-size:11px;color:var(--text-muted);margin-bottom:6px;padding:0 4px;">';
-                html += '<span style="padding-left:11px;">Model Pattern</span><span style="padding-left:11px;">Upstream URL</span><span style="padding-left:11px;">Auth</span><span></span>';
+                html += '<div style="display:grid;grid-template-columns:1fr 2fr 1.5fr 0.5fr;gap:6px;font-size:11px;color:var(--text-muted);margin-bottom:6px;padding:0 4px;">';
+                html += '<span style="padding-left:10px;">Model Pattern</span><span style="padding-left:10px;">Upstream URL</span><span style="padding-left:10px;">Auth</span><span></span>';
                 html += '</div>';
                 config.upstream_routes.forEach(function(route, i) {{
                     var disabled = enforced ? 'disabled' : '';
                     var lockIcon = enforced ? '🔒 ' : '';
                     var keyDisplay = route.api_key ? '●●●●●' : (route.api_key_source ? 'env:' + route.api_key_source : '—');
-                    html += '<div class="route-row" style="display:grid;grid-template-columns:1fr 2fr 1.5fr auto;gap:6px;margin-bottom:4px;align-items:center;padding:0 4px;">';
+                    html += '<div class="route-row" style="display:grid;grid-template-columns:1fr 2fr 1.5fr 0.5fr;gap:6px;margin-bottom:4px;align-items:center;padding:0 4px;">';
                     html += '<input class="rule-input route-pattern" value="' + route.match_pattern + '" ' + disabled + ' style="font-family:monospace;font-size:12px;">';
                     html += '<input class="rule-input route-url" value="' + route.url + '" ' + disabled + ' style="font-family:monospace;font-size:12px;">';
                     if (route.api_key_source && route.api_key_source !== '') {{
@@ -1370,7 +1370,7 @@ pub fn spawn_settings_window(
                 disableEl('dataPoisonToggle', detectionsManaged);
                 disableEl('ocrToggle', ocrManaged);
                 disableEl('atrAutoUpdateToggle', atrManaged);
-                disableEl('autoStartToggle', false);
+                disableEl('autoStartToggle', enrolled);
 
                 // Protection tab banner - show when detection categories are enforced
                 var protBanner = document.getElementById('lockBanner');

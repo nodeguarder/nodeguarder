@@ -406,10 +406,11 @@ fn run_agent() {
                     UiEvent::ExportLogs => {
                         info!("Exporting logs...");
                         let logs = audit::read_logs();
-                        let mut csv = String::from("Timestamp,Content Type,Action,Preview\n");
+                        let mut csv = String::from("Timestamp,Content Type,Action,Detection Method,Preview\n");
                         for log in logs {
-                            csv.push_str(&format!("{},{},{},\"{}\"\n", 
-                                log.timestamp, log.content_type, log.action_taken, 
+                            csv.push_str(&format!("{},{},{},{},\"{}\"\n", 
+                                log.timestamp, log.content_type, log.action_taken,
+                                log.detection_method,
                                 log.preview.replace("\"", "\"\"")));
                         }
                         

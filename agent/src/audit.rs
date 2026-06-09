@@ -70,6 +70,62 @@ pub fn clear_logs() {
     let _ = std::fs::remove_file(&log_path);
 }
 
+fn log_dir_path() -> PathBuf {
+    let appdata = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
+    let mut log_dir = PathBuf::from(appdata);
+    log_dir.push("NodeGuarder");
+    log_dir.push("logs");
+    log_dir
+}
+
+fn sent_count_path() -> PathBuf {
+    let path = log_dir_path();
+    let _ = std::fs::create_dir_all(&path);
+    path.join("agent_audit_sent.txt")
+}
+
+fn read_sent_count() -> usize {
+    std::fs::read_to_string(sent_count_path())
+        .ok()
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(0)
+}
+
+fn write_sent_count(count: usize) {
+    let _ = std::fs::write(sent_count_path(), count.to_string());
+}
+
+pub fn read_unsent_logs() -> (Vec<AuditLog>, usize) {
+    let logs = read_logs();
+    let total = logs.len();
+    let sent = read_sent_count();
+    if sent >= total {
+        return (Vec::new(), total);
+    }
+    // read_logs returns newest-first; first (total-sent) entries are unsent
+    let unsent = logs[..(total - sent)].to_vec();
+    (unsent, total)
+}
+
+pub fn mark_sent(total: usize) {
+    write_sent_count(total);
+}
+
+pub fn trim_logs(max_entries: usize) {
+    let logs = read_logs();
+    if logs.len() <= max_entries {
+        return;
+    }
+    // read_logs returns newest-first; keep the first max_entries (newest)
+    let keep = logs[..max_entries].to_vec();
+    clear_logs();
+    // log_event appends, write in oldest-first order so file order is chronological
+    for log in keep.into_iter().rev() {
+        log_event(log);
+    }
+    write_sent_count(0);
+}
+
 pub fn log_event(log: AuditLog) {
     let appdata = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
     let mut log_dir = PathBuf::from(appdata);

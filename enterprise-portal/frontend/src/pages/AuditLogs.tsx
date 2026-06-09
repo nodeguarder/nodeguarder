@@ -325,7 +325,7 @@ export default function AuditLogs() {
                     </td>
                     <td>
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${actionBadgeClass(log.action_taken)}`}>
-                        {log.action_taken}
+                        {log.action_taken}{log.timeout_triggered ? ' ⏱' : ''}
                       </span>
                     </td>
                     <td className="max-w-[200px]">

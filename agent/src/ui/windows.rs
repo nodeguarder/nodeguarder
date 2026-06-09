@@ -701,7 +701,7 @@ pub fn spawn_settings_window(
                 
                 <div class="card" style="padding: 0; overflow: hidden;">
                     <table id="logsTable">
-                        <thead><tr><th>Timestamp</th><th>Source</th><th>Resolution</th><th>Preview</th></tr></thead>
+                        <thead><tr><th>Timestamp</th><th>Source</th><th>Result</th><th>Method</th><th>Preview</th></tr></thead>
                         <tbody id="logsBody"></tbody>
                     </table>
                 </div>
@@ -1293,17 +1293,20 @@ pub fn spawn_settings_window(
                 const body = document.getElementById('logsBody');
                 body.innerHTML = '';
                 if (!config.logs || config.logs.length === 0) {{
-                    body.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px;">No security events recorded yet.</td></tr>';
+                    body.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px;">No security events recorded yet.</td></tr>';
                     return;
                 }}
                 config.logs.forEach(log => {{
                     const tr = document.createElement('tr');
                     const time = new Date(log.timestamp).toLocaleString();
                     const badgeClass = log.action_taken === 'ALLOW' ? 'badge-allow' : (log.action_taken === 'BLOCK' ? 'badge-block' : 'badge-redact');
+                    const timeoutIcon = log.timeout_triggered ? ' ⏱' : '';
+                    const method = log.detection_method || '—';
                     tr.innerHTML = `
                         <td style="color: var(--text-muted); font-size: 11px; white-space: nowrap;">${{time}}</td>
                         <td style="font-weight: 600;">${{log.content_type}}</td>
-                        <td><span class="badge ${{badgeClass}}">${{log.action_taken}}</span></td>
+                        <td><span class="badge ${{badgeClass}}">${{log.action_taken}}${{timeoutIcon}}</span></td>
+                        <td style="font-size: 10px; font-family: monospace; color: var(--text-muted);">${{method}}</td>
                         <td title="${{log.preview || ''}}">${{log.preview ? (log.preview.length > 30 ? log.preview.substring(0, 30) + '...' : log.preview) : '(empty)'}}</td>
                     `;
                     body.appendChild(tr);

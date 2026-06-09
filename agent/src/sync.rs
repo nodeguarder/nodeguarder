@@ -268,21 +268,21 @@ impl SyncEngine {
             self.push_environment_report(&mut client, &uuid, &hostname, &ip).await;
 
             // Push Logs
-            let logs = audit::read_logs();
-            let entries: Vec<AuditLogEntry> = logs.iter().take(50).map(|l| AuditLogEntry {
-                timestamp: l.timestamp.clone(),
-                content_type: l.content_type.clone(),
-                action_taken: l.action_taken.clone(),
-                preview: l.preview.clone(),
-                severity: l.severity.clone(),
-                detection_method: l.detection_method.clone(),
-                timeout_triggered: l.timeout_triggered,
-                policy_enforced: true,
-                session_id: l.session_id.clone(),
-                user_name: l.user_name.clone(),
-            }).collect();
+            let (unsent_logs, total) = audit::read_unsent_logs();
+            if !unsent_logs.is_empty() {
+                let entries: Vec<AuditLogEntry> = unsent_logs.iter().take(50).map(|l| AuditLogEntry {
+                    timestamp: l.timestamp.clone(),
+                    content_type: l.content_type.clone(),
+                    action_taken: l.action_taken.clone(),
+                    preview: l.preview.clone(),
+                    severity: l.severity.clone(),
+                    detection_method: l.detection_method.clone(),
+                    timeout_triggered: l.timeout_triggered,
+                    policy_enforced: true,
+                    session_id: l.session_id.clone(),
+                    user_name: l.user_name.clone(),
+                }).collect();
 
-            if !entries.is_empty() {
                 let log_batch = tonic::Request::new(LogBatch {
                     agent_uuid: uuid.clone(),
                     logs: entries,
@@ -290,7 +290,8 @@ impl SyncEngine {
                 });
                 match client.push_logs(log_batch).await {
                     Ok(_) => {
-                        audit::clear_logs();
+                        audit::mark_sent(total);
+                        audit::trim_logs(100);
                         info!("Uploaded log batch to Admin Platform.");
                     }
                     Err(e) => {

@@ -1,3 +1,16 @@
+## v1.0.26
+
+- **Fix:** Agent local audit history now preserved — replaced `clear_logs()` with tracked-sent-counter; `trim_logs(100)` keeps last 100 entries locally; only unsent entries pushed to portal
+- **Fix:** UI freeze when toggling "Auto Start on Boot" — registry update moved to background thread
+- **Fix:** Auto Start toggle now disabled when enrolled (consistent with other enforcement-disabled toggles)
+- **Fix:** File upload handler now applies permissive→enforced_redact enrollment upgrade (matching chat handler behavior)
+- **UI:** Agent "Gateway" tab renamed to "Routing"
+- **UI:** Agent audit table now shows `Method` column (detection_method: REGEX/ATR/FP_OVERTURN/ONNX) and timeout indicator ⏱
+- **UI:** Portal Action badges now properly color `AUTO_REDACT` (green) and `AUTO_BLOCK` (red) instead of default blue
+- **UI:** Portal audit table now shows timeout indicator ⏱ on Action
+- **UI:** CSV export now includes Detection Method column
+- **UI:** Upstream Routes lock icon overflow fixed (grid column `auto` → `0.5fr`, added `overflow-x: auto`)
+
 ## v1.0.25
 
 - **Fix:** Audit log duplication bug — agent now `clear_logs()` after successful sync push (was no-op `trim_logs(100)` that never fired under 100 entries); push failures preserve logs for retry instead of crashing

@@ -99,7 +99,8 @@ impl AgentController for AgentControllerImpl {
         for log in batch.logs.iter() {
             sqlx::query(
                 r#"INSERT INTO audit_logs (org_id, agent_uuid, content_type, severity, action_taken, detection_method, preview, flagged_at, session_id, timeout_triggered, policy_enforced, user_name)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9, $10, $11, $12)"#,
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9, $10, $11, $12)
+                   ON CONFLICT (org_id, agent_uuid, content_type, action_taken, flagged_at, session_id, preview) DO NOTHING"#,
             )
             .bind(org_id)
             .bind(&batch.agent_uuid)

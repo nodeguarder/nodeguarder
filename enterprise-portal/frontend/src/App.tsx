@@ -223,7 +223,7 @@ function AuthenticatedLayout() {
             <Route path="/policies/new" element={<PolicyEditor />} />
             <Route path="/policies/:id/edit" element={<PolicyEditor />} />
             <Route path="/settings" element={<SettingsPage />} />
-            <Route path="*" element={<Navigate to="/get-started" replace />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </main>
       </div>

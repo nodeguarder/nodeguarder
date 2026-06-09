@@ -13,8 +13,11 @@ import {
   ChevronDown,
   Monitor,
   Code,
+  Copy,
+  Plus,
+  Key,
 } from 'lucide-react'
-import { getDashboard, getAuditLogs, getAgents, getEnvironmentLandscape } from '@/api/client'
+import { getDashboard, getAuditLogs, getAgents, getEnvironmentLandscape, generateCode } from '@/api/client'
 import { showToast } from '@/components/Toast'
 import { timeAgo } from '@/lib/utils'
 import type { DashboardSummary, ActivityEvent, AuditLog, LandscapeReport } from '@/types'
@@ -158,6 +161,10 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [activitySource, setActivitySource] = useState<'api' | 'none'>('none')
   const [landscapeReports, setLandscapeReports] = useState<LandscapeReport[]>([])
+  const [enrollmentCode, setEnrollmentCode] = useState('')
+  const [adminGrpcUrl, setAdminGrpcUrl] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -198,6 +205,26 @@ export default function Dashboard() {
     load()
     return () => { cancelled = true }
   }, [])
+
+  const handleGenerateCode = async () => {
+    setGenerating(true)
+    try {
+      const code = await generateCode(24)
+      setEnrollmentCode(code.code)
+      setAdminGrpcUrl(code.admin_grpc_url)
+      showToast('Enrollment code generated', 'success')
+    } catch (err: any) {
+      showToast(err.message, 'error')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   if (error && !data) {
     return (
@@ -267,6 +294,55 @@ export default function Dashboard() {
         reports={landscapeReports}
         navigate={navigate}
       />
+
+      <div className="bg-portal-card border border-portal-border rounded-xl p-5 mb-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Key className="w-4 h-4 text-portal-accent" />
+            <h3 className="text-sm font-semibold text-portal-text">Enroll a New Agent</h3>
+          </div>
+          {!enrollmentCode ? (
+            <button onClick={handleGenerateCode} disabled={generating} className="btn-primary text-xs flex items-center gap-1.5 py-1.5 px-3">
+              {generating ? (
+                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Plus className="w-3.5 h-3.5" />
+              )}
+              Generate Code
+            </button>
+          ) : (
+            <button onClick={() => { setEnrollmentCode(''); setAdminGrpcUrl('') }} className="btn-ghost text-xs py-1.5 px-3">
+              Clear
+            </button>
+          )}
+        </div>
+        {enrollmentCode && (
+          <div className="mt-4 flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <div className="text-xs text-portal-text-muted mb-1">gRPC URL</div>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-black/30 text-portal-accent font-mono text-xs px-3 py-2 rounded-lg border border-portal-border select-all">
+                  {adminGrpcUrl}
+                </code>
+                <button onClick={() => copyToClipboard(adminGrpcUrl)} className="btn-ghost p-2" title="Copy URL">
+                  {copied ? <CheckCircle className="w-3.5 h-3.5 text-portal-success" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="text-xs text-portal-text-muted mb-1">Enrollment Code</div>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-black/30 text-portal-accent font-mono text-xs px-3 py-2 rounded-lg border border-portal-border select-all">
+                  {enrollmentCode}
+                </code>
+                <button onClick={() => copyToClipboard(enrollmentCode)} className="btn-ghost p-2" title="Copy code">
+                  {copied ? <CheckCircle className="w-3.5 h-3.5 text-portal-success" /> : <Copy className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-portal-card border border-portal-border rounded-xl p-6">

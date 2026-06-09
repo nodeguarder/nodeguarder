@@ -70,17 +70,6 @@ pub fn clear_logs() {
     let _ = std::fs::remove_file(&log_path);
 }
 
-pub fn trim_logs(max_entries: usize) {
-    let logs = read_logs();
-    if logs.len() <= max_entries {
-        return;
-    }
-    clear_logs();
-    for log in logs.iter().rev().take(max_entries) {
-        log_event(log.clone());
-    }
-}
-
 pub fn log_event(log: AuditLog) {
     let appdata = std::env::var("APPDATA").unwrap_or_else(|_| ".".to_string());
     let mut log_dir = PathBuf::from(appdata);

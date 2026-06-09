@@ -1,3 +1,25 @@
+## v1.0.25
+
+- **Fix:** Audit log duplication bug — agent now `clear_logs()` after successful sync push (was no-op `trim_logs(100)` that never fired under 100 entries); push failures preserve logs for retry instead of crashing
+- **Fix:** Portal dedup — new migration `015_audit_log_dedup.sql` removes existing duplicates + unique index; INSERT now uses `ON CONFLICT DO NOTHING`
+- **Fix:** FP_Overturn audit trail — dead code revived; false-positive overturns now produce an audit entry with `action: ALLOW` and `detection_method: "FP_OVERTURN"` instead of being silently discarded
+- **UI:** Onboarding completed screen shows "Configure Your AI APP/IDE" (was "Configure Your IDE"), adds enrollment code generation + "Create Policy" link
+- **UI:** Dashboard adds "Enroll a New Agent" card with code generation
+- **UI:** New portal logins redirect to `/dashboard` instead of re-showing the completed onboarding page
+
+## v1.0.24
+
+- **Feature:** Enterprise enrollment hides Allow button in HITL modal when admin policy enforces redaction, shows "Admin has enforced redaction" banner
+- **Fix:** Audit log auto-action entries now labeled `AUTO_REDACT`/`AUTO_BLOCK` instead of generic `REDACT`/`BLOCK` for timeout and auto-mode decisions
+- **UI:** PolicyEditor renames "Permissive" → "User Choice" for clarity
+- **Tech:** Portal version number synced to `enterprise-portal/frontend/package.json`
+
+## v1.0.23
+
+- **Feature:** Replace per-policy `redaction_enforced` boolean with `on_detection` action mode selector (`permissive`, `enforced_redact`, `enforced_block`, `auto_redact`, `auto_block`)
+- **Feature:** Detect aider and cline AI coding tools in environment landscape scan
+- **Fix:** CI Docker build retry on transient failures (3 attempts with backoff)
+
 ## v1.0.22
 
 - **Rename:** "Connectivity" → "Gateway" across agent UI nav, heading, description, and all doc files

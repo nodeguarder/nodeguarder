@@ -236,7 +236,23 @@ pub async fn chat_completions_handler(
             let extracted = extract_text_from_content(messages[i].get("content").unwrap_or(&Value::Null), enable_ocr).await;
             if !extracted.is_empty() {
                 let check = scan_and_redact(&extracted, &allowlists_regex, &detection_config, state.atr_engine.as_ref());
-                if check.flagged {
+                if check.flagged || check.detection_method == "FP_OVERTURN" {
+                if check.detection_method == "FP_OVERTURN" {
+                    let uuid = state.config.read().unwrap().uuid.clone();
+                    audit::log_event(audit::AuditLog {
+                        timestamp: chrono::Utc::now().to_rfc3339(),
+                        agent_uuid: uuid,
+                        content_type: check.content_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
+                        action_taken: "ALLOW".to_string(),
+                        preview: check.scrubbed_text.clone(),
+                        severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
+                        detection_method: "FP_OVERTURN".to_string(),
+                        session_id: session_id.clone(),
+                        user_name: whoami::username().unwrap_or_default(),
+                        timeout_triggered: false,
+                    });
+                    continue;
+                }
                 if last_user_idx.map_or(true, |idx| i != idx) {
                     replace_content(&mut messages[i], &check.scrubbed_text);
                     continue;
@@ -773,7 +789,7 @@ pub async fn files_handler(
                         let cfg = state.config.read().unwrap();
                         (cfg.on_detection.clone(), cfg.enrolled_admin.is_some())
                     };
-                    let on_detection = if enrolled && on_detection == "permissive" { "enforced_redact".to_string() } else { on_detection };
+                let on_detection = on_detection;
                     let (tx, rx) = oneshot::channel();
                     let hit = DetectionHit {
                         flagged_text: reason.clone(),

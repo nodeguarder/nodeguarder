@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock, atomic::{AtomicBool, Ordering}};
 use std::time::Duration;
 use std::fs;
 use tokio::time::sleep;
-use tracing::{info, warn};
+use tracing::{info, warn, error};
 use crate::config::{AppConfig, save_config};
 #[cfg(feature = "enterprise")]
 use crate::grpc::{AgentControllerClient, RegisterRequest, PolicyRequest, LogBatch, AuditLogEntry, HeartbeatRequest, MetricsBatch};
@@ -288,9 +288,16 @@ impl SyncEngine {
                     logs: entries,
                     timestamp_ms: chrono::Utc::now().timestamp_millis(),
                 });
-                let _ = client.push_logs(log_batch).await?;
-                audit::trim_logs(100);
-                info!("Uploaded log batch to Admin Platform.");
+                match client.push_logs(log_batch).await {
+                    Ok(_) => {
+                        audit::clear_logs();
+                        info!("Uploaded log batch to Admin Platform.");
+                    }
+                    Err(e) => {
+                        error!("Failed to push logs: {e}");
+                        // Keep logs locally for retry on next heartbeat
+                    }
+                }
             }
 
             // Push Metrics

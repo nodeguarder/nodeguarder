@@ -12,7 +12,6 @@ import {
   Server,
   Monitor,
   Download,
-  Globe,
 } from 'lucide-react'
 import { getOnboardingStatus, completeOnboarding, generateCode, downloadProvisioningFile } from '@/api/client'
 import { showToast } from '@/components/Toast'
@@ -94,7 +93,7 @@ export default function GetStarted() {
 
   if (status?.completed) {
     return (
-      <div className="text-center py-20">
+      <div className="text-center py-10">
         <CheckCircle2 className="w-16 h-16 text-portal-success mx-auto mb-4" />
         <h1 className="text-2xl font-bold text-portal-text mb-2">Onboarding Complete</h1>
         <p className="text-portal-text-muted mb-6">Your NodeGuarder Enterprise portal is fully set up.</p>
@@ -102,40 +101,75 @@ export default function GetStarted() {
           Go to Dashboard
         </button>
 
-        <div className="max-w-xl mx-auto space-y-4">
-          <div className="bg-portal-card border border-portal-border rounded-xl p-6 text-left">
-            <h3 className="text-sm font-semibold text-portal-text mb-2">Step 1: Configure Your IDE</h3>
+        <div className="max-w-xl mx-auto space-y-4 text-left">
+          <div className="bg-portal-card border border-portal-border rounded-xl p-6">
+            <h3 className="text-sm font-semibold text-portal-text mb-2">Enroll a New Agent</h3>
             <p className="text-xs text-portal-text-muted mb-4">
-              Route your IDE's LLM traffic through the NodeGuarder proxy to scan all prompts.
+              Generate an enrollment code to register additional agents with this portal.
+            </p>
+            {enrollmentCode ? (
+              <div className="space-y-3">
+                <div>
+                  <div className="text-xs text-portal-text-muted mb-1">gRPC URL</div>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-black/30 text-portal-accent font-mono text-sm px-4 py-2.5 rounded-lg border border-portal-border select-all">
+                      {adminGrpcUrl || 'http://localhost:50051'}
+                    </code>
+                    <button onClick={copyAdminUrl} className="btn-ghost p-2.5" title="Copy URL">
+                      {copied ? <Check className="w-4 h-4 text-portal-success" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-portal-text-muted mb-1">Enrollment Code</div>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-black/30 text-portal-accent font-mono text-sm px-4 py-2.5 rounded-lg border border-portal-border select-all">
+                      {enrollmentCode}
+                    </code>
+                    <button onClick={copyCode} className="btn-ghost p-2.5" title="Copy code">
+                      {copied ? <Check className="w-4 h-4 text-portal-success" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-portal-text-muted">
+                  Enter these in the agent's <strong>Settings &rarr; Enterprise Management</strong> tab.
+                </p>
+              </div>
+            ) : (
+              <button onClick={handleGenerateCode} disabled={generating} className="btn-primary flex items-center gap-2 text-xs">
+                {generating ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    Generate Enrollment Code
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+
+          <div className="bg-portal-card border border-portal-border rounded-xl p-6">
+            <h3 className="text-sm font-semibold text-portal-text mb-2">Step 1: Configure Your AI APP/IDE</h3>
+            <p className="text-xs text-portal-text-muted mb-4">
+              Route your AI application's or IDE's LLM traffic through the NodeGuarder proxy to scan all prompts.
               See the <strong>IDE Setup Guide</strong> (<code>docs/ide-setup-guide.md</code>) for Continue.dev, Cursor, VS Code,
               Windsurf configuration examples, including enterprise deployment via Intune/MDM.
             </p>
           </div>
 
-          <div className="bg-portal-card border border-portal-border rounded-xl p-6 text-left">
-            <h3 className="text-sm font-semibold text-portal-text mb-2">Step 2: Set Your Upstream LLM</h3>
+          <div className="bg-portal-card border border-portal-border rounded-xl p-6">
+            <h3 className="text-sm font-semibold text-portal-text mb-2">Step 2: Create a Policy</h3>
             <p className="text-xs text-portal-text-muted mb-4">
-              NodeGuarder needs to know where to forward cleaned requests.
-              Pick a provider below to create your first routing policy.
+              Define security policies to control how agents handle sensitive data and which LLM endpoints to use.
             </p>
-            <div className="flex flex-wrap gap-2">
-              <button onClick={() => navigate('/policies/new', { state: { suggestion: { category: 'upstream_url', description: 'Upstream: GitHub Models', suggested_value: 'https://models.inference.ai.azure.com', priority: 'high', affected_agent_count: 1 } } })} className="btn-primary text-xs flex items-center gap-1.5 py-2 px-3">
-                <Globe className="w-3.5 h-3.5" />
-                GitHub Models
-              </button>
-              <button onClick={() => navigate('/policies/new', { state: { suggestion: { category: 'upstream_url', description: 'Upstream: Azure OpenAI', suggested_value: 'https://<resource>.openai.azure.com/v1', priority: 'high', affected_agent_count: 1 } } })} className="btn-ghost text-xs flex items-center gap-1.5 py-2 px-3">
-                <Globe className="w-3.5 h-3.5" />
-                Azure OpenAI
-              </button>
-              <button onClick={() => navigate('/policies/new', { state: { suggestion: { category: 'upstream_url', description: 'Upstream: OpenAI', suggested_value: 'https://api.openai.com/v1', priority: 'high', affected_agent_count: 1 } } })} className="btn-ghost text-xs flex items-center gap-1.5 py-2 px-3">
-                <Globe className="w-3.5 h-3.5" />
-                OpenAI
-              </button>
-              <button onClick={() => navigate('/policies/new', { state: { suggestion: { category: 'upstream_url', description: 'Upstream: Custom', suggested_value: '', priority: 'medium', affected_agent_count: 1 } } })} className="btn-ghost text-xs flex items-center gap-1.5 py-2 px-3">
-                <Server className="w-3.5 h-3.5" />
-                Custom
-              </button>
-            </div>
+            <button onClick={() => navigate('/policies/new')} className="btn-primary text-xs flex items-center gap-1.5 py-2 px-3">
+              <Plus className="w-3.5 h-3.5" />
+              Create Policy
+            </button>
           </div>
         </div>
       </div>

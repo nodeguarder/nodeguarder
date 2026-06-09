@@ -468,7 +468,7 @@ function PipelineCard({ data, reports, navigate }: {
                 }, null, 2))
                 showToast('Config snippet copied', 'success')
               }} className="btn-ghost text-[10px] py-1 px-2 flex-shrink-0">
-                Copy Config
+                Copy Example Config
               </button>
             </div>
           )

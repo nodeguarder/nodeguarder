@@ -146,6 +146,7 @@ pub fn spawn_hit_modal(
             let time = 15;
             let mode = '{on_detection}';
             let hasRedact = {has_redact};
+            document.getElementById('timeoutText').innerHTML = (hasRedact ? 'Auto-redact' : 'Auto-block') + ' timeout in <span id="timer" style="color:#fff">15</span>s';
             
             if (mode === 'enforced_redact') {{
                 document.getElementById('enforceBanner').style.display = 'block';
@@ -1029,17 +1030,17 @@ pub fn spawn_settings_window(
                 var enforced = config.upstreamUrlEnforced;
                 var html = '';
                 html += '<div style="display:grid;grid-template-columns:1fr 2fr 1.5fr auto;gap:6px;font-size:11px;color:var(--text-muted);margin-bottom:6px;padding:0 4px;">';
-                html += '<span>Model Pattern</span><span>Upstream URL</span><span>Auth</span><span></span>';
+                html += '<span style="padding-left:11px;">Model Pattern</span><span style="padding-left:11px;">Upstream URL</span><span style="padding-left:11px;">Auth</span><span></span>';
                 html += '</div>';
                 config.upstream_routes.forEach(function(route, i) {{
                     var disabled = enforced ? 'disabled' : '';
                     var lockIcon = enforced ? '🔒 ' : '';
                     var keyDisplay = route.api_key ? '●●●●●' : (route.api_key_source ? 'env:' + route.api_key_source : '—');
-                    html += '<div class="route-row" style="display:grid;grid-template-columns:1fr 2fr 1.5fr auto;gap:6px;margin-bottom:4px;align-items:center;">';
+                    html += '<div class="route-row" style="display:grid;grid-template-columns:1fr 2fr 1.5fr auto;gap:6px;margin-bottom:4px;align-items:center;padding:0 4px;">';
                     html += '<input class="rule-input route-pattern" value="' + route.match_pattern + '" ' + disabled + ' style="font-family:monospace;font-size:12px;">';
                     html += '<input class="rule-input route-url" value="' + route.url + '" ' + disabled + ' style="font-family:monospace;font-size:12px;">';
                     if (route.api_key_source && route.api_key_source !== '') {{
-                        html += '<span style="font-size:11px;color:var(--text-muted);padding:4px 8px;">env:' + route.api_key_source + '</span>';
+                        html += '<span style="font-size:11px;color:var(--text-muted);padding:10px 8px;">env:' + route.api_key_source + '</span>';
                     }} else {{
                         var keyVal = route.api_key || '';
                         html += '<input class="rule-input route-key" type="password" value="' + keyVal + '" placeholder="sk-... or empty" ' + disabled + ' style="font-family:monospace;font-size:12px;">';
@@ -1155,6 +1156,31 @@ pub fn spawn_settings_window(
                         path.textContent = ide.config_path;
                         item.appendChild(path);
                     }}
+                    var copyBtn = document.createElement('button');
+                    copyBtn.textContent = 'Copy example config';
+                    copyBtn.style.cssText = 'font-size:10px;color:var(--accent);background:none;border:1px solid var(--accent);border-radius:4px;padding:3px 8px;margin-top:6px;cursor:pointer;';
+                    copyBtn.onclick = function() {{
+                        var baseUrl = document.getElementById('proxyBaseUrl').textContent;
+                        var token = config.bearer_token || 'ng-<your-token>';
+                        var snippet;
+                        if (ide.ide_type === 'continue') {{
+                            snippet = JSON.stringify({{
+                                models: [{{ title: 'NodeGuarder', provider: 'openai', model: 'openai/gpt-4o-mini', apiBase: baseUrl, apiKey: token }}],
+                                tabAutocompleteModel: {{ title: 'NodeGuarder Tab', provider: 'openai', model: 'openai/gpt-4o-mini', apiBase: baseUrl, apiKey: token }},
+                            }}, null, 2);
+                        }} else if (ide.ide_type === 'cursor' || ide.ide_type === 'vscode') {{
+                            snippet = JSON.stringify({{
+                                'cursor.chat.model': 'openai/gpt-4o-mini',
+                                'cursor.chat.openaiBaseUrl': baseUrl,
+                                'cursor.chat.openaiApiKey': token,
+                            }}, null, 2);
+                        }} else {{
+                            snippet = 'OpenAI Base URL: ' + baseUrl + '\nAPI Key: ' + token;
+                        }}
+                        copy(snippet);
+                        showToast('Example config copied', 2000);
+                    }};
+                    item.appendChild(copyBtn);
                     body.appendChild(item);
                 }});
             }}

@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AuditLog {
     pub timestamp: String,
     pub agent_uuid: String,
@@ -68,6 +68,17 @@ pub fn clear_logs() {
     log_dir.push("logs");
     let log_path = log_dir.join("agent_audit.enc");
     let _ = std::fs::remove_file(&log_path);
+}
+
+pub fn trim_logs(max_entries: usize) {
+    let logs = read_logs();
+    if logs.len() <= max_entries {
+        return;
+    }
+    clear_logs();
+    for log in logs.iter().rev().take(max_entries) {
+        log_event(log.clone());
+    }
 }
 
 pub fn log_event(log: AuditLog) {

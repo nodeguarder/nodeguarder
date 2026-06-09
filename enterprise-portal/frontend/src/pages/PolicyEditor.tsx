@@ -305,13 +305,14 @@ export default function PolicyEditor() {
                     onChange={(e) => setForm({ ...form, on_detection: e.target.value })}
                     className={inputClass}
                   >
-                    <option value="permissive">Permissive (Allow/Redact/Block modal)</option>
-                    <option value="enforced_redact">Enforce Redaction (Redact/Block modal)</option>
-                    <option value="enforced_block">Enforce Block (Block-only modal)</option>
-                    <option value="auto_redact">Auto-Redact (no modal, always redact)</option>
-                    <option value="auto_block">Auto-Block (no modal, always block)</option>
-                  </select>
-                </div>
+                     <option value="permissive">User Choice (Redact/Block modal)</option>
+                     <option value="enforced_redact">Enforce Redaction (Redact/Block modal)</option>
+                     <option value="enforced_block">Enforce Block (Block-only modal)</option>
+                     <option value="auto_redact">Auto-Redact (no modal, always redact)</option>
+                     <option value="auto_block">Auto-Block (no modal, always block)</option>
+                   </select>
+                   <p className="text-[10px] text-portal-text-muted mt-0.5">Allow option is hidden when agent is enterprise enrolled.</p>
+                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="flex items-center gap-2.5">
                     <input
@@ -346,6 +347,10 @@ export default function PolicyEditor() {
               <p className="text-[11px] text-portal-text-muted leading-relaxed">
                 Requests are matched against these routes in order (first match wins).
                 The <code className="text-portal-accent">model</code> field in each request determines the destination.
+              </p>
+              <p className="text-[11px] text-portal-text-muted">
+                Pattern examples: <code className="text-portal-accent">gpt-*</code> matches gpt-4, gpt-4o.{' '}
+                <code className="text-portal-accent">*</code> catches everything.
               </p>
 
               {/* Route table header */}
@@ -409,7 +414,7 @@ export default function PolicyEditor() {
                         setForm({ ...form, upstream_routes: r })
                       }}
                       className="text-[10px] text-portal-text-muted hover:text-portal-accent px-1.5 py-1"
-                      title="Toggle env var source"
+                      title="Use an environment variable (e.g. OPENAI_API_KEY) instead of storing the key directly"
                     >
                       ENV
                     </button>

@@ -242,7 +242,11 @@ pub async fn chat_completions_handler(
                     continue;
                 }
                 let msg = &mut messages[i];
-                let on_detection = state.config.read().unwrap().on_detection.clone();
+                let (on_detection, enrolled) = {
+                    let cfg = state.config.read().unwrap();
+                    (cfg.on_detection.clone(), cfg.enrolled_admin.is_some())
+                };
+                let on_detection = if enrolled && on_detection == "permissive" { "enforced_redact".to_string() } else { on_detection };
                 let (tx, rx) = oneshot::channel();
                 let has_attachment = message_has_attachment(msg.get("content").unwrap_or(&Value::Null));
                 let hit = DetectionHit {
@@ -331,11 +335,12 @@ pub async fn chat_completions_handler(
                     } else {
                         "BLOCK"
                     };
+                    let audit_action = if action == "REDACT" { "AUTO_REDACT" } else { "AUTO_BLOCK" };
                     audit::log_event(audit::AuditLog {
                         timestamp: chrono::Utc::now().to_rfc3339(),
                         agent_uuid: uuid,
                         content_type: check.content_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
-                        action_taken: action.to_string(),
+                        action_taken: audit_action.to_string(),
                         preview: check.scrubbed_text.clone(),
                         severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
                         detection_method: check.detection_method.clone(),
@@ -453,7 +458,7 @@ pub async fn chat_completions_handler(
                                 timestamp: chrono::Utc::now().to_rfc3339(),
                                 agent_uuid: uuid,
                                 content_type: check.content_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
-                                action_taken: "REDACT".to_string(),
+                                action_taken: "AUTO_REDACT".to_string(),
                                 preview: check.scrubbed_text.clone(),
                                 severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
                                 detection_method: check.detection_method.clone(),
@@ -464,6 +469,20 @@ pub async fn chat_completions_handler(
                             replace_content(msg, &check.scrubbed_text);
                         }
                     }
+                } else if check.detection_method == "FP_OVERTURN" {
+                    let uuid = state.config.read().unwrap().uuid.clone();
+                    audit::log_event(audit::AuditLog {
+                        timestamp: chrono::Utc::now().to_rfc3339(),
+                        agent_uuid: uuid,
+                        content_type: check.content_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
+                        action_taken: "ALLOW".to_string(),
+                        preview: check.scrubbed_text.clone(),
+                        severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
+                        detection_method: "FP_OVERTURN".to_string(),
+                        session_id: session_id.clone(),
+                        user_name: whoami::username().unwrap_or_default(),
+                        timeout_triggered: false,
+                    });
                 } else {
                     replace_content(msg, &check.scrubbed_text);
                 }
@@ -750,7 +769,11 @@ pub async fn files_handler(
                         .mime_str(&content_type).unwrap());
                 }
                 ScrutinyResult::Block(reason, det_type, original_bytes) => {
-                    let on_detection = state.config.read().unwrap().on_detection.clone();
+                    let (on_detection, enrolled) = {
+                        let cfg = state.config.read().unwrap();
+                        (cfg.on_detection.clone(), cfg.enrolled_admin.is_some())
+                    };
+                    let on_detection = if enrolled && on_detection == "permissive" { "enforced_redact".to_string() } else { on_detection };
                     let (tx, rx) = oneshot::channel();
                     let hit = DetectionHit {
                         flagged_text: reason.clone(),
@@ -769,7 +792,7 @@ pub async fn files_handler(
                             timestamp: chrono::Utc::now().to_rfc3339(),
                             agent_uuid: uuid,
                             content_type: det_type.clone(),
-                            action_taken: "BLOCK".to_string(),
+                            action_taken: "AUTO_BLOCK".to_string(),
                             preview: reason.clone(),
                             severity: crate::detector::severity_for_type(Some(&det_type)).to_string(),
                             detection_method: "REGEX".to_string(),

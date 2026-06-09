@@ -842,7 +842,7 @@ function IdeConfigSection({ reports, totalPolicies }: { reports: LandscapeReport
                   className="btn-ghost text-[10px] flex items-center gap-1 py-1 px-2"
                 >
                   <Plus className="w-3 h-3" />
-                  Copy Config
+                  Copy Example Config
                 </button>
               </div>
             </div>
@@ -927,13 +927,13 @@ function SuggestionsTab({
                     <button
                       onClick={() => {
                         navigator.clipboard.writeText(s.suggested_value)
-                        showToast('Copied proxy URL to clipboard', 'success')
+                        showToast('Copied example config', 'success')
                       }}
                       className="btn-ghost text-xs flex items-center gap-1.5"
                       title="Copy proxy URL to clipboard"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      Copy Config
+                      Copy Example Config
                     </button>
                   ) : (
                     <button

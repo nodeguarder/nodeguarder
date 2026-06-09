@@ -289,7 +289,7 @@ impl SyncEngine {
                     timestamp_ms: chrono::Utc::now().timestamp_millis(),
                 });
                 let _ = client.push_logs(log_batch).await?;
-                audit::clear_logs();
+                audit::trim_logs(100);
                 info!("Uploaded log batch to Admin Platform.");
             }
 

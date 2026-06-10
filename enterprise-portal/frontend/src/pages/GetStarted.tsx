@@ -156,9 +156,12 @@ export default function GetStarted() {
             <h3 className="text-sm font-semibold text-portal-text mb-2">Step 1: Configure Your AI APP/IDE</h3>
             <p className="text-xs text-portal-text-muted mb-4">
               Route your AI application's or IDE's LLM traffic through the NodeGuarder proxy to scan all prompts.
-              See the <strong>IDE Setup Guide</strong> (<code>docs/ide-setup-guide.md</code>) for Continue.dev, Cursor, VS Code,
-              Windsurf configuration examples, including enterprise deployment via Intune/MDM.
+              Check the <strong>LLM Landscape</strong> page for detected endpoints and configuration details from your connected agents.
             </p>
+            <button onClick={() => navigate('/llm-landscape')} className="btn-primary text-xs flex items-center gap-1.5 py-2 px-3">
+              <Monitor className="w-3.5 h-3.5" />
+              View LLM Landscape
+            </button>
           </div>
 
           <div className="bg-portal-card border border-portal-border rounded-xl p-6">

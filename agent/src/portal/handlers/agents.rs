@@ -187,7 +187,8 @@ async fn revoke_agent(
     user: AuthenticatedUser,
     Path(uuid): Path<String>,
 ) -> Result<Json<Value>, StatusCode> {
-    let result = sqlx::query(
+    // 1. Mark revoked so the next heartbeat sends agent_revoked=true to the client
+    let mark = sqlx::query(
         "UPDATE agents SET status = 'revoked' WHERE uuid = $1 AND org_id = $2",
     )
     .bind(&uuid)
@@ -196,9 +197,23 @@ async fn revoke_agent(
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    if result.rows_affected() == 0 {
+    if mark.rows_affected() == 0 {
         return Err(StatusCode::NOT_FOUND);
     }
+
+    // 2. Delete associated data (metrics have no FK cascade; others cascade on agent delete)
+    sqlx::query("DELETE FROM agent_request_metrics WHERE agent_uuid = $1::uuid")
+        .bind(&uuid)
+        .execute(&state.pool)
+        .await
+        .ok();
+
+    sqlx::query("DELETE FROM agents WHERE uuid = $1 AND org_id = $2")
+        .bind(&uuid)
+        .bind(user.org_id)
+        .execute(&state.pool)
+        .await
+        .ok();
 
     Ok(Json(json!({"status": "revoked"})))
 }

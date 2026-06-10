@@ -16,7 +16,7 @@ async fn dashboard_summary(
     user: AuthenticatedUser,
 ) -> Result<Json<Value>, StatusCode> {
     let total_agents: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM agents WHERE org_id = $1")
+        sqlx::query_scalar("SELECT COUNT(*) FROM agents WHERE org_id = $1 AND status != 'revoked'")
             .bind(user.org_id)
             .fetch_one(&state.pool)
             .await
@@ -55,7 +55,7 @@ async fn dashboard_summary(
     let redacted_count_24h: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM audit_logs
            WHERE org_id = $1 AND flagged_at >= NOW() - INTERVAL '24 hours'
-           AND action_taken = 'REDACTED'"#,
+           AND action_taken IN ('REDACT', 'AUTO_REDACT')"#,
     )
     .bind(user.org_id)
     .fetch_one(&state.pool)
@@ -65,7 +65,7 @@ async fn dashboard_summary(
     let allowed_count_24h: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM audit_logs
            WHERE org_id = $1 AND flagged_at >= NOW() - INTERVAL '24 hours'
-           AND action_taken = 'ALLOWED'"#,
+           AND action_taken = 'ALLOW'"#,
     )
     .bind(user.org_id)
     .fetch_one(&state.pool)
@@ -75,7 +75,7 @@ async fn dashboard_summary(
     let blocked_count_24h: i64 = sqlx::query_scalar(
         r#"SELECT COUNT(*) FROM audit_logs
            WHERE org_id = $1 AND flagged_at >= NOW() - INTERVAL '24 hours'
-           AND action_taken = 'BLOCKED'"#,
+           AND action_taken IN ('BLOCK', 'AUTO_BLOCK')"#,
     )
     .bind(user.org_id)
     .fetch_one(&state.pool)

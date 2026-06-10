@@ -223,7 +223,6 @@ export interface RequestMetric {
   total_latency_ms: number
   detection_latency_ms: number
   upstream_latency_ms: number
-  was_cached: boolean
   was_blocked: boolean
   was_redacted: boolean
   upstream_status: number
@@ -231,7 +230,6 @@ export interface RequestMetric {
 
 export interface MetricsSummary {
   total_requests: number
-  cached_requests: number
   blocked_requests: number
   redacted_requests: number
   avg_total_latency_ms: number
@@ -249,13 +247,11 @@ export interface PerModelMetric {
   total_prompt_tokens: number
   total_completion_tokens: number
   avg_latency_ms: number
-  cached_count: number
 }
 
 export interface DailyMetric {
   date: string
   request_count: number
-  cached_count: number
   total_prompt_tokens: number
   total_completion_tokens: number
 }
@@ -265,5 +261,4 @@ export interface PerAgentMetric {
   request_count: number
   total_tokens: number
   avg_latency_ms: number
-  cached_count: number
 }

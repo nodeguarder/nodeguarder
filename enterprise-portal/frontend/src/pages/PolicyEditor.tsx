@@ -21,7 +21,6 @@ import { getPolicy, createPolicy, updatePolicy, getGroups } from '@/api/client'
 import { showToast } from '@/components/Toast'
 import type { Policy, AgentGroup, ConfigSuggestion, UpstreamRoute } from '@/types'
 
-const DEFAULT_BIND_PORT = 51820
 const ALL_DETECTION_KEYS = [
   'api_keys', 'db_credentials', 'pii',
   'injection', 'code_execution', 'social_engineering',
@@ -49,7 +48,7 @@ const emptyForm = {
   on_detection: 'enforced_redact' as string,
   upstream_url: '',
   upstream_api_key: '',
-  bind_port: DEFAULT_BIND_PORT,
+  bind_port: 51820,
   enable_ocr: false,
   disable_atr_auto_update: false,
   allow_custom_allowlists: true,
@@ -78,7 +77,7 @@ export default function PolicyEditor() {
   const [allGroups, setAllGroups] = useState<AgentGroup[]>([])
   const [sections, setSections] = useState({
     general: true,
-    upstream: false,
+    upstream: true,
     rules: true,
     trusted: false,
     regex: false,
@@ -121,7 +120,7 @@ export default function PolicyEditor() {
           on_detection: p.on_detection || 'permissive',
           upstream_url: p.upstream_url || '',
           upstream_api_key: '',
-          bind_port: p.bind_port || DEFAULT_BIND_PORT,
+          bind_port: p.bind_port || 51820,
           enable_ocr: p.enable_ocr || false,
           disable_atr_auto_update: p.disable_atr_auto_update || false,
           allow_custom_allowlists: p.allow_custom_allowlists,
@@ -305,13 +304,13 @@ export default function PolicyEditor() {
                     onChange={(e) => setForm({ ...form, on_detection: e.target.value })}
                     className={inputClass}
                   >
-                     <option value="permissive">User Choice (Redact/Block modal)</option>
-                     <option value="enforced_redact">Enforce Redaction (Redact/Block modal)</option>
-                     <option value="enforced_block">Enforce Block (Block-only modal)</option>
+                     <option value="enforced_redact">User Choice (Redact/Block)</option>
+                     <option value="enforced_block">User Choice (Block only)</option>
                      <option value="auto_redact">Auto-Redact (no modal, always redact)</option>
                      <option value="auto_block">Auto-Block (no modal, always block)</option>
+                     <option value="auto_allow">Auto-Allow (no modal, allows flagged content)</option>
                    </select>
-                   <p className="text-[10px] text-portal-text-muted mt-0.5">Allow option is hidden when agent is enterprise enrolled.</p>
+                   <p className="text-[10px] text-portal-text-muted mt-0.5">Applies to enrolled agents only. Non-enrolled agents default to allowing all options.</p>
                  </div>
                 <div className="flex flex-col gap-1">
                   <label className="flex items-center gap-2.5">
@@ -324,6 +323,18 @@ export default function PolicyEditor() {
                     <span className="text-sm text-portal-text">Allow Local Trusted Patterns</span>
                   </label>
                   <span className="text-[10px] text-portal-text-muted ml-6">When unchecked, agents cannot add/remove local allowlist rules. Independent of the on-detection action above.</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={form.disable_atr_auto_update}
+                      onChange={(e) => setForm({ ...form, disable_atr_auto_update: e.target.checked })}
+                      className="accent-portal-accent w-4 h-4"
+                    />
+                    <span className="text-sm text-portal-text">Disable ATR Auto-Update</span>
+                  </label>
+                  <span className="text-[10px] text-portal-text-muted ml-6">When checked, agents will not automatically update threat detection rules from the ATR community registry.</span>
                 </div>
               </div>
             </div>
@@ -449,48 +460,17 @@ export default function PolicyEditor() {
                 Add Route
               </button>
 
-              {/* Separator — these legacy fields are kept for backward compat */}
+              {/* Bearer token */}
               <div className="border-t border-portal-border pt-4 mt-2">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className={labelClass}>NodeGuarder bind port</label>
-                    <input
-                      type="number"
-                      value={form.bind_port}
-                      onChange={(e) => setForm({ ...form, bind_port: parseInt(e.target.value) || DEFAULT_BIND_PORT })}
-                      className={inputClass}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass}>NodeGuarder bearer token (shared across agents)</label>
-                    <input
-                      type="text"
-                      value={form.bearer_token}
-                      onChange={(e) => setForm({ ...form, bearer_token: e.target.value })}
-                      className={inputClass}
-                      placeholder="ng-... leave empty to keep per-agent tokens"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center gap-6 flex-wrap mt-4">
-                  <label className="flex items-center gap-2.5">
-                    <input
-                      type="checkbox"
-                      checked={form.enable_ocr}
-                      onChange={(e) => setForm({ ...form, enable_ocr: e.target.checked })}
-                      className="accent-portal-accent w-4 h-4"
-                    />
-                    <span className="text-sm text-portal-text">Enable OCR</span>
-                  </label>
-                  <label className="flex items-center gap-2.5">
-                    <input
-                      type="checkbox"
-                      checked={form.disable_atr_auto_update}
-                      onChange={(e) => setForm({ ...form, disable_atr_auto_update: e.target.checked })}
-                      className="accent-portal-accent w-4 h-4"
-                    />
-                    <span className="text-sm text-portal-text">Disable ATR Auto-Update</span>
-                  </label>
+                <div>
+                  <label className={labelClass}>NodeGuarder bearer token (shared across agents)</label>
+                  <input
+                    type="text"
+                    value={form.bearer_token}
+                    onChange={(e) => setForm({ ...form, bearer_token: e.target.value })}
+                    className={inputClass}
+                    placeholder="ng-... leave empty to keep per-agent tokens"
+                  />
                 </div>
               </div>
 
@@ -539,6 +519,22 @@ export default function PolicyEditor() {
                     </div>
                   </label>
                 ))}
+
+                {/* OCR toggle */}
+                <div className="border-t border-portal-border pt-4 mt-4">
+                  <label className="flex items-start gap-3 cursor-pointer hover:bg-white/[0.02] rounded-lg px-3 py-2 -mx-3 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={form.enable_ocr}
+                      onChange={(e) => setForm({ ...form, enable_ocr: e.target.checked })}
+                      className="accent-portal-accent w-4 h-4 mt-0.5 flex-shrink-0"
+                    />
+                    <div>
+                      <div className="text-sm font-medium text-portal-text">Scan Images & Screenshots (OCR)</div>
+                      <div className="text-xs text-portal-text-muted mt-0.5">Detect sensitive text within uploaded images using native hardware acceleration.</div>
+                    </div>
+                  </label>
+                </div>
               </div>
             </div>
           )}

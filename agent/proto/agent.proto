@@ -140,7 +140,7 @@ message RequestMetric {
   uint64 total_latency_ms = 8;
   uint64 detection_latency_ms = 9;
   uint64 upstream_latency_ms = 10;
-  bool was_cached = 11;
+
   bool was_blocked = 12;
   bool was_redacted = 13;
   uint32 upstream_status = 14;

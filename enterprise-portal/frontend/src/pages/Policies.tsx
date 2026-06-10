@@ -61,13 +61,13 @@ export default function Policies() {
   }
 
   const onDetectionLabel = (p: Policy): string => {
-    const mode = p.on_detection || 'permissive'
+    const mode = p.on_detection || 'enforced_redact'
     switch (mode) {
-      case 'permissive': return 'Permissive'
-      case 'enforced_redact': return 'Enforce Redact'
-      case 'enforced_block': return 'Enforce Block'
+      case 'enforced_redact': return 'User Choice (Redact/Block)'
+      case 'enforced_block': return 'User Choice (Block only)'
       case 'auto_redact': return 'Auto-Redact'
       case 'auto_block': return 'Auto-Block'
+      case 'auto_allow': return 'Auto-Allow'
       default: return mode
     }
   }
@@ -77,7 +77,6 @@ export default function Policies() {
     if (mode !== 'permissive') return true
     if (p.upstream_url) return true
     if (p.upstream_api_key) return true
-    if (p.bind_port) return true
     if (p.enable_ocr) return true
     if (p.disable_atr_auto_update) return true
     if (p.bearer_token) return true

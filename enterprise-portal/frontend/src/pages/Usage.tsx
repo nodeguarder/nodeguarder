@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, LineChart, Line } from 'recharts'
-import { Brain, FileText, Activity, Database } from 'lucide-react'
+import { Brain, FileText, Activity } from 'lucide-react'
 import MetricCard from '@/components/MetricCard'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import { getMetricsSummary, getMetricsDaily, getMetricsPerModel, getMetricsPerAgent } from '@/api/client'
@@ -64,10 +64,6 @@ export default function Usage() {
     )
   }
 
-  const cachedPct = summary
-    ? Math.round((summary.cached_requests / Math.max(summary.total_requests, 1)) * 100)
-    : 0
-
   return (
     <div>
       <div className="mb-6">
@@ -94,17 +90,11 @@ export default function Usage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
         <MetricCard
           label="Total Requests"
           value={summary?.total_requests ?? 0}
           icon={<Activity className="w-5 h-5" />}
-          loading={loading}
-        />
-        <MetricCard
-          label="Cache Hit Rate"
-          value={summary ? `${cachedPct}%` : '0%'}
-          icon={<Database className="w-5 h-5" />}
           loading={loading}
         />
         <MetricCard
@@ -138,7 +128,6 @@ export default function Usage() {
                   />
                   <Legend />
                   <Bar dataKey="request_count" name="Requests" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="cached_count" name="Cached" fill="#10b981" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -183,7 +172,6 @@ export default function Usage() {
                       <th className="text-left py-2 pr-4">Model</th>
                       <th className="text-right py-2 px-4">Requests</th>
                       <th className="text-right py-2 px-4">Avg Latency</th>
-                      <th className="text-right py-2 px-4">Cached</th>
                       <th className="text-right py-2 pl-4">Tokens</th>
                     </tr>
                   </thead>
@@ -193,7 +181,6 @@ export default function Usage() {
                         <td className="py-2 pr-4 text-portal-text font-medium">{m.model}</td>
                         <td className="text-right py-2 px-4 text-portal-text">{m.request_count.toLocaleString()}</td>
                         <td className="text-right py-2 px-4 text-portal-text-muted">{m.avg_latency_ms.toFixed(0)}ms</td>
-                        <td className="text-right py-2 px-4 text-portal-text-muted">{m.cached_count}</td>
                         <td className="text-right py-2 pl-4 text-portal-text font-mono">{(m.total_prompt_tokens + m.total_completion_tokens).toLocaleString()}</td>
                       </tr>
                     ))}
@@ -217,8 +204,7 @@ export default function Usage() {
                       <th className="text-left py-2 pr-4">Agent</th>
                       <th className="text-right py-2 px-4">Requests</th>
                       <th className="text-right py-2 px-4">Total Tokens</th>
-                      <th className="text-right py-2 px-4">Avg Latency</th>
-                      <th className="text-right py-2 pl-4">Cached</th>
+                      <th className="text-right py-2 pl-4">Avg Latency</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -227,8 +213,7 @@ export default function Usage() {
                         <td className="py-2 pr-4 text-portal-text font-mono text-[10px]">{a.agent_uuid.slice(0, 12)}...</td>
                         <td className="text-right py-2 px-4 text-portal-text">{a.request_count.toLocaleString()}</td>
                         <td className="text-right py-2 px-4 text-portal-text-muted">{a.total_tokens.toLocaleString()}</td>
-                        <td className="text-right py-2 px-4 text-portal-text-muted">{a.avg_latency_ms.toFixed(0)}ms</td>
-                        <td className="text-right py-2 pl-4 text-portal-text-muted">{a.cached_count}</td>
+                        <td className="text-right py-2 pl-4 text-portal-text-muted">{a.avg_latency_ms.toFixed(0)}ms</td>
                       </tr>
                     ))}
                   </tbody>

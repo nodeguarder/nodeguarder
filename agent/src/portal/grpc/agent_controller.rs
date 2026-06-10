@@ -373,8 +373,8 @@ impl AgentController for AgentControllerImpl {
                (org_id, agent_uuid, timestamp_ms, session_id, model_requested, model_used,
                 prompt_tokens, completion_tokens, total_tokens,
                 total_latency_ms, detection_latency_ms, upstream_latency_ms,
-                was_cached, was_blocked, was_redacted, upstream_status)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)"#,
+                was_blocked, was_redacted, upstream_status)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)"#,
             )
             .bind(org_id)
             .bind(agent_uuid)
@@ -388,7 +388,6 @@ impl AgentController for AgentControllerImpl {
             .bind(m.total_latency_ms as i64)
             .bind(m.detection_latency_ms as i64)
             .bind(m.upstream_latency_ms as i64)
-            .bind(m.was_cached)
             .bind(m.was_blocked)
             .bind(m.was_redacted)
             .bind(m.upstream_status as i32)

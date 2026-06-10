@@ -319,7 +319,7 @@ impl SyncEngine {
                             total_latency_ms: m.total_latency_ms as u64,
                             detection_latency_ms: m.detection_latency_ms as u64,
                             upstream_latency_ms: m.upstream_latency_ms as u64,
-                            was_cached: m.was_cached,
+
                             was_blocked: m.was_blocked,
                             was_redacted: m.was_redacted,
                             upstream_status: m.upstream_status as u32,

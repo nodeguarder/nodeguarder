@@ -41,21 +41,20 @@ function AgentUsageMetrics({ agentUuid }: { agentUuid: string }) {
   }
 
   if (metrics.length === 0) {
-    return <p className="text-sm text-portal-text-muted">No usage data available yet.</p>
+    return <p className="text-sm text-portal-text-muted">No usage data recorded yet. Metrics appear after the agent processes requests and syncs with the portal.</p>
   }
 
   const totalTokens = metrics.reduce((sum, m) => sum + (m.total_tokens || 0), 0)
   const avgLatency = metrics.length > 0
     ? Math.round(metrics.reduce((sum, m) => sum + m.total_latency_ms, 0) / metrics.length)
     : 0
-  const cachedCount = metrics.filter((m) => m.was_cached).length
   const totalCost = metrics.reduce((sum, m) => sum + (
     (m.prompt_tokens || 0) * 0.002 / 1000 + (m.completion_tokens || 0) * 0.002 / 1000
   ), 0)
 
   return (
     <div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
         <div className="bg-portal-bg rounded-lg p-3 border border-portal-border/50">
           <div className="text-[10px] text-portal-text-muted uppercase tracking-wider">Requests (24h)</div>
           <div className="text-lg font-bold text-portal-text">{metrics.length}</div>
@@ -63,10 +62,6 @@ function AgentUsageMetrics({ agentUuid }: { agentUuid: string }) {
         <div className="bg-portal-bg rounded-lg p-3 border border-portal-border/50">
           <div className="text-[10px] text-portal-text-muted uppercase tracking-wider">Avg Latency</div>
           <div className="text-lg font-bold text-portal-text">{avgLatency}ms</div>
-        </div>
-        <div className="bg-portal-bg rounded-lg p-3 border border-portal-border/50">
-          <div className="text-[10px] text-portal-text-muted uppercase tracking-wider">Cached</div>
-          <div className="text-lg font-bold text-portal-text">{cachedCount}</div>
         </div>
         <div className="bg-portal-bg rounded-lg p-3 border border-portal-border/50">
           <div className="text-[10px] text-portal-text-muted uppercase tracking-wider">Est. Cost</div>
@@ -92,9 +87,7 @@ function AgentUsageMetrics({ agentUuid }: { agentUuid: string }) {
                   <td className="text-right py-1.5 px-3 text-portal-text-muted">{m.total_tokens || '-'}</td>
                   <td className="text-right py-1.5 px-3 text-portal-text-muted">{m.total_latency_ms}ms</td>
                   <td className="text-right py-1.5 pl-3">
-                    {m.was_cached ? (
-                      <span className="text-emerald-400 text-[10px] font-semibold">CACHED</span>
-                    ) : m.was_blocked ? (
+                    {m.was_blocked ? (
                       <span className="text-red-400 text-[10px] font-semibold">BLOCKED</span>
                     ) : (
                       <span className="text-portal-accent text-[10px] font-semibold">{m.upstream_status}</span>
@@ -242,7 +235,7 @@ export default function AgentDetail() {
               {agent.status !== 'revoked' && (
                 <button onClick={() => setRevokeConfirm(true)} className="btn-danger text-xs flex items-center gap-1.5">
                   <XCircle className="w-3.5 h-3.5" />
-                  Revoke
+                  Revoke &amp; Delete
                 </button>
               )}
             </div>
@@ -491,10 +484,6 @@ export default function AgentDetail() {
                 <div className="text-xs text-portal-text-muted">Hostname</div>
                 <div className="text-sm text-portal-text">{agent.hostname}</div>
               </div>
-              <div>
-                <div className="text-xs text-portal-text-muted">Organization</div>
-                <div className="text-sm text-portal-text font-mono">{agent.org_id.slice(0, 12)}...</div>
-              </div>
             </div>
           </div>
         </div>
@@ -511,9 +500,9 @@ export default function AgentDetail() {
                 <AlertTriangle className="w-5 h-5 text-portal-danger" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-portal-text">Revoke Agent</h3>
+                <h3 className="text-lg font-semibold text-portal-text">Revoke &amp; Delete Agent</h3>
                 <p className="text-sm text-portal-text-muted">
-                  This will permanently revoke <span className="font-semibold text-portal-text">{agent.hostname}</span>.
+                  This will permanently delete <span className="font-semibold text-portal-text">{agent.hostname}</span> and all associated data (audit logs, metrics, environment reports, group assignments). A revocation signal will also be sent to the client.
                 </p>
               </div>
             </div>
@@ -525,7 +514,7 @@ export default function AgentDetail() {
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     Revoking...
                   </>
-                ) : 'Revoke'}
+                ) : 'Revoke &amp; Delete'}
               </button>
             </div>
           </div>

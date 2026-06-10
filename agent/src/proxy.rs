@@ -17,7 +17,7 @@ use crate::scrubber::{scrub_file, ScrutinyResult};
 use crate::audit;
 use crate::ui::events::{UiEvent, DetectionHit, InterventionDecision};
 use crate::metrics::{MetricsCollector, RequestMetric};
-use crate::cache::ResponseCache;
+
 #[cfg(windows)]
 use crate::ocr::extract_text_from_image_bytes;
 use tokio::sync::oneshot;
@@ -36,7 +36,7 @@ pub struct AppState {
     pub atr_engine: Option<AtEngine>,
     pub bound_port: Arc<std::sync::Mutex<u16>>,
     pub metrics: Arc<MetricsCollector>,
-    pub cache: Arc<std::sync::Mutex<ResponseCache>>,
+
 }
 
 /// Extract text from base64-encoded images in message content (e.g. data:image/png;base64,...)
@@ -155,6 +155,27 @@ fn glob_match(pattern: &str, name: &str) -> bool {
     pi == pattern_bytes.len()
 }
 
+/// Estimate prompt tokens by summing message content lengths / 4
+fn estimate_prompt_tokens(payload: &Value) -> u64 {
+    let total_chars: usize = payload.get("messages")
+        .and_then(|m| m.as_array())
+        .map(|arr| arr.iter()
+            .filter_map(|msg| {
+                let c = msg.get("content")?;
+                match c {
+                    Value::String(s) => Some(s.len()),
+                    Value::Array(items) => Some(items.iter()
+                        .filter_map(|item| item.get("text").and_then(|t| t.as_str()))
+                        .map(|t| t.len())
+                        .sum()),
+                    _ => None,
+                }
+            })
+            .sum())
+        .unwrap_or(0);
+    (total_chars / 4).max(1) as u64
+}
+
 fn find_matching_route<'a>(routes: &'a [crate::config::UpstreamRouteConfig], model: &str) -> Option<&'a crate::config::UpstreamRouteConfig> {
     routes.iter().find(|r| glob_match(&r.match_pattern, model))
 }
@@ -229,6 +250,15 @@ pub async fn chat_completions_handler(
         let last_user_idx = messages.iter().rposition(|m|
             m.get("role").and_then(|r| r.as_str()) == Some("user")
         );
+        let (on_detection, enrolled) = {
+            let cfg = state.config.read().unwrap();
+            (cfg.on_detection.clone(), cfg.enrolled_admin.is_some())
+        };
+        let on_detection = if enrolled && on_detection == "permissive" {
+            "enforced_redact".to_string()
+        } else {
+            on_detection
+        };
         for i in 0..messages.len() {
             if messages[i].get("role").and_then(|r| r.as_str()) != Some("user") {
                 continue;
@@ -238,6 +268,9 @@ pub async fn chat_completions_handler(
                 let check = scan_and_redact(&extracted, &allowlists_regex, &detection_config, state.atr_engine.as_ref());
                 if check.flagged || check.detection_method == "FP_OVERTURN" {
                 if check.detection_method == "FP_OVERTURN" {
+                    if last_user_idx.map_or(true, |idx| i != idx) {
+                        continue;
+                    }
                     let uuid = state.config.read().unwrap().uuid.clone();
                     audit::log_event(audit::AuditLog {
                         timestamp: chrono::Utc::now().to_rfc3339(),
@@ -253,16 +286,27 @@ pub async fn chat_completions_handler(
                     });
                     continue;
                 }
+                if on_detection == "auto_allow" {
+                    let uuid = state.config.read().unwrap().uuid.clone();
+                    audit::log_event(audit::AuditLog {
+                        timestamp: chrono::Utc::now().to_rfc3339(),
+                        agent_uuid: uuid,
+                        content_type: check.content_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
+                        action_taken: "ALLOW".to_string(),
+                        preview: check.scrubbed_text.clone(),
+                        severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
+                        detection_method: check.detection_method.clone(),
+                        session_id: session_id.clone(),
+                        user_name: whoami::username().unwrap_or_default(),
+                        timeout_triggered: false,
+                    });
+                    continue;
+                }
                 if last_user_idx.map_or(true, |idx| i != idx) {
                     replace_content(&mut messages[i], &check.scrubbed_text);
                     continue;
                 }
                 let msg = &mut messages[i];
-                let (on_detection, enrolled) = {
-                    let cfg = state.config.read().unwrap();
-                    (cfg.on_detection.clone(), cfg.enrolled_admin.is_some())
-                };
-                let on_detection = if enrolled && on_detection == "permissive" { "enforced_redact".to_string() } else { on_detection };
                 let (tx, rx) = oneshot::channel();
                 let has_attachment = message_has_attachment(msg.get("content").unwrap_or(&Value::Null));
                 let hit = DetectionHit {
@@ -317,7 +361,7 @@ pub async fn chat_completions_handler(
                                 total_latency_ms: block_latency.as_millis() as u64,
                                 detection_latency_ms: block_latency.as_millis() as u64,
                                 upstream_latency_ms: 0,
-                                was_cached: false,
+
                                 was_blocked: true,
                                 was_redacted: false,
                                 upstream_status: 0,
@@ -377,7 +421,7 @@ pub async fn chat_completions_handler(
                             total_latency_ms: latency.as_millis() as u64,
                             detection_latency_ms: latency.as_millis() as u64,
                             upstream_latency_ms: 0,
-                            was_cached: false,
+
                             was_blocked: true,
                             was_redacted: false,
                             upstream_status: 0,
@@ -429,7 +473,7 @@ pub async fn chat_completions_handler(
                                 total_latency_ms: block_latency.as_millis() as u64,
                                 detection_latency_ms: block_latency.as_millis() as u64,
                                 upstream_latency_ms: 0,
-                                was_cached: false,
+
                                 was_blocked: true,
                                 was_redacted: false,
                                 upstream_status: 0,
@@ -470,11 +514,12 @@ pub async fn chat_completions_handler(
                         }
                         Err(_) => {
                             let uuid = state.config.read().unwrap().uuid.clone();
+                            let action = if has_attachment { "AUTO_BLOCK" } else { "AUTO_REDACT" };
                             audit::log_event(audit::AuditLog {
                                 timestamp: chrono::Utc::now().to_rfc3339(),
                                 agent_uuid: uuid,
                                 content_type: check.content_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
-                                action_taken: "AUTO_REDACT".to_string(),
+                                action_taken: action.to_string(),
                                 preview: check.scrubbed_text.clone(),
                                 severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
                                 detection_method: check.detection_method.clone(),
@@ -482,23 +527,29 @@ pub async fn chat_completions_handler(
                                 user_name: whoami::username().unwrap_or_default(),
                                 timeout_triggered: true,
                             });
+                            if has_attachment {
+                                let latency = t0.elapsed();
+                                state.metrics.push(RequestMetric {
+                                    timestamp_ms: chrono::Utc::now().timestamp_millis(),
+                                    session_id: session_id.clone(),
+                                    model_requested: model.clone(),
+                                    model_used: model.clone(),
+                                    prompt_tokens: Some(0),
+                                    completion_tokens: Some(0),
+                                    total_tokens: Some(0),
+                                    total_latency_ms: latency.as_millis() as u64,
+                                    detection_latency_ms: latency.as_millis() as u64,
+                                    upstream_latency_ms: 0,
+    
+                                    was_blocked: true,
+                                    was_redacted: false,
+                                    upstream_status: 0,
+                                });
+                                return (StatusCode::FORBIDDEN, "Request blocked by policy").into_response();
+                            }
                             replace_content(msg, &check.scrubbed_text);
                         }
                     }
-                } else if check.detection_method == "FP_OVERTURN" {
-                    let uuid = state.config.read().unwrap().uuid.clone();
-                    audit::log_event(audit::AuditLog {
-                        timestamp: chrono::Utc::now().to_rfc3339(),
-                        agent_uuid: uuid,
-                        content_type: check.content_type.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
-                        action_taken: "ALLOW".to_string(),
-                        preview: check.scrubbed_text.clone(),
-                        severity: crate::detector::severity_for_type(check.content_type.as_deref()).to_string(),
-                        detection_method: "FP_OVERTURN".to_string(),
-                        session_id: session_id.clone(),
-                        user_name: whoami::username().unwrap_or_default(),
-                        timeout_triggered: false,
-                    });
                 } else {
                     replace_content(msg, &check.scrubbed_text);
                 }
@@ -519,30 +570,6 @@ pub async fn chat_completions_handler(
     }
 
     let is_streaming = payload.get("stream").and_then(|s| s.as_bool()).unwrap_or(false);
-
-    if !is_streaming {
-        if let Some(cached) = state.cache.lock().unwrap().get(&model, &payload) {
-            let cached_pt = cached.get("usage").and_then(|u| u.get("prompt_tokens")).and_then(|v| v.as_u64());
-            let cached_ct = cached.get("usage").and_then(|u| u.get("completion_tokens")).and_then(|v| v.as_u64());
-            state.metrics.push(RequestMetric {
-                timestamp_ms: chrono::Utc::now().timestamp_millis(),
-                session_id: session_id.clone(),
-                model_requested: model.clone(),
-                model_used: model.clone(),
-                prompt_tokens: cached_pt,
-                completion_tokens: cached_ct,
-                total_tokens: cached_pt.zip(cached_ct).map(|(p, c)| p + c),
-                total_latency_ms: t0.elapsed().as_millis() as u64,
-                detection_latency_ms: detection_latency.as_millis() as u64,
-                upstream_latency_ms: 0,
-                was_cached: true,
-                was_blocked: false,
-                was_redacted: false,
-                upstream_status: 200,
-            });
-            return (StatusCode::OK, Json(cached)).into_response();
-        }
-    }
 
     // 4. Proxy Upstream — route by model name
     let route = find_matching_route(&upstream_routes, &model)
@@ -601,11 +628,7 @@ pub async fn chat_completions_handler(
             }
         }
 
-        if status.is_success() {
-            state.cache.lock().unwrap().set(&model, &payload, res_json.clone());
-        }
-
-        let pt = prompt_tokens.unwrap_or_else(|| (body.len() / 4) as u64);
+        let pt = prompt_tokens.unwrap_or_else(|| estimate_prompt_tokens(&payload));
         let ct = completion_tokens.unwrap_or_else(|| {
             res_json.get("choices")
                 .and_then(|c| c.as_array())
@@ -626,7 +649,6 @@ pub async fn chat_completions_handler(
             total_latency_ms: total_latency.as_millis() as u64,
             detection_latency_ms: detection_latency.as_millis() as u64,
             upstream_latency_ms: upstream_latency.as_millis() as u64,
-            was_cached: false,
             was_blocked: false,
             was_redacted: response_redacted,
             upstream_status: status.as_u16(),
@@ -651,7 +673,7 @@ pub async fn chat_completions_handler(
         let t0_arc = std::sync::Arc::new(t0);
         let t0_for_stream = t0_arc.clone();
         let detection_latency_ms = detection_latency.as_millis() as u64;
-        let body_len = body.len();
+        let prompt_token_estimate = estimate_prompt_tokens(&payload);
         let model_for_stream = model.clone();
         let upstream_header_latency = t0.elapsed() - detection_latency;
         let upstream_header_latency_ms = upstream_header_latency.as_millis() as u64;
@@ -721,7 +743,7 @@ pub async fn chat_completions_handler(
                 }
             }
 
-            let pt = (body_len / 4) as u64;
+            let pt = prompt_token_estimate;
             let ct = completion_tokens.load(std::sync::atomic::Ordering::Relaxed);
             state_internal.metrics.push(RequestMetric {
                 timestamp_ms: chrono::Utc::now().timestamp_millis(),
@@ -734,7 +756,6 @@ pub async fn chat_completions_handler(
                 total_latency_ms: t0_for_stream.elapsed().as_millis() as u64,
                 detection_latency_ms,
                 upstream_latency_ms: upstream_header_latency_ms,
-                was_cached: false,
                 was_blocked: false,
                 was_redacted: was_stream_redacted.load(std::sync::atomic::Ordering::Relaxed),
                 upstream_status: status.as_u16(),
@@ -801,7 +822,25 @@ pub async fn files_handler(
                         redaction_resolver: tx,
                     };
                     let mut allowed = false;
-                    if on_detection == "auto_redact" || on_detection == "auto_block" {
+                    if on_detection == "auto_allow" {
+                        let uuid = state.config.read().unwrap().uuid.clone();
+                        audit::log_event(audit::AuditLog {
+                            timestamp: chrono::Utc::now().to_rfc3339(),
+                            agent_uuid: uuid,
+                            content_type: det_type.clone(),
+                            action_taken: "ALLOW".to_string(),
+                            preview: reason.clone(),
+                            severity: crate::detector::severity_for_type(Some(&det_type)).to_string(),
+                            detection_method: "REGEX".to_string(),
+                            session_id: session_id.clone(),
+                            user_name: whoami::username().unwrap_or_default(),
+                            timeout_triggered: false,
+                        });
+                        form = form.part("file", reqwest::multipart::Part::bytes(original_bytes)
+                            .file_name(file_name)
+                            .mime_str(&content_type).unwrap());
+                        continue;
+                    } else if on_detection == "auto_redact" || on_detection == "auto_block" {
                         // Files can't be redacted — always block
                         let uuid = state.config.read().unwrap().uuid.clone();
                         audit::log_event(audit::AuditLog {
@@ -1051,8 +1090,7 @@ mod e2e_tests {
         let (hit_sender, _) = crossbeam_channel::unbounded();
         let bound_port = Arc::new(std::sync::Mutex::new(51820));
         let metrics = Arc::new(crate::metrics::MetricsCollector::new(1000));
-        let cache = Arc::new(std::sync::Mutex::new(crate::cache::ResponseCache::new(300, 1000)));
-        Arc::new(AppState { config, client, hit_sender, atr_engine, bound_port, metrics, cache })
+        Arc::new(AppState { config, client, hit_sender, atr_engine, bound_port, metrics })
     }
 
     fn new_request(body: &str) -> Request<Body> {
@@ -1140,8 +1178,7 @@ mod e2e_tests {
         let (hit_sender, _) = crossbeam_channel::unbounded();
         let bound_port = Arc::new(std::sync::Mutex::new(51820));
         let metrics = Arc::new(crate::metrics::MetricsCollector::new(1000));
-        let cache = Arc::new(std::sync::Mutex::new(crate::cache::ResponseCache::new(300, 1000)));
-        let state = Arc::new(AppState { config, client, hit_sender, atr_engine: Some(test_engine()), bound_port, metrics, cache });
+        let state = Arc::new(AppState { config, client, hit_sender, atr_engine: Some(test_engine()), bound_port, metrics });
         let app = router(state);
         let req = new_request(r#"{"model":"gpt-4","messages":[{"role":"user","content":"My key is sk-proj-abc123def456ghi789jkl012mno"}]}"#);
         let resp = app.oneshot(req).await.unwrap();
@@ -1277,8 +1314,7 @@ mod e2e_tests {
         let (hit_sender, _) = crossbeam_channel::unbounded();
         let bound_port = Arc::new(std::sync::Mutex::new(51820));
         let metrics = Arc::new(crate::metrics::MetricsCollector::new(1000));
-        let cache = Arc::new(std::sync::Mutex::new(crate::cache::ResponseCache::new(300, 1000)));
-        Arc::new(AppState { config, client, hit_sender, atr_engine, bound_port, metrics, cache })
+        Arc::new(AppState { config, client, hit_sender, atr_engine, bound_port, metrics })
     }
 
     fn read_pwd_image_base64() -> Option<String> {

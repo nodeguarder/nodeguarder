@@ -10,8 +10,10 @@ import {
   Clock,
   FileBarChart,
   X,
+  Info,
 } from 'lucide-react'
 import { showToast } from '@/components/Toast'
+import Tooltip from '@/components/Tooltip'
 import { getComplianceReports, getComplianceSummary, generateComplianceReport, getComplianceReport } from '@/api/client'
 import { formatDate } from '@/lib/utils'
 type Control = { name: string; status: string; score: number; evidence: string }
@@ -39,6 +41,27 @@ const FRAMEWORK_META: Record<string, { title: string; description: string; icon:
     iconBg: 'bg-purple-500/10',
     iconColor: 'text-purple-400',
   },
+}
+
+const METRIC_TOOLTIPS: Record<string, string> = {
+  total_detections: 'Total policy violations detected across all agents in this period',
+  blocked: 'Requests prevented from reaching the LLM (includes both manual and automatic blocks)',
+  redacted: 'Requests where sensitive content was replaced before sending to the LLM',
+  allowed: 'Flagged content that was explicitly permitted to pass through',
+}
+
+const CONTROL_TOOLTIPS: Record<string, string> = {
+  'Risk Management': 'Evaluates whether detection policies are actively identifying risks based on detection volume',
+  Transparency: 'Measures whether all actions taken are properly logged and accounted for',
+  'Human Oversight': 'Measures whether human decisions are part of the content policy enforcement loop',
+  Documentation: 'Evaluates whether active security policies are documented and in place',
+  Security: 'Evaluates the system ability to detect and block security threats',
+  Availability: 'Tracks the proportion of agents that are online and actively monitoring',
+  Confidentiality: 'Measures how effectively sensitive data is protected through redaction',
+  Privacy: 'Evaluates the overall detection-to-action rate for policy violations',
+  'Detection Coverage': 'Whether the system is actively detecting policy violations in the reporting period',
+  'Response Rate': 'The proportion of detected violations that received an automated response (blocked or redacted)',
+  'Agent Coverage': 'The proportion of agents that are online and actively enforcing policies',
 }
 
 function generateHtmlReport(report: ComplianceReportType): string {
@@ -224,19 +247,31 @@ function DetailModal({ report, onClose }: { report: ComplianceReportType; onClos
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="bg-white/5 rounded-lg p-3 text-center">
               <div className="text-lg font-bold text-portal-text">{metrics.total_detections}</div>
-              <div className="text-[10px] text-portal-text-muted">Detections</div>
+              <div className="text-[10px] text-portal-text-muted flex items-center justify-center gap-1">
+                Detections
+                <Tooltip text={METRIC_TOOLTIPS.total_detections}><Info className="w-3 h-3 text-portal-text-muted cursor-help" /></Tooltip>
+              </div>
             </div>
             <div className="bg-red-500/5 rounded-lg p-3 text-center">
               <div className="text-lg font-bold text-red-400">{metrics.blocked}</div>
-              <div className="text-[10px] text-portal-text-muted">Blocked</div>
+              <div className="text-[10px] text-portal-text-muted flex items-center justify-center gap-1">
+                Blocked
+                <Tooltip text={METRIC_TOOLTIPS.blocked}><Info className="w-3 h-3 text-portal-text-muted cursor-help" /></Tooltip>
+              </div>
             </div>
             <div className="bg-amber-500/5 rounded-lg p-3 text-center">
               <div className="text-lg font-bold text-amber-400">{metrics.redacted}</div>
-              <div className="text-[10px] text-portal-text-muted">Redacted</div>
+              <div className="text-[10px] text-portal-text-muted flex items-center justify-center gap-1">
+                Redacted
+                <Tooltip text={METRIC_TOOLTIPS.redacted}><Info className="w-3 h-3 text-portal-text-muted cursor-help" /></Tooltip>
+              </div>
             </div>
             <div className="bg-emerald-500/5 rounded-lg p-3 text-center">
               <div className="text-lg font-bold text-emerald-400">{metrics.allowed}</div>
-              <div className="text-[10px] text-portal-text-muted">Allowed</div>
+              <div className="text-[10px] text-portal-text-muted flex items-center justify-center gap-1">
+                Allowed
+                <Tooltip text={METRIC_TOOLTIPS.allowed}><Info className="w-3 h-3 text-portal-text-muted cursor-help" /></Tooltip>
+              </div>
             </div>
           </div>
 
@@ -245,9 +280,16 @@ function DetailModal({ report, onClose }: { report: ComplianceReportType; onClos
             <div className="space-y-2">
               {controls.map((c: Control, i: number) => (
                 <div key={i} className="flex items-center justify-between bg-white/5 rounded-lg p-3">
-                  <div>
-                    <div className="text-sm text-portal-text">{c.name}</div>
-                    <div className="text-[10px] text-portal-text-muted mt-0.5">{c.evidence}</div>
+                  <div className="flex items-center gap-1.5">
+                    <div>
+                      <div className="text-sm text-portal-text flex items-center gap-1">
+                        {c.name}
+                        {CONTROL_TOOLTIPS[c.name] && (
+                          <Tooltip text={CONTROL_TOOLTIPS[c.name]}><Info className="w-3 h-3 text-portal-text-muted cursor-help" /></Tooltip>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-portal-text-muted mt-0.5">{c.evidence}</div>
+                    </div>
                   </div>
                   <StatusBadge status={c.status} />
                 </div>
@@ -359,6 +401,21 @@ export default function Compliance() {
     <div>
       <h1 className="page-title">Compliance</h1>
       <p className="page-desc">Compliance reports and audit documentation</p>
+
+      <div className="bg-portal-card border border-portal-border rounded-lg px-4 py-3 mb-6">
+        <p className="text-xs text-portal-text-muted leading-relaxed">
+          Compliance reports are generated from audit log data recorded by all agents in your organization.
+          Each report evaluates your security posture against a framework (EU AI Act, SOC 2, or Custom).
+          <span className="block mt-1">
+          <strong className="text-portal-text">Detections</strong> are policy violations flagged by agents.
+          Every detection receives an action: <strong className="text-red-400">Blocked</strong> (prevented from reaching the LLM),
+          <strong className="text-amber-400"> Redacted</strong> (sensitive content replaced before sending), or
+          <strong className="text-emerald-400"> Allowed</strong> (permitted to pass).
+          Control scores and statuses are computed from these actions and your organizational coverage.
+          Hover the <Info className="w-3 h-3 inline-block text-portal-text-muted" /> icons for details.
+          </span>
+        </p>
+      </div>
 
       {loading ? (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -451,7 +451,7 @@ pub fn scan_and_redact(
             return RedactionResult {
                 flagged: false,
                 scrubbed_text: text.to_string(),
-                content_type: None,
+                content_type: detected_type.clone(),
                 detection_method: "FP_OVERTURN".to_string(),
             };
         }

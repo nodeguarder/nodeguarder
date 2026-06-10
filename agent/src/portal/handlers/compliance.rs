@@ -39,25 +39,25 @@ struct ControlScore {
 
 async fn compute_metrics(pool: &sqlx::PgPool, org_id: uuid::Uuid, date_from: &str, date_to: &str) -> ComplianceMetrics {
     let total_detections: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM audit_logs WHERE org_id = $1 AND flagged_at >= $2::timestamptz AND flagged_at < $3::timestamptz",
+        "SELECT COUNT(*) FROM audit_logs WHERE org_id = $1 AND flagged_at >= $2::timestamptz AND flagged_at <= $3::timestamptz",
     )
     .bind(org_id).bind(date_from).bind(date_to)
     .fetch_one(pool).await.unwrap_or(0);
 
     let blocked: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM audit_logs WHERE org_id = $1 AND action_taken = 'BLOCK' AND flagged_at >= $2::timestamptz AND flagged_at < $3::timestamptz",
+        "SELECT COUNT(*) FROM audit_logs WHERE org_id = $1 AND action_taken IN ('BLOCK', 'AUTO_BLOCK') AND flagged_at >= $2::timestamptz AND flagged_at <= $3::timestamptz",
     )
     .bind(org_id).bind(date_from).bind(date_to)
     .fetch_one(pool).await.unwrap_or(0);
 
     let redacted: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM audit_logs WHERE org_id = $1 AND action_taken = 'REDACT' AND flagged_at >= $2::timestamptz AND flagged_at < $3::timestamptz",
+        "SELECT COUNT(*) FROM audit_logs WHERE org_id = $1 AND action_taken IN ('REDACT', 'AUTO_REDACT') AND flagged_at >= $2::timestamptz AND flagged_at <= $3::timestamptz",
     )
     .bind(org_id).bind(date_from).bind(date_to)
     .fetch_one(pool).await.unwrap_or(0);
 
     let allowed: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM audit_logs WHERE org_id = $1 AND action_taken = 'ALLOW' AND flagged_at >= $2::timestamptz AND flagged_at < $3::timestamptz",
+        "SELECT COUNT(*) FROM audit_logs WHERE org_id = $1 AND action_taken = 'ALLOW' AND flagged_at >= $2::timestamptz AND flagged_at <= $3::timestamptz",
     )
     .bind(org_id).bind(date_from).bind(date_to)
     .fetch_one(pool).await.unwrap_or(0);
@@ -81,24 +81,25 @@ async fn compute_metrics(pool: &sqlx::PgPool, org_id: uuid::Uuid, date_from: &st
 }
 
 fn compute_eu_ai_act(metrics: &ComplianceMetrics) -> (Vec<ControlScore>, f64) {
+    let total_actions = metrics.blocked + metrics.redacted + metrics.allowed;
     let controls = vec![
         ControlScore {
             name: "Risk Management".into(),
-            status: if metrics.total_detections > 0 { "compliant" } else { "in-progress" }.into(),
-            score: if metrics.total_detections > 0 { 1.0 } else { 0.3 },
-            evidence: format!("{} detections processed", metrics.total_detections),
+            status: if metrics.total_detections > 0 { "compliant" } else { "not-started" }.into(),
+            score: if metrics.total_detections > 0 { 1.0 } else { 0.0 },
+            evidence: format!("{} detection{} processed", metrics.total_detections, if metrics.total_detections == 1 { "" } else { "s" }),
         },
         ControlScore {
             name: "Transparency".into(),
-            status: if metrics.redacted > 0 || metrics.allowed > 0 { "compliant" } else if metrics.total_detections > 0 { "in-progress" } else { "not-started" }.into(),
-            score: if metrics.total_detections > 0 { (metrics.redacted as f64 + metrics.allowed as f64) / metrics.total_detections as f64 } else { 0.0 },
-            evidence: format!("{} redacted, {} allowed", metrics.redacted, metrics.allowed),
+            status: if total_actions > 0 { "compliant" } else if metrics.total_detections > 0 { "in-progress" } else { "not-started" }.into(),
+            score: if metrics.total_detections > 0 { total_actions as f64 / metrics.total_detections as f64 } else { 0.0 },
+            evidence: format!("{} blocked, {} redacted, {} allowed — all actions are logged", metrics.blocked, metrics.redacted, metrics.allowed),
         },
         ControlScore {
             name: "Human Oversight".into(),
-            status: if metrics.allowed > 0 { "compliant" } else if metrics.blocked > 0 { "in-progress" } else { "not-started" }.into(),
-            score: if metrics.total_detections > 0 { (metrics.allowed as f64 + metrics.blocked as f64) / metrics.total_detections as f64 } else { 0.0 },
-            evidence: format!("{} HITL decisions made", metrics.allowed + metrics.blocked),
+            status: if total_actions > 0 { "compliant" } else if metrics.total_detections > 0 { "in-progress" } else { "not-started" }.into(),
+            score: if metrics.total_detections > 0 { total_actions as f64 / metrics.total_detections as f64 } else { 0.0 },
+            evidence: format!("{} human/machine decision{} made", total_actions, if total_actions == 1 { "" } else { "s" }),
         },
         ControlScore {
             name: "Documentation".into(),
@@ -130,25 +131,25 @@ fn compute_soc_2(metrics: &ComplianceMetrics) -> (Vec<ControlScore>, f64) {
             name: "Security".into(),
             status: if metrics.blocked > 0 { "compliant" } else if metrics.total_detections > 0 { "in-progress" } else { "not-started" }.into(),
             score: if metrics.total_detections > 0 { metrics.blocked as f64 / metrics.total_detections as f64 } else { 0.0 },
-            evidence: format!("{} threats blocked", metrics.blocked),
+            evidence: format!("{} threat{} blocked", metrics.blocked, if metrics.blocked == 1 { "" } else { "s" }),
         },
         ControlScore {
             name: "Availability".into(),
             status: if coverage_rate >= 0.8 { "compliant" } else if coverage_rate >= 0.5 { "in-progress" } else { "not-started" }.into(),
             score: coverage_rate,
-            evidence: format!("{} of {} agents online", metrics.online_agents, metrics.total_agents),
+            evidence: format!("{} of {} agent{} online", metrics.online_agents, metrics.total_agents, if metrics.total_agents == 1 { " is" } else { "s are" }),
         },
         ControlScore {
             name: "Confidentiality".into(),
             status: if metrics.redacted > 0 { "compliant" } else if metrics.total_detections > 0 { "in-progress" } else { "not-started" }.into(),
             score: if metrics.total_detections > 0 { metrics.redacted as f64 / metrics.total_detections as f64 } else { 0.0 },
-            evidence: format!("{} redactions applied", metrics.redacted),
+            evidence: format!("{} redaction{} applied to protect sensitive data", metrics.redacted, if metrics.redacted == 1 { " was" } else { "s were" }),
         },
         ControlScore {
             name: "Privacy".into(),
             status: if detection_rate > 0.5 { "compliant" } else if metrics.total_detections > 0 { "in-progress" } else { "not-started" }.into(),
             score: detection_rate,
-            evidence: format!("{}% detection rate", (detection_rate * 100.0) as i64),
+            evidence: format!("{} of {} detection{} received a response (blocked or redacted)", metrics.blocked + metrics.redacted, metrics.total_detections, if metrics.total_detections == 1 { "" } else { "s" }),
         },
     ];
 
@@ -166,21 +167,21 @@ fn compute_custom(metrics: &ComplianceMetrics) -> (Vec<ControlScore>, f64) {
     let controls = vec![
         ControlScore {
             name: "Detection Coverage".into(),
-            status: if metrics.total_detections > 0 { "compliant" } else { "in-progress" }.into(),
-            score: if metrics.total_detections > 0 { 1.0 } else { 0.3 },
-            evidence: format!("{} total detections", metrics.total_detections),
+            status: if metrics.total_detections > 0 { "compliant" } else { "not-started" }.into(),
+            score: if metrics.total_detections > 0 { 1.0 } else { 0.0 },
+            evidence: format!("{} detection{} flagged in this period", metrics.total_detections, if metrics.total_detections == 1 { "" } else { "s" }),
         },
         ControlScore {
             name: "Response Rate".into(),
-            status: if metrics.blocked + metrics.redacted > 0 { "compliant" } else { "not-started" }.into(),
+            status: if metrics.blocked + metrics.redacted > 0 { "compliant" } else if metrics.total_detections > 0 { "in-progress" } else { "not-started" }.into(),
             score: if metrics.total_detections > 0 { (metrics.blocked + metrics.redacted) as f64 / metrics.total_detections as f64 } else { 0.0 },
-            evidence: format!("{} blocked + {} redacted", metrics.blocked, metrics.redacted),
+            evidence: format!("{} of {} detection{} received a response", metrics.blocked + metrics.redacted, metrics.total_detections, if metrics.total_detections == 1 { "" } else { "s" }),
         },
         ControlScore {
             name: "Agent Coverage".into(),
             status: if coverage_rate >= 0.8 { "compliant" } else if coverage_rate >= 0.5 { "in-progress" } else { "not-started" }.into(),
             score: coverage_rate,
-            evidence: format!("{} of {} agents online", metrics.online_agents, metrics.total_agents),
+            evidence: format!("{} of {} agent{} online", metrics.online_agents, metrics.total_agents, if metrics.total_agents == 1 { " is" } else { "s are" }),
         },
     ];
 

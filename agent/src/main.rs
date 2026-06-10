@@ -16,8 +16,7 @@ mod audit;
 mod discovery;
 #[cfg(any(feature = "agent", feature = "enterprise"))]
 mod metrics;
-#[cfg(feature = "agent")]
-mod cache;
+
 #[cfg(feature = "enterprise")]
 mod grpc;
 #[cfg(feature = "gui")]
@@ -653,7 +652,6 @@ pub async fn run_backend(
     let client = reqwest::Client::new();
     let atr_engine = Some(crate::detector::load_atr_engine());
     let metrics = Arc::new(crate::metrics::MetricsCollector::new(1000));
-    let cache = Arc::new(std::sync::Mutex::new(crate::cache::ResponseCache::new(300, 1000)));
     sync_engine.set_metrics_collector(metrics.clone());
     let state = Arc::new(AppState {
         config: config_lock.clone(),
@@ -662,7 +660,6 @@ pub async fn run_backend(
         atr_engine,
         bound_port: bound_port.clone(),
         metrics,
-        cache,
     });
 
     let app = proxy::router(state.clone());

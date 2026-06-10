@@ -14,7 +14,7 @@ pub struct RequestMetric {
     pub total_latency_ms: u64,
     pub detection_latency_ms: u64,
     pub upstream_latency_ms: u64,
-    pub was_cached: bool,
+
     pub was_blocked: bool,
     pub was_redacted: bool,
     pub upstream_status: u16,
@@ -107,7 +107,7 @@ mod tests {
             total_latency_ms: 100,
             detection_latency_ms: 5,
             upstream_latency_ms: 95,
-            was_cached: false,
+
             was_blocked: false,
             was_redacted: false,
             upstream_status: 200,
@@ -129,7 +129,7 @@ mod tests {
             total_latency_ms: 100,
             detection_latency_ms: 5,
             upstream_latency_ms: 95,
-            was_cached: false,
+
             was_blocked: false,
             was_redacted: false,
             upstream_status: 200,
@@ -145,7 +145,7 @@ mod tests {
             total_latency_ms: 50,
             detection_latency_ms: 2,
             upstream_latency_ms: 48,
-            was_cached: false,
+
             was_blocked: false,
             was_redacted: false,
             upstream_status: 200,
@@ -170,7 +170,7 @@ mod tests {
                 total_latency_ms: 100,
                 detection_latency_ms: 5,
                 upstream_latency_ms: 95,
-                was_cached: false,
+    
                 was_blocked: false,
                 was_redacted: false,
                 upstream_status: 200,

@@ -149,8 +149,6 @@ pub fn spawn_hit_modal(
             document.getElementById('timeoutText').innerHTML = (hasRedact ? 'Auto-redact' : 'Auto-block') + ' timeout in <span id="timer" style="color:#fff">15</span>s';
             
             if (mode === 'enforced_redact') {{
-                document.getElementById('enforceBanner').style.display = 'block';
-                document.getElementById('enforceBanner').textContent = 'Admin has enforced redaction. Allow button disabled.';
                 document.getElementById('btnAllow').style.display = 'none';
             }} else if (mode === 'enforced_block') {{
                 document.getElementById('enforceBanner').style.display = 'block';
@@ -226,7 +224,7 @@ pub fn spawn_settings_window(
 ) -> (Window, WebView) {
     let window = WindowBuilder::new()
         .with_title("NodeGuarder Settings")
-        .with_inner_size(tao::dpi::LogicalSize::new(900.0, 650.0))
+        .with_inner_size(tao::dpi::LogicalSize::new(1100.0, 700.0))
         .with_decorations(false)
         .with_skip_taskbar(false)
         .with_visible(false)

@@ -28,13 +28,8 @@ An AI security gateway that intercepts LLM API calls to detect and prevent sensi
 ## Build from Source
 
 ```powershell
-# Build agent (desktop — default features include GUI, agent, semantic, enterprise)
 cd agent
 cargo build --release
-
-# Build agent (headless server / enterprise portal only)
-cd agent
-cargo build --release --no-default-features --features "enterprise"
 
 # Build MSI installer (requires WiX Toolset v3)
 .\installer\build_msi.ps1 -SourceDir .\agent\target\release

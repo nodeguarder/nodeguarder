@@ -39,17 +39,11 @@ cargo build --release
 
 The enterprise portal provides fleet-wide policy management, centralized audit, and compliance reporting.
 
-Run the agent in portal mode:
-```powershell
-nodeguarder-agent.exe --portal
-```
+To connect your agent to a portal, configure the portal URL in Settings
+(system tray → Settings → Portal).
 
-This starts a REST API on `127.0.0.1:3000` and a gRPC server on `127.0.0.1:50051`,
-backed by PostgreSQL. Requires `enterprise` feature (included in default build).
-
-### Docker Compose
-
-See `enterprise-portal/` for the full Docker Compose deployment with PostgreSQL, PgBouncer, UI, and the portal API.
+To deploy the portal server, see `enterprise-portal/` for Docker Compose
+(PostgreSQL, PgBouncer, admin UI, and the portal API backend).
 
 ## License
 

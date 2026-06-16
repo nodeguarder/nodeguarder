@@ -668,7 +668,7 @@ pub fn verify_semantics_with_model(text: &str, category: &str) -> bool {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::config;
+
 
     pub(crate) fn test_engine() -> AtEngine {
         let json = r#"[
@@ -882,7 +882,7 @@ pub(crate) mod tests {
             bind_port: 51820,
             allowlists_regex: vec![],
             enrolled_admin: None,
-            enforce_redaction: false,
+            on_detection: "permissive".to_string(),
             admin_url: None,
             identity_key_pem: None,
             admin_cert_pem: None,
@@ -902,6 +902,9 @@ pub(crate) mod tests {
             upstream_api_key: None,
             disconnect_password_hash: None,
             auto_start: true,
+            policy_version: None,
+            enforced_bearer_token: None,
+            upstream_routes: vec![],
         };
         let config = DetectionConfig::from_config(&app_config);
         assert!(!config.detect_api_keys);

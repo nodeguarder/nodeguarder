@@ -1057,7 +1057,7 @@ mod e2e_tests {
             bind_port: 51820,
             allowlists_regex: vec![],
             enrolled_admin: None,
-            enforce_redaction: true,
+            on_detection: "enforced_redact".to_string(),
             admin_url: None,
             identity_key_pem: None,
             admin_cert_pem: None,

@@ -28,9 +28,13 @@ An AI security gateway that intercepts LLM API calls to detect and prevent sensi
 ## Build from Source
 
 ```powershell
-# Build agent (full features)
+# Build agent (desktop — default features include GUI, agent, semantic, enterprise)
 cd agent
-cargo build --release --features "semantic,enterprise"
+cargo build --release
+
+# Build agent (headless server / enterprise portal only)
+cd agent
+cargo build --release --no-default-features --features "enterprise"
 
 # Build MSI installer (requires WiX Toolset v3)
 .\installer\build_msi.ps1 -SourceDir .\agent\target\release
@@ -38,7 +42,19 @@ cargo build --release --features "semantic,enterprise"
 
 ## Enterprise Portal
 
-The enterprise portal provides fleet-wide policy management, centralized audit, and compliance reporting. See `enterprise-portal/` for Docker Compose deployment.
+The enterprise portal provides fleet-wide policy management, centralized audit, and compliance reporting.
+
+Run the agent in portal mode:
+```powershell
+nodeguarder-agent.exe --portal
+```
+
+This starts a REST API on `127.0.0.1:3000` and a gRPC server on `127.0.0.1:50051`,
+backed by PostgreSQL. Requires `enterprise` feature (included in default build).
+
+### Docker Compose
+
+See `enterprise-portal/` for the full Docker Compose deployment with PostgreSQL, PgBouncer, UI, and the portal API.
 
 ## License
 

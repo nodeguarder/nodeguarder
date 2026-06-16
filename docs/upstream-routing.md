@@ -24,15 +24,24 @@ IDE prompt (model: "gpt-4-turbo")
 
 ## Route Table
 
-Each policy carries a priority-ordered list of routes. Every route has:
+### Local config (`config.toml`)
+
+Routes are evaluated in **array order** (first match wins). Each route has:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `match_pattern` | string | yes | Glob pattern matched against the `model` field |
 | `url` | string | yes | Upstream endpoint URL |
-| `api_key` | string | no | Literal API key stored in the policy |
-| `api_key_source` | string | no | Env var name (e.g., `OPENAI_API_KEY`) |
-| `priority` | int | no | Evaluation order (lower = higher priority) |
+| `api_key` | string | no | Literal key or `env:VARIABLE_NAME` |
+
+### Enterprise portal (database)
+
+Routes are stored in the `policy_upstream_routes` table with a `priority` column (`ASC` order). Portal-only fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `api_key_source` | string | Env var name (e.g., `OPENAI_API_KEY`) — portal never sees the value |
+| `priority` | int | Evaluation order, lower = higher priority |
 
 ### Glob Pattern Reference
 
@@ -43,37 +52,47 @@ Each policy carries a priority-ordered list of routes. Every route has:
 | `gpt-4?-*` | `gpt-4-turbo`, `gpt-4-32k` | `gpt-4` |
 | `claude-*-sonnet` | `claude-3-sonnet`, `claude-3-5-sonnet` | `claude-3-opus` |
 | `*llama*` | `llama3`, `codellama`, `deepseek-llama` | `gpt-4` |
-| `gpt-{3.5,4}*` | `gpt-3.5-turbo`, `gpt-4` | `claude-3` |
+
 
 ### Routing Semantics
 
-1. Routes are sorted by `priority ASC`.
-2. For each request, the agent extracts the `model` field from the JSON payload.
-3. Routes are evaluated in priority order until `glob_match(pattern, model)` returns `true`.
-4. The first matching route is used. If no route matches, the request is rejected with a 502 error.
-5. A `*` catch-all route at the lowest priority ensures every model has a fallback.
+1. The agent extracts the `model` field from the JSON payload.
+2. Routes are evaluated in order until `glob_match(pattern, model)` returns `true`:
+   - **Local config:** array order (first in file = first evaluated)
+   - **Enterprise portal:** `priority ASC` order (sorted server-side before sending to agent)
+3. The first matching route is used. If no route matches, the first route (`upstream_routes[0]`) is used as fallback.
+4. A `*` catch-all route ensures every model has a fallback.
 
 ## Credential Resolution
 
 ### Literal Keys
 The API key is stored in the policy database and transmitted to the agent in the `PolicyEnforcement` gRPC message. Suitable for shared keys (central gateway, service accounts).
 
-### Environment Variable References
-Use `env:VARIABLE_NAME` in the `api_key_source` field. The agent reads the key from `std::env::var()` at sync time:
+### Env var reference (local config)
+Use `env:VARIABLE_NAME` in the `api_key` field to read a key from the environment:
 
 ```toml
 [[proxy.upstream_routes]]
 match_pattern = "gpt-4*"
 url = "https://api.openai.com/v1"
+api_key = "env:OPENAI_API_KEY"
+```
+
+The agent reads `std::env::var("OPENAI_API_KEY")` at startup and caches the value.
+
+### Env var reference (enterprise portal)
+Use the `api_key_source` field. The portal never sees or stores the actual key value:
+
+```toml
+# Enterprise portal route config (not valid in local config.toml)
+match_pattern = "gpt-4*"
+url = "https://api.openai.com/v1"
 api_key_source = "OPENAI_API_KEY"
 ```
 
-- The portal **never sees or stores** the actual key value.
+- The resolved key is cached in the agent's local config until the next policy sync.
 - If the env var is not set on the agent machine, the route is marked invalid and skipped.
-- Resolved keys are cached in the agent's local config until the next policy sync.
-
-### Priority: Env var > Password field
-If both `api_key` and `api_key_source` are provided, `api_key_source` (env var) takes precedence. This allows admins to set a fallback literal key while preferring per-developer env vars.
+- If both `api_key` and `api_key_source` are provided, `api_key_source` takes precedence.
 
 ## Backward Compatibility
 
@@ -91,7 +110,7 @@ In local mode, routes are stored in `config.toml`:
 [[proxy.upstream_routes]]
 match_pattern = "gpt-4*"
 url = "https://api.openai.com/v1"
-api_key_source = "OPENAI_API_KEY"
+api_key = "env:OPENAI_API_KEY"
 
 [[proxy.upstream_routes]]
 match_pattern = "*"

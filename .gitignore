@@ -41,3 +41,6 @@ enterprise-portal/secrets/
 
 # Design docs (internal specs, not for public)
 nodeguarder_*.md
+
+# Website (local preview, not part of the repo)
+site/

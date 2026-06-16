@@ -54,8 +54,7 @@ Edit `~/.continue/config.json` (macOS/Linux) or
 }
 ```
 
-You can find your bearer token in the agent **Settings** window or run
-`nodeguarder-agent token` from the command line.
+You can find your bearer token in the agent **Settings** window (right-click tray icon → Settings → it's shown at the top).
 
 ---
 
@@ -159,7 +158,7 @@ or in `config.toml`:
 [[proxy.upstream_routes]]
 match_pattern = "gpt-4*"
 url = "https://api.openai.com/v1"
-api_key_source = "OPENAI_API_KEY"
+api_key = "env:OPENAI_API_KEY"
 
 [[proxy.upstream_routes]]
 match_pattern = "*"
@@ -170,9 +169,9 @@ api_key = "sk-gateway-key"
 Each route has:
 - **Match Pattern** — glob matched against the `model` field in the request
 - **URL** — upstream endpoint
-- **API Key** — literal key, or `env:VARIABLE_NAME` to read from environment
+- **API Key** — literal key, or `env:VARIABLE_NAME` to read from environment at runtime
 
-The agent evaluates routes in priority order. The **first matching route** handles the request. A `*` catch-all pattern matches any model.
+The agent evaluates routes in array order. The **first matching route** handles the request. A `*` catch-all pattern matches any model.
 
 ### Common Upstream Values
 
@@ -203,7 +202,7 @@ Microsoft Intune, Jamf, or Group Policy.
 ### Silent Agent Install (Intune)
 
 ```powershell
-msiexec /i NodeGuarder-1.0.0.msi /quiet /norestart
+msiexec /i NodeGuarder-Setup-1.0.30.msi /quiet /norestart
 ```
 
 ### Auto-Enrollment via Provisioning
@@ -214,7 +213,7 @@ to auto-enroll the agent on first launch:
 ```toml
 [provisioning]
 enrollment_code = "ng-<enrollment-code>"
-portal_url = "https://your-portal.example.com:9443"
+admin_url = "https://your-portal.example.com:9443"
 ```
 
 ### Push IDE Config (Intune)
@@ -254,17 +253,11 @@ a Proactive Remediation script targeting:
 ### 1. Check the agent is running
 
 ```powershell
-curl.exe -s http://localhost:51820/v1/health
-# → {"status":"ok","version":"1.0.0"}
-```
-
-### 2. Send a test prompt
-
-```powershell
-curl.exe -s -X POST http://localhost:51820/v1/chat/completions `
+curl.exe -s http://127.0.0.1:51820/v1/chat/completions `
   -H "Content-Type: application/json" `
   -H "Authorization: Bearer ng-<your-token>" `
   -d '{\"model\":\"gpt-4\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}]}'
+# → a streaming response if the upstream is configured, or an error
 ```
 
 ### 3. In your IDE

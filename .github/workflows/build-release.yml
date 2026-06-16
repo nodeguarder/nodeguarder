@@ -13,7 +13,7 @@ env:
 jobs:
   build-msi:
     name: Build Agent + MSI
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
       - name: Checkout code
@@ -25,7 +25,7 @@ jobs:
           targets: x86_64-pc-windows-msvc
 
       - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@v3
         with:
           workspaces: agent
           cache-on-failure: true

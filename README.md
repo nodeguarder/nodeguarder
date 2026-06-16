@@ -1,6 +1,6 @@
 # NodeGuarder Agent
 
-An AI security gateway that intercepts LLM API calls to detect and prevent sensitive data leakage. Runs as a local OpenAI-compatible proxy with regex + DeBERTa-v3 semantic analysis.
+An AI firewall that runs entirely on your machine. Inspects prompts for secrets before they leave — API keys, PII, and prompt injections — using regex rules and a DeBERTa-v3 semantic model. Acts as a local OpenAI-compatible proxy.
 
 ## Quick Start
 

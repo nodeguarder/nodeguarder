@@ -1,3 +1,7 @@
+## v1.0.29
+
+- **Fix:** Test compilation — `enforce_redaction` field removed from test mock structs (replaced with `on_detection` action mode); added missing `policy_version`, `enforced_bearer_token`, `upstream_routes` fields to detector tests; removed unused import
+
 ## v1.0.28
 
 - **Fix:** CI — pin `windows-2022` runner image (avoids `windows-latest` June 2026 redirect to untested `windows-2025-vs2026`)

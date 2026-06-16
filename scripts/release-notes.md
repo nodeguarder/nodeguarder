@@ -1,6 +1,6 @@
-## v1.0.29
+## v1.0.30
 
-- **Fix:** Test compilation — `enforce_redaction` field removed from test mock structs (replaced with `on_detection` action mode); added missing `policy_version`, `enforced_bearer_token`, `upstream_routes` fields to detector tests; removed unused import
+- **Fix:** Portal DB migration `VersionMismatch(9)` — reverted `009_request_metrics.sql` to original content (restored `was_cached` column); column drop moved to new `016_drop_was_cached.sql` to preserve checksum integrity for existing databases
 
 ## Installation
 

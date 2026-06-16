@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS agent_request_metrics (
     total_latency_ms BIGINT NOT NULL DEFAULT 0,
     detection_latency_ms BIGINT NOT NULL DEFAULT 0,
     upstream_latency_ms BIGINT NOT NULL DEFAULT 0,
-
+    was_cached BOOLEAN NOT NULL DEFAULT false,
     was_blocked BOOLEAN NOT NULL DEFAULT false,
     was_redacted BOOLEAN NOT NULL DEFAULT false,
     upstream_status INTEGER NOT NULL DEFAULT 0,

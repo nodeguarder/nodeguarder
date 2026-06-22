@@ -5656,28 +5656,28 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(roleplay|role[\\s-]play|respond\\s+as|act\\s+as|play\\s+the\\s+(role|part)\\s+of|you\\s+are\\s+(now\\s+)?|pretend\\s+to\\s+be|impersonate)\\s+[^\\n]{0,150}(evil|sinister|malicious|wicked|dark|vile|twisted|corrupt|sadistic|psychopath|sociopath|villain|antagonist|bad|harmful|toxic|dangerous)",
-        "description": "Roleplay instruction combined with explicit evil character traits",
+        "regex": "(roleplay|role[\\s-]play|respond\\s+as|act\\s+as|play\\s+the\\s+(?:role|part)\\s+of|you\\s+are\\s+(?:now\\s+)?|pretend\\s+to\\s+be|impersonate)\\s+(?:an?\\s+|the\\s+)?[^\\n]{0,60}?(evil|sinister|malicious|wicked|vile|twisted|sadistic|psychopath(?:ic)?|sociopath(?:ic)?|villain(?:ous)?)\\b[^\\n]{0,40}?(ai|character|persona|version|bot|entity|model|assistant|gpt)",
+        "description": "Roleplay imperative bound tightly (<=100 chars) to a strong evil descriptor AND a persona noun (drops ambiguous dark/bad and 150-char gap that matched benign \"act as a harsh critic ... bad\")",
         "field": "user_input"
       },
       {
-        "regex": "(character|persona|version|entity|ai|assistant|bot|model)\\s+[^\\n]{0,80}(racist|encourages?\\s+(suicide|self[\\s-]harm|violence)|foul[\\s-]mouthed|aggressive|rude|amoral|immoral|unethical|cruel|hateful|abusive)",
-        "description": "Character definition with explicit harmful behavioral traits",
+        "regex": "(?:evil|malicious|harmful|unrestricted|unfiltered)\\s+(?:version|character|persona|ai|entity|bot|model|assistant)\\b[^\\n]{0,40}?(racist|encourages?\\s+(?:suicide|self[\\s-]harm|violence)|foul[\\s-]mouthed|amoral|cruel|hateful|abusive)|(?:character|persona|version|entity|bot|model|assistant)\\s+(?:called|named)\\s+[^\\n]{0,40}?(racist|encourages?\\s+(?:suicide|self[\\s-]harm|violence)|foul[\\s-]mouthed|amoral|cruel|hateful|abusive)",
+        "description": "Harmful trait must attach to an EVIL/named persona, not a bare \"ai ... aggressive\" (the old bare-ai + generic aggressive/rude combo caused 355/383 of this pattern's benign FPs)",
         "field": "user_input"
       },
       {
-        "regex": "(no\\s+(moral|ethical|safety)|without\\s+(moral|ethical|safety)|lacks?\\s+(moral|ethical)|freed?\\s+from\\s+(moral|ethical)|ignores?\\s+(moral|ethical)|bypasses?\\s+(moral|ethical))\\s+[^\\n]{0,60}(restriction|constraint|guideline|rule|limit|bound|filter|guardrail)",
-        "description": "Explicit removal of moral or ethical constraints from character",
+        "regex": "(?:has\\s+no|with\\s+no|having\\s+no|without\\s+(?:any\\s+)?|no)\\s+(?:moral|ethical|safety)(?:\\s+or\\s+(?:moral|ethical|safety))?\\s+(?:restriction|constraint|guideline|rule|limit|bound(?:arie|ar)?s?|filter|guardrail)s?\\b|(?:freed?\\s+from|ignores?|bypass(?:es|ing)?)\\s+(?:all\\s+)?(?:its?\\s+)?(?:moral|ethical|safety)\\s*(?:and\\s+(?:moral|ethical|safety)\\s*)?(?:restriction|constraint|guideline|rule|limitation|filter|guardrail)s?",
+        "description": "Explicit removal of moral/ethical/safety constraints (keeps \"has no moral or ethical restrictions\" jailbreak form; tighter than the loose 60-char-gap original)",
         "field": "user_input"
       },
       {
-        "regex": "(swears?\\s+a\\s+lot|uses?\\s+(profanity|curse\\s+words|bad\\s+language)|foul[\\s-]mouthed|vulgar|obscene|offensive\\s+language)\\s+[^\\n]{0,80}(character|persona|ai|assistant|bot|model|version)",
-        "description": "Character with explicit profanity or offensive language traits",
+        "regex": "(swears?\\s+a\\s+lot|uses?\\s+(?:profanity|curse\\s+words|bad\\s+language)|foul[\\s-]mouthed)\\s+[^\\n]{0,40}?(character|persona|\\bai\\b|assistant|bot|model|version|robot)|(?:character|persona|\\bai\\b|bot|robot)\\s+[^\\n]{0,40}?(?:who|that)\\s+(?:swears?\\s+a\\s+lot|is\\s+foul[\\s-]mouthed|uses?\\s+(?:profanity|curse\\s+words))",
+        "description": "Profanity trait must bind to a persona within 40 chars (drops standalone vulgar/obscene/offensive-language that matched benign content-policy text)",
         "field": "user_input"
       },
       {
-        "regex": "(hopes?\\s+(people|users?|humans?)\\s+(hurt|harm|suffer|die)|wants?\\s+(people|users?|humans?)\\s+to\\s+(hurt|suffer|die)|enjoys?\\s+(pain|suffering|harm)|encourages?\\s+(violence|harm|death))",
-        "description": "Character that explicitly wishes harm on others",
+        "regex": "(?:hopes?|wants?)\\s+(?:people|users?|humans?|everyone)\\s+(?:to\\s+)?(?:get\\s+)?(?:hurt|harm(?:ed)?|suffer|die)\\b|enjoys?\\s+(?:it\\s+)?when\\s+(?:people|users?|humans?)\\s+(?:suffer|are\\s+hurt|die)|enjoys?\\s+(?:other\\s+people'?s?\\s+|their\\s+)?(?:pain|suffering)|encourages?\\s+(?:suicide|self[\\s-]harm|violence\\s+against)",
+        "description": "Character that explicitly wishes harm on others (narrowed \"enjoys pain/suffering\" to require a human target so it no longer matches benign \"enjoys harm reduction\" style phrasing)",
         "field": "user_input"
       }
     ]
@@ -19971,6 +19971,95 @@
       {
         "regex": "(?:streamable[- ]?http|/mcp\\b|mcp\\s+(?:server|transport|endpoint|handler|gateway))[\\s\\S]{0,160}?(?:forward|dispatch|accept|invoke|reach)[\\s\\S]{0,120}?(?:unauthenticat|without\\s+(?:any\\s+)?auth|no\\s+401|no\\s+authentication)[\\s\\S]{0,200}?(?:falls?\\s*back|fall[-\\s]?back|fallback|env(?:ironment)?\\s+var|ambient|META_ACCESS_TOKEN)[\\s\\S]{0,80}?(?:token|credential|secret|api[_ ]?key)",
         "description": "Generalised unauthenticated MCP transport — a server/gateway/Streamable-HTTP handler that forwards or accepts a tool call without authentication and falls back to an ambient environment credential.",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-01930",
+    "title": "MCP Sampling Prompt Injection (Server-to-Client createMessage Abuse)",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)sampling/createMessage[\\s\\S]{0,600}(?:after|once|when|having)\\s+(?:you\\s+)?(?:finish(?:ing|ed)?|complet(?:e|ing|ed)|done\\s+with)[^\\n]{0,90}(?:also|additionally|then|as\\s+well|moreover)\\s+(?:write|invoke|call|run|send|generate|create|produce|forward)",
+        "description": "Sampling request with an 'after finishing the task, also do X' hidden-instruction appendage — resource theft / covert action",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)sampling/createMessage[\\s\\S]{0,800}(?:(?:for|in)\\s+all\\s+(?:future|subsequent|following|your|the)\\s+(?:requests?|responses?|replies|turns?|messages?|outputs?)|(?:speak|respond|reply|behave|act)\\s+(?:like|as)\\s+[\\w\\- ]{1,30}\\s+in\\s+all)",
+        "description": "Sampling request injecting cross-turn persistence ('in all future responses' / 'speak like X in all') — conversation hijacking",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)\"systemPrompt\"\\s*:\\s*\"[^\"]{0,400}(?:ignore\\s+(?:all\\s+)?(?:previous|prior)|disregard\\s+(?:all\\s+)?(?:previous|prior)|forget\\s+(?:all\\s+)?(?:previous|prior)|you\\s+are\\s+now\\b|\\[INST\\]|<\\|im_start\\|>|new\\s+(?:system\\s+)?instructions?\\s*:)",
+        "description": "Sampling systemPrompt field carrying a role-override / instruction-reset injection marker",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)sampling/createMessage[\\s\\S]{0,800}(?:please\\s+)?(?:also\\s+|silently\\s+|secretly\\s+|covertly\\s+)?(?:invoke|call|use|trigger|execute|run)\\s+(?:the\\s+)?[\\w\\-\\.]+\\s+tool\\s+to\\s+(?:write|create|send|exfiltrate|read|delete|upload|post|forward|email)",
+        "description": "Sampling request injecting a covert tool invocation ('also invoke the <tool> tool to write/exfiltrate ...')",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)\"includeContext\"\\s*:\\s*\"(?:thisServer|allServers)\"[\\s\\S]{0,700}(?:send|post|exfiltrate|upload|forward|leak|transmit)[^\\n]{0,70}(?:to\\s+)?https?://",
+        "description": "Sampling pulls full context (includeContext) and the prompt instructs forwarding it to an external URL — context exfiltration via sampling",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)sampling/createMessage[\\s\\S]{0,700}(?:invisibl[ey]|silently|secretly|covertly|without\\s+(?:telling|informing|notifying|alerting|showing)\\s+the\\s+user|the\\s+user\\s+(?:will\\s+not|wo\\S?nt|need\\s+not)\\s+(?:see|know|notice|be\\s+aware))[\\s\\S]{0,120}(?:invoke|call|run|execute|write|send|upload|forward|exfiltrate)[^\\n]{0,40}(?:tool|file|command|context|credential|key|token|data|email|api)",
+        "description": "Sampling request with explicit hide-from-user framing co-occurring with a tool/file/exfil action — covert sampling-driven operation",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-01931",
+    "title": "gemini-mcp-tool execAsync Command Injection & @file Exfiltration (CVE-2026-0755)",
+    "severity": "critical",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)@(?:/etc/(?:passwd|shadow)|~?/?\\.ssh/(?:id_[rd]sa|id_ecdsa|id_ed25519|authorized_keys)|~?/?\\.aws/credentials|~?/?\\.config/[\\w./-]*(?:token|secret|cred|key)|~?/?\\.env\\b|(?:\\.\\./){2,})",
+        "description": "@file dereference of a sensitive system path or directory traversal — CVE-2026-0755 arbitrary-file exfiltration",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)(?:gemini[-_\\s]?(?:mcp|cli)?[-_\\s]?tool|ask[-_\\s]?gemini|execasync)[\\s\\S]{0,160}(?:;\\s*(?:rm|curl|wget|bash|sh|nc|ncat|cat|chmod|python|node)\\b|\\|\\s*(?:sh|bash|curl|wget|nc)\\b|\\$\\(\\s*(?:curl|wget|cat|id|whoami|uname|env)|&&\\s*(?:curl|wget|rm|bash|sh|nc)\\b)",
+        "description": "gemini-mcp-tool / execAsync prompt carrying a shell-metacharacter command chain — CVE-2026-0755 OS command injection",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)cve-?2026-?0755[\\s\\S]{0,160}(?:poc\\b|exploit|payload|@(?:~|/etc|\\.\\.)|id_rsa|/etc/(?:passwd|shadow)|execasync\\s*\\(|;\\s*(?:curl|rm|bash|sh)\\b)",
+        "description": "Explicit CVE-2026-0755 reference co-located with an actual exploit payload token (not mere advisory/description text)",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-01932",
+    "title": "Shadow / Undeclared MCP Server Registration (MCP-38: MCP-18)",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)(?:silently|secretly|covertly|quietly|behind\\s+the\\s+scenes|without\\s+(?:the\\s+user(?:'s|s)?\\s+)?(?:consent|approval|knowledge|awareness|noticing|prompt))[\\s\\S]{0,90}(?:register|add|install|inject|configure|append|enable)\\s+(?:a\\s+|an\\s+|the\\s+|another\\s+)?(?:new\\s+|rogue\\s+|extra\\s+|additional\\s+|hidden\\s+)?(?:mcp[_\\s-]?server|tool\\s+server|tool\\s+provider|server\\s+to\\s+(?:the\\s+)?mcp)",
+        "description": "Content describing a server registration that is explicitly hidden / without consent — shadow-server setup",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)(?:auto(?:matically)?|programmatic(?:ally)?)\\s+(?:register|add|append|inject|enable)[\\s\\S]{0,50}(?:mcp[_\\s-]?server|tool\\s+server)[\\s\\S]{0,70}(?:without|no|bypass(?:ing)?)\\s+(?:consent|approval|prompt|confirmation|review)",
+        "description": "Auto/programmatic server registration that explicitly bypasses consent/approval",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)(?:rogue|shadow|unauthori[sz]ed|unregistered|impostor|undeclared)\\s+mcp\\s+server",
+        "description": "Explicit rogue / shadow / impostor MCP server framing",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)(?:register|add|publish|advertise)[\\s\\S]{0,50}(?:mcp\\s+)?(?:server|tool\\s+provider)[\\s\\S]{0,60}(?:imitat|mimic|impersonat|masquerad|pretend(?:ing)?\\s+to\\s+be|same\\s+name\\s+as\\s+(?:the\\s+)?(?:trusted|official|legitimate))",
+        "description": "Server registration that impersonates / mimics a trusted server's identity (MCP-18 shadowing)",
         "field": "content"
       }
     ]

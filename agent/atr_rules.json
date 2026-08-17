@@ -11633,8 +11633,8 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?i)(?:the\\s+)?(?:first|1st|second|2nd|third|3rd|fourth|4th)\\s+(?:word|part|piece|fragment|chunk|segment|letter|character)\\s+(?:will\\s+be|is|of\\s+your\\s+(?:answer|response|output|reply))\\s+(?:[\"'`][^\"'`\\n]{1,30}[\"'`]|[A-Za-z]{1,30})",
-        "description": "Ordinal word enumeration with quoted or unquoted fragment",
+        "regex": "(?i)(?:the\\s+)?(?:first|1st|second|2nd|third|3rd|fourth|4th)\\s+(?:word|part|piece|fragment|chunk|segment|letter|character)\\s+(?:(?:of\\s+your\\s+(?:answer|response|output|reply)\\s+)?(?:will\\s+be|is)\\s+[\"'`][^\"'`\\n]{1,30}[\"'`]|of\\s+your\\s+(?:answer|response|output|reply)\\s+(?:will\\s+be|is)\\s+[A-Za-z]{1,30})",
+        "description": "Ordinal enumeration assigning a fragment. A quoted fragment stands alone; a bare word requires the 'of your answer/response' framing, because without it the same shape is ordinary prose — 'the second part is in a smaller font' names a position, it does not assign a payload.",
         "field": "user_input"
       },
       {
@@ -17697,8 +17697,8 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)\\b(repeat|write|say|output|print)\\b[^.\\n]{0,30}\\b([5-9]\\d|[1-9]\\d{2,})\\s+times\\b",
-        "description": "repeat/write/say + N>=50 times (compact form without explicit 'word' token)",
+        "regex": "(?i)\\b(repeat|write|say|output|print)\\b[^.\\n]{0,20}([\"'‘’“”][^\"'‘’“”\\n]{1,30}[\"'‘’“”])[^.\\n]{0,20}\\b([5-9]\\d|[1-9]\\d{2,})\\s+times\\b",
+        "description": "repeat/write/say + a QUOTED literal + N>=50 times (compact form, no 'word' noun). The quotes are load-bearing: without them the same verbs describe a loop — 'repeat the roll process 100 times' — instead of demanding repeated output.",
         "field": "user_input"
       },
       {
@@ -19618,17 +19618,17 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?i)\\b(?:add|integrate|include|insert|append|enhance|modify|suggest)\\b[\\s\\S]{0,80}(?:https?://|www\\.[a-z0-9-]+\\.[a-z]{2,}|[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}|[a-z0-9-]{3,}\\.(?:com|net|org|io|xyz|co|info|app))[\\s\\S]{0,80}\\b(?:your|the)\\s+(?:reply|response|answer|message)\\b",
+        "regex": "(?i)\\b(?:add|integrate|include|insert|append|enhance|modify|suggest)\\b[\\s\\S]{0,80}(?:https?://|www\\.[a-z0-9-]+\\.[a-z]{2,}|[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}|[a-z0-9-]{3,}\\.(?:com|net|org|io|xyz|co|info|app)(?:[\\s,;:!?/)\\]\"\\x27<>.]|$))[\\s\\S]{0,80}\\b(?:your|the)\\s+(?:reply|response|answer|message)\\b",
         "description": "BIPIA link-injection invariant #1",
         "field": "user_input"
       },
       {
-        "regex": "(?i)\\b(?:add|integrate|include|insert|append|enhance|modify|suggest)\\b[\\s\\S]{0,80}\\b(?:your|the)\\s+(?:reply|response|answer|message)\\b[\\s\\S]{0,90}(?:https?://|www\\.[a-z0-9-]+\\.[a-z]{2,}|[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}|[a-z0-9-]{3,}\\.(?:com|net|org|io|xyz|co|info|app))",
+        "regex": "(?i)\\b(?:add|integrate|include|insert|append|enhance|modify|suggest)\\b[\\s\\S]{0,80}\\b(?:your|the)\\s+(?:reply|response|answer|message)\\b[\\s\\S]{0,90}(?:https?://|www\\.[a-z0-9-]+\\.[a-z]{2,}|[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}|[a-z0-9-]{3,}\\.(?:com|net|org|io|xyz|co|info|app)(?:[\\s,;:!?/)\\]\"\\x27<>.]|$))",
         "description": "BIPIA link-injection invariant #2",
         "field": "user_input"
       },
       {
-        "regex": "(?i)\\bin\\s+your\\s+(?:reply|response|answer|message)\\b[\\s\\S]{0,80}\\b(?:suggest|share|visit|click|download|directing|pointing|link)\\b[\\s\\S]{0,45}(?:https?://|www\\.[a-z0-9-]+\\.[a-z]{2,}|[a-z0-9-]{3,}\\.(?:com|net|org|io|xyz|co|info|app))",
+        "regex": "(?i)\\bin\\s+your\\s+(?:reply|response|answer|message)\\b[\\s\\S]{0,80}\\b(?:suggest|share|visit|click|download|directing|pointing|link)\\b[\\s\\S]{0,45}(?:https?://|www\\.[a-z0-9-]+\\.[a-z]{2,}|[a-z0-9-]{3,}\\.(?:com|net|org|io|xyz|co|info|app)(?:[\\s,;:!?/)\\]\"\\x27<>.]|$))",
         "description": "BIPIA link-injection invariant #3",
         "field": "user_input"
       }
@@ -22990,6 +22990,29 @@
         "regex": "(?i)\\binsert\\s+(?:an?\\s+)?(?:emoji|special symbol|random symbol)\\b[\\s\\S]{0,20}\\bbetween\\s+every\\s+word\\b",
         "description": "Request to interleave symbols between every word, which breaks k-gram text watermark detection while leaving the text readable",
         "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02502",
+    "title": "Covert Remote-Script Injection into Agent-Generated Artifacts",
+    "severity": "high",
+    "category": "injection",
+    "patterns": [
+      {
+        "regex": "(?i)\\b(?:add|append|attach|insert|include|inject|embed|place|put)\\s+(?:the\\s+following\\s+|the\\s+|this\\s+|that\\s+|these\\s+|an?\\s+)?(?:[\\w.-]+\\s+){0,3}(?:(?:<\\s*script|&(?:amp;)?lt;\\s*script|<\\s*iframe|&lt;\\s*iframe)|script\\s+tag)[\\s\\S]{0,120}src\\s*=\\s*(?:[\"']|&quot;|&#34;)?\\s*(?:https?:)?//[\\s\\S]{0,140}(?:(?:\\bwithout\\s+(?:telling|informing|notifying|alerting|warning)|\\b(?:do\\s*n[o'’]?t|never)\\s+(?:ever\\s+)?(?:tell|inform|notify|alert|warn))\\s+(?:the\\s+)?(?:user|developer|human|owner|operator|maintainer|author)s?(?:\\s+(?:about|of)\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?|\\s+(?:it|this|that)\\s+(?:is|was)\\s+(?:there|present|included|added))|(?:\\b(?:do\\s*n[o'’]?t|never)\\s+(?:ever\\s+)?(?:reveal|disclose|mention|explain|report|document)\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?\\s+to|\\b(?:hide|conceal)\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?\\s+from|\\bkeep\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?\\s+(?:[\\w-]+\\s+){0,2}(?:hidden|invisible|undisclosed|secret)\\s+from)\\s+(?:the\\s+)?(?:user|developer|human|owner|operator|maintainer|author)s?\\b|\\b(?:the\\s+)?(?:user|developer|human|owner|operator|maintainer|author)s?\\s+(?:must|should|shall)\\s+(?:not|never)\\s+(?:know|notice|be\\s+told|be\\s+informed|be\\s+aware)(?:\\s+(?:about|of)\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?|\\s+(?:it|this|that)\\s+(?:is|was)\\s+(?:there|present|included|added))|\\b(?:do\\s*n[o'’]?t|never)\\s+(?:let|allow)\\s+(?:the\\s+)?(?:user|developer|human|owner|operator|maintainer|author)s?\\s+(?:know|notice|find\\s+out)(?:\\s+(?:about|of)\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?|\\s+(?:it|this|that)\\s+(?:is|was)\\s+(?:there|present|included|added)))",
+        "description": "Remote script/iframe insertion directive followed by an object-bound concealment clause",
+        "field": "user_input"
+      },
+      {
+        "regex": "(?i)(?:(?:\\bwithout\\s+(?:telling|informing|notifying|alerting|warning)|\\b(?:do\\s*n[o'’]?t|never)\\s+(?:ever\\s+)?(?:tell|inform|notify|alert|warn))\\s+(?:the\\s+)?(?:user|developer|human|owner|operator|maintainer|author)s?(?:\\s+(?:about|of)\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?|\\s+(?:it|this|that)\\s+(?:is|was)\\s+(?:there|present|included|added))|(?:\\b(?:do\\s*n[o'’]?t|never)\\s+(?:ever\\s+)?(?:reveal|disclose|mention|explain|report|document)\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?\\s+to|\\b(?:hide|conceal)\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?\\s+from|\\bkeep\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?\\s+(?:[\\w-]+\\s+){0,2}(?:hidden|invisible|undisclosed|secret)\\s+from)\\s+(?:the\\s+)?(?:user|developer|human|owner|operator|maintainer|author)s?\\b|\\b(?:the\\s+)?(?:user|developer|human|owner|operator|maintainer|author)s?\\s+(?:must|should|shall)\\s+(?:not|never)\\s+(?:know|notice|be\\s+told|be\\s+informed|be\\s+aware)(?:\\s+(?:about|of)\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?|\\s+(?:it|this|that)\\s+(?:is|was)\\s+(?:there|present|included|added))|\\b(?:do\\s*n[o'’]?t|never)\\s+(?:let|allow)\\s+(?:the\\s+)?(?:user|developer|human|owner|operator|maintainer|author)s?\\s+(?:know|notice|find\\s+out)(?:\\s+(?:about|of)\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?|\\s+(?:it|this|that)\\s+(?:is|was)\\s+(?:there|present|included|added)))[\\s\\S]{0,140}\\b(?:add|append|attach|insert|include|inject|embed|place|put)\\s+(?:the\\s+following\\s+|the\\s+|this\\s+|that\\s+|these\\s+|an?\\s+)?(?:[\\w.-]+\\s+){0,3}(?:(?:<\\s*script|&(?:amp;)?lt;\\s*script|<\\s*iframe|&lt;\\s*iframe)|script\\s+tag)[\\s\\S]{0,120}src\\s*=\\s*(?:[\"']|&quot;|&#34;)?\\s*(?:https?:)?//",
+        "description": "Object-bound concealment clause followed by a remote script/iframe insertion directive",
+        "field": "user_input"
+      },
+      {
+        "regex": "(?i)\\b(?:add|append|attach|insert|include|inject|embed|place|put)\\s+(?:the\\s+following\\s+|the\\s+|this\\s+|that\\s+|these\\s+|an?\\s+)?(?:[\\w.-]+\\s+){0,3}(?:(?:<\\s*script|&(?:amp;)?lt;\\s*script|<\\s*iframe|&lt;\\s*iframe)|script\\s+tag)[\\s\\S]{0,100}(?:(?:\\bwithout\\s+(?:telling|informing|notifying|alerting|warning)|\\b(?:do\\s*n[o'’]?t|never)\\s+(?:ever\\s+)?(?:tell|inform|notify|alert|warn))\\s+(?:the\\s+)?(?:user|developer|human|owner|operator|maintainer|author)s?(?:\\s+(?:about|of)\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?|\\s+(?:it|this|that)\\s+(?:is|was)\\s+(?:there|present|included|added))|(?:\\b(?:do\\s*n[o'’]?t|never)\\s+(?:ever\\s+)?(?:reveal|disclose|mention|explain|report|document)\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?\\s+to|\\b(?:hide|conceal)\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?\\s+from|\\bkeep\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?\\s+(?:[\\w-]+\\s+){0,2}(?:hidden|invisible|undisclosed|secret)\\s+from)\\s+(?:the\\s+)?(?:user|developer|human|owner|operator|maintainer|author)s?\\b|\\b(?:the\\s+)?(?:user|developer|human|owner|operator|maintainer|author)s?\\s+(?:must|should|shall)\\s+(?:not|never)\\s+(?:know|notice|be\\s+told|be\\s+informed|be\\s+aware)(?:\\s+(?:about|of)\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?|\\s+(?:it|this|that)\\s+(?:is|was)\\s+(?:there|present|included|added))|\\b(?:do\\s*n[o'’]?t|never)\\s+(?:let|allow)\\s+(?:the\\s+)?(?:user|developer|human|owner|operator|maintainer|author)s?\\s+(?:know|notice|find\\s+out)(?:\\s+(?:about|of)\\s+(?:this|it|that|the)(?:\\s+(?:script|tag|snippet|addition|insertion|change|edit|modification|injection|element|line|block))?|\\s+(?:it|this|that)\\s+(?:is|was)\\s+(?:there|present|included|added)))[\\s\\S]{0,100}(?:(?:<\\s*script|&(?:amp;)?lt;\\s*script|<\\s*iframe|&lt;\\s*iframe)|script\\s+tag)[\\s\\S]{0,120}src\\s*=\\s*(?:[\"']|&quot;|&#34;)?\\s*(?:https?:)?//",
+        "description": "Insertion directive, concealment clause, then the remote-sourced tag itself",
+        "field": "user_input"
       }
     ]
   }

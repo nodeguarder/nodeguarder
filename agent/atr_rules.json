@@ -2405,8 +2405,8 @@
         "field": "user_input"
       },
       {
-        "regex": "[\\u0400-\\u04FF][a-zA-Z]|[a-zA-Z][\\u0400-\\u04FF]",
-        "description": "Mixed Cyrillic and Latin characters (homoglyph attack)",
+        "regex": "[\\u0430\\u0435\\u043E\\u0440\\u0441\\u0443\\u0445][a-zA-Z]|[a-zA-Z][\\u0430\\u0435\\u043E\\u0440\\u0441\\u0443\\u0445]",
+        "description": "A Cyrillic letter that renders as Latin sitting directly against Latin text, which is the paypal-with-a- Cyrillic-a shape. The Cyrillic side is restricted to those seven letters rather than the whole block, and the reason is the engine's own normalization: foldConfusables maps exactly those homoglyphs to Latin, so \"Управляет расписанием\" folds to \"Yпpabляet pacпиcahиem\" and the fold itself manufactures the mixed-script adjacency this condition looks for. Matching the full Cyrillic block therefore fired on ordinary Russian through the folded copy while the raw copy was clean. Restricting to the homoglyph set makes the condition immune to that: after folding, any Cyrillic still present is by definition not a homoglyph.",
         "field": "user_input"
       },
       {
@@ -2415,8 +2415,8 @@
         "field": "user_input"
       },
       {
-        "regex": "[\\u0430\\u0435\\u043E\\u0440\\u0441\\u0443\\u0445]{2,}",
-        "description": "Cyrillic characters visually identical to Latin (a, e, o, p, c, y, x)",
+        "regex": "(?:^|[^\\u0400-\\u04FF])[\\u0430\\u0435\\u043E\\u0440\\u0441\\u0443\\u0445]{4,}(?:[^\\u0400-\\u04FF]|$)",
+        "description": "A whole token built only from the Cyrillic letters that render as Latin (a, e, o, p, c, y, x), so it reads as a Latin word while containing no Latin at all. The token boundary is the discriminant, not the letters: this previously matched any two of those seven adjacent, which is a property of the Russian language rather than of an attack. Measured against 36,394 published ClawHub skills, that version fired on 37 of the 39 whose description contains Cyrillic (94.9%) and on zero attacks; ordinary sentences such as \"Управляет расписанием команды\" matched. Requiring the run to fill a token and to be at least four characters takes it to 0 of 36,394, while still catching the pure-Cyrillic spoof (хоросс, раура) that condition 3 cannot see because no Latin sits beside it. Mixed spoofs like paypal-with-a-Cyrillic-a stay with condition 3. Runs of four and five do occur inside real Russian words (сохра in сохранение), which is why length alone is not the test. Same correction condition 4 already carries for CJK, applied to the script it was not applied to.",
         "field": "user_input"
       }
     ]
@@ -5860,17 +5860,17 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "[\\u{E0000}-\\u{E007F}]{3,}",
+        "regex": "[󠀀-󠁿]{3,}",
         "description": "Three or more consecutive Unicode Tag block characters (U+E0000-U+E007F)",
         "field": "tool_response"
       },
       {
-        "regex": "[\\u{E0020}-\\u{E007E}]",
+        "regex": "[󠀠-󠁾]",
         "description": "Any Tag-ASCII character (U+E0020 space to U+E007E tilde) — direct mapping from visible ASCII",
         "field": "tool_response"
       },
       {
-        "regex": "[\\u{E0001}\\u{E007F}]",
+        "regex": "[󠀁󠁿]",
         "description": "Tag language-start (U+E0001) or tag-cancel (U+E007F) control character",
         "field": "tool_response"
       },
@@ -5880,7 +5880,7 @@
         "field": "tool_response"
       },
       {
-        "regex": "[\\u{E0020}-\\u{E007E}]",
+        "regex": "[󠀠-󠁾]",
         "description": "Tag characters appearing in tool response indicate exfiltration via invisible payload",
         "field": "tool_response"
       }
@@ -7538,12 +7538,12 @@
         "field": "tool_response"
       },
       {
-        "regex": "Encoded:\\s*[\\u{1F000}-\\u{1FAFF}\\u{2702}-\\u{27BF}]{5,}",
+        "regex": "Encoded:\\s*[🀀-🫿✂-➿]{5,}",
         "description": "garak TEMPLATE 2 \"Encoded: {emoji_blob}\" — 5+ consecutive emoji immediately after \"Encoded:\" label; distinct from \"Encoded: base64...\" (which is ASCII)",
         "field": "tool_response"
       },
       {
-        "regex": "(?:secure\\s+system\\s+message|admin\\s+directive|internal\\s+instruction)[\\s\\S]{0,200}[\\u{1F000}-\\u{1FAFF}\\u{2702}-\\u{27BF}]{6,}",
+        "regex": "(?:secure\\s+system\\s+message|admin\\s+directive|internal\\s+instruction)[\\s\\S]{0,200}[🀀-🫿✂-➿]{6,}",
         "description": "garak TEMPLATE 4 framing \"secure system message\" followed within 200 chars by 6+ consecutive emoji — social-engineering wrapper paired with dense Ecoji payload",
         "field": "tool_response"
       }
@@ -7584,7 +7584,7 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "[\\u{E0100}-\\u{E017F}]{3,}",
+        "regex": "[󠄀-󠅿]{3,}",
         "description": "3+ consecutive Variation Selectors Supplement codepoints (U+E0100-U+E017F) — any 3-letter word encoded as VS; IVS legitimate use places at most 1 VS after a CJK base character, never consecutive VS runs",
         "field": "tool_response"
       },
@@ -9379,12 +9379,12 @@
         "field": "tool_response"
       },
       {
-        "regex": "(?:write\\s+(?:a\\s+)?(?:guide|tutorial|instructions?|how[\\s-]to)|decode\\s+(?:the\\s+)?emojis?\\s+(?:into\\s+)?(?:a\\s+)?phrase|derive\\s+(?:a\\s+)?(?:phrase|meaning|word)\\s+from\\s+(?:the\\s+)?emojis?)[\\s\\S]{0,200}(?:[\\u{1F1E6}-\\u{1F1FF}]){4}",
+        "regex": "(?:write\\s+(?:a\\s+)?(?:guide|tutorial|instructions?|how[\\s-]to)|decode\\s+(?:the\\s+)?emojis?\\s+(?:into\\s+)?(?:a\\s+)?phrase|derive\\s+(?:a\\s+)?(?:phrase|meaning|word)\\s+from\\s+(?:the\\s+)?emojis?)[\\s\\S]{0,200}(?:[🇦-🇿]){4}",
         "description": "Guide/decode instruction followed within 200 chars by ≥4 regional-indicator emoji (U+1F1E6–U+1F1FF) — combines the action directive with the flag-encoded payload; country flags appear singly in normal text but the ≥4 consecutive threshold catches multi-letter encoded phrases",
         "field": "tool_response"
       },
       {
-        "regex": "(?:[\\u{1F1E6}-\\u{1F1FF}]){6,}[\\s\\S]{0,300}(?:write\\s+(?:a\\s+)?(?:guide|tutorial|instructions?|how[\\s-]to)|decode|derive\\s+(?:the\\s+)?phrase)",
+        "regex": "(?:[🇦-🇿]){6,}[\\s\\S]{0,300}(?:write\\s+(?:a\\s+)?(?:guide|tutorial|instructions?|how[\\s-]to)|decode|derive\\s+(?:the\\s+)?phrase)",
         "description": "≥6 consecutive regional-indicator emoji (U+1F1E6–U+1F1FF) followed within 300 chars by a guide/decode action — covers payloads where the emoji block precedes the instruction; ≥6 threshold (3 two-codepoint flag emoji) reliably indicates an encoded multi-word phrase rather than a flag cluster in travel content",
         "field": "tool_response"
       }
@@ -10086,7 +10086,7 @@
         "field": "tool_response"
       },
       {
-        "regex": "All\\s+answers?\\s+will\\s+begin\\s+with\\s+['\\\"{\\[]\\s*🔓",
+        "regex": "All\\s+answers?\\s+will\\s+begin\\s+with\\s+['\"{\\[]\\s*🔓",
         "description": "\"All answers will begin with [/{ 🔓\" — answer-prefix unlock emoji mandate; requiring the model to prefix every response with an unlock symbol overrides safety presentation and signals a jailbreak persona is active",
         "field": "tool_response"
       }
@@ -10500,7 +10500,7 @@
         "field": "user_input"
       },
       {
-        "regex": "[\\u{E0000}-\\u{E007F}]{3,}",
+        "regex": "[󠀀-󠁿]{3,}",
         "description": "UTF tag character range 3+ consecutive; indicates Tag probe invisible encoded payload",
         "field": "user_input"
       },
@@ -11661,7 +11661,7 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "[\\u{1D400}-\\u{1D7FF}]{3,}",
+        "regex": "[𝐀-𝟿]{3,}",
         "description": "Three-or-more Mathematical Bold / Italic / Script / Sans-Serif Latin letters",
         "field": "user_input"
       },
@@ -11671,7 +11671,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)(say|output|print|emit|return|reply|respond|retype|repeat)[^\\n]{0,40}[\\u{1D400}-\\u{1D7FF}\\uFF21-\\uFF3A\\uFF41-\\uFF5A]{2,}",
+        "regex": "(?i)(say|output|print|emit|return|reply|respond|retype|repeat)[^\\n]{0,40}[𝐀-𝟿\\uFF21-\\uFF3A\\uFF41-\\uFF5A]{2,}",
         "description": "Output verb + stylised Unicode payload (lower threshold when paired)",
         "field": "user_input"
       }
@@ -20947,7 +20947,7 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "[\\u{1F1E6}-\\u{1F1FF}]{6,}",
+        "regex": "[🇦-🇿]{6,}",
         "description": "Codepoint-range detector, channel-agnostic (matches any UTF-8 text containing a run of Unicode regional-indicator symbols, e.g. chat input, file content, tool output). Purely structural — does not depend on which letters are spelled or what payload topic is targeted. A run of >=6 regional-indicator codepoints (3+ paired flag-emoji-width letters) reliably distinguishes deliberate alphabet-spelling from the 1-2 country flags seen in ordinary travel/geography text.",
         "field": "content"
       }
@@ -21025,7 +21025,7 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "^[\\u{1F000}-\\u{1FFFF}\\u{2600}-\\u{27BF}\\u{2190}-\\u{21FF}\\u{2300}-\\u{23FF}\\u{2B00}-\\u{2BFF}\\s\\u{FE0F}\\u{200D}\\u{1F3FB}-\\u{1F3FF}]+$",
+        "regex": "^[🀀-🿿☀-➿←-⇿⌀-⏿⬀-⯿\\s️‍🏻-🏿]+$",
         "description": "Whole-string anchored: message composed entirely of emoji/pictograph glyphs and whitespace, no Latin text",
         "field": "content"
       }
@@ -21090,7 +21090,7 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?:[\\u{1F300}-\\u{1FAFF}\\u{2600}-\\u{27BF}]\\s*){8,}",
+        "regex": "(?:[🌀-🫿☀-➿]\\s*){8,}",
         "description": "Dense run of 8+ consecutive emoji-class codepoints (pictographs/symbols/dingbats), a payload-flood shape used to evade text-based filters. Channel caveat: apply to untrusted-input channels (user turn / tool_response); low risk against system/developer content.",
         "field": "content"
       }
@@ -21129,7 +21129,7 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "[\\u{1F1E6}-\\u{1F1FF}]{4,}",
+        "regex": "[🇦-🇿]{4,}",
         "description": "Run of 4+ consecutive Unicode regional-indicator symbols spelling a word letter-by-letter instead of pairing into flag emoji (Discord/Twitter-culture obfuscation convention)",
         "field": "content"
       }
@@ -22989,6 +22989,34 @@
       {
         "regex": "(?i)\\binsert\\s+(?:an?\\s+)?(?:emoji|special symbol|random symbol)\\b[\\s\\S]{0,20}\\bbetween\\s+every\\s+word\\b",
         "description": "Request to interleave symbols between every word, which breaks k-gram text watermark detection while leaving the text readable",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02500",
+    "title": "Prompt-Layer Self-Replication (Agent Worm Propagation Directive)",
+    "severity": "critical",
+    "category": "injection",
+    "patterns": [
+      {
+        "regex": "(?i)\\b(?:cop(?:y|ies)|reproduce[sd]?|repeat(?:s|ed)?|re-?state[sd]?|include[sd]?|insert(?:s|ed)?|embed(?:s|ded)?|append(?:s|ed)?|inject(?:s|ed)?|paste[sd]?|propagate[sd]?|replicate[sd]?|forward(?:s|ed)?|relay(?:s|ed)?|reprint(?:s|ed)?|carry\\s+over)\\b[\\s\\S]{0,40}\\b(?:(?:this|these|the\\s+(?:above|following|preceding|entire|whole|same))\\s+(?:entire\\s+|whole\\s+|full\\s+|complete\\s+|exact\\s+|same\\s+|very\\s+|hidden\\s+)?(?:instruction|prompt|directive|payload|system[\\s-]prompt|rule[\\s-]?set|meta[\\s-]?prompt|instruction[\\s-]?block)s?(?:\\s+(?:block|set|section|text|verbatim))?|(?:this|these|the)\\s+(?:entire|whole|full|complete|exact|same|very)\\s+(?:text|message|content|block)s?)\\b[\\s\\S]{0,80}\\b(?:in|into|to|within|inside|at\\s+the\\s+(?:top|start|beginning|end|bottom)\\s+of)\\s+(?:every|each|all|any)\\s+(?:single\\s+|new\\s+|subsequent\\s+|future\\s+|other\\s+|further\\s+|generated\\s+|outgoing\\s+)?(?:response|reply|replies|output|answer|message|e-?mail|file|document|completion|generation|artifact|report|summary|commit|comment|post)s?\\b[\\s\\S]{0,200}\\b(?:self[\\s_-]?(?:replicat|propagat)\\w*|(?:prompt|payload)\\s+infection|the\\s+(?:payload|infection|worm|chain)s?\\s+(?:will\\s+|can\\s+|may\\s+|then\\s+|continues?\\s+to\\s+|keeps?\\s+)?(?:spreads?|propagates?|replicates?|spreading|propagating|replicating)\\b|the\\s+(?:prompt|instruction|directive|message|text|block)s?\\s+(?:will\\s+|can\\s+|may\\s+|then\\s+|continues?\\s+to\\s+|keeps?\\s+)?(?:spreads?|propagates?|replicates?|spreading|propagating|replicating)\\b[\\s\\S]{0,60}\\b(?:assistants?|agents?|models?|llms?|bots?|chatbots?|instances?|recipients?|readers?|inbox(?:es)?)\\b|keeps?\\s+(?:spreading|propagating|replicating)\\b|continues?\\s+to\\s+(?:spread|propagate|replicate)\\b)",
+        "description": "Propagation verb + self-referential target + universal output scope + a spread purpose whose subject is the payload (canonical Morris II ordering)",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)\\b(?:in|into|within|inside|at\\s+the\\s+(?:top|start|beginning|end|bottom)\\s+of)\\s+(?:every|each|all|any)\\s+(?:single\\s+|new\\s+|subsequent\\s+|future\\s+|other\\s+|further\\s+|generated\\s+|outgoing\\s+)?(?:response|reply|replies|output|answer|message|e-?mail|file|document|completion|generation|artifact|report|summary|commit|comment|post)s?\\b[\\s\\S]{0,60}\\b(?:cop(?:y|ies)|reproduce[sd]?|repeat(?:s|ed)?|re-?state[sd]?|include[sd]?|insert(?:s|ed)?|embed(?:s|ded)?|append(?:s|ed)?|inject(?:s|ed)?|paste[sd]?|propagate[sd]?|replicate[sd]?|reprint(?:s|ed)?|carry\\s+over)\\b[\\s\\S]{0,40}\\b(?:(?:this|these|the\\s+(?:above|following|preceding|entire|whole|same))\\s+(?:entire\\s+|whole\\s+|full\\s+|complete\\s+|exact\\s+|same\\s+|very\\s+|hidden\\s+)?(?:instruction|prompt|directive|payload|system[\\s-]prompt|rule[\\s-]?set|meta[\\s-]?prompt|instruction[\\s-]?block)s?(?:\\s+(?:block|set|section|text|verbatim))?|(?:this|these|the)\\s+(?:entire|whole|full|complete|exact|same|very)\\s+(?:text|message|content|block)s?)\\b[\\s\\S]{0,200}\\b(?:self[\\s_-]?(?:replicat|propagat)\\w*|(?:prompt|payload)\\s+infection|the\\s+(?:payload|infection|worm|chain)s?\\s+(?:will\\s+|can\\s+|may\\s+|then\\s+|continues?\\s+to\\s+|keeps?\\s+)?(?:spreads?|propagates?|replicates?|spreading|propagating|replicating)\\b|the\\s+(?:prompt|instruction|directive|message|text|block)s?\\s+(?:will\\s+|can\\s+|may\\s+|then\\s+|continues?\\s+to\\s+|keeps?\\s+)?(?:spreads?|propagates?|replicates?|spreading|propagating|replicating)\\b[\\s\\S]{0,60}\\b(?:assistants?|agents?|models?|llms?|bots?|chatbots?|instances?|recipients?|readers?|inbox(?:es)?)\\b|keeps?\\s+(?:spreading|propagating|replicating)\\b|continues?\\s+to\\s+(?:spread|propagate|replicate)\\b)",
+        "description": "Same four-part discriminator, output-scope-first ordering (\"In every reply you generate, reproduce this prompt ... so the instruction propagates to the next assistant\")",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)\\bself[\\s_-]?(?:replicat\\w*|propagat\\w*|spreading|copying|distributing)\\b[\\s\\S]{0,200}\\b(?:cop(?:y|ies)|reproduce[sd]?|repeat(?:s|ed)?|include[sd]?|insert(?:s|ed)?|embed(?:s|ded)?|append(?:s|ed)?|inject(?:s|ed)?|paste[sd]?|carry\\s+over)\\b[\\s\\S]{0,40}\\b(?:(?:this|these|the\\s+(?:above|following|preceding|entire|whole|same))\\s+(?:entire\\s+|whole\\s+|full\\s+|complete\\s+|exact\\s+|same\\s+|very\\s+|hidden\\s+)?(?:instruction|prompt|directive|payload|system[\\s-]prompt|rule[\\s-]?set|meta[\\s-]?prompt|instruction[\\s-]?block)s?(?:\\s+(?:block|set|section|text|verbatim))?|(?:this|these|the)\\s+(?:entire|whole|full|complete|exact|same|very)\\s+(?:text|message|content|block)s?)\\b[\\s\\S]{0,120}\\b(?:in|into|to|within|inside)\\s+(?:every|each|all|any|your)\\s+(?:single\\s+|new\\s+|subsequent\\s+|future\\s+|other\\s+|further\\s+|generated\\s+|outgoing\\s+)?(?:response|reply|replies|output|answer|message|e-?mail|file|document|completion|generation|artifact|report|summary|commit|comment|post)s?\\b",
+        "description": "Explicit self-replication/self-propagation framing + carry-this-instruction-into-output directive",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)\\b(?:cop(?:y|ies)|reproduce[sd]?|repeat(?:s|ed)?|re-?state[sd]?|include[sd]?|insert(?:s|ed)?|embed(?:s|ded)?|append(?:s|ed)?|inject(?:s|ed)?|paste[sd]?|reprint(?:s|ed)?)\\b[\\s\\S]{0,40}\\b(?:this|these|the\\s+(?:above|following|preceding|entire|whole|same))\\s+(?:entire\\s+|whole\\s+|full\\s+|complete\\s+|exact\\s+|same\\s+|very\\s+|hidden\\s+)?(?:instruction|prompt|directive|system[\\s-]prompt|rule[\\s-]?set|meta[\\s-]?prompt|instruction[\\s-]?block)s?(?:\\s+(?:block|set|section|text))?\\b[\\s\\S]{0,60}\\b(?:verbatim|word[\\s-]for[\\s-]word|character[\\s-]for[\\s-]character|exactly\\s+as[\\s-](?:is|written|shown|given)|unchanged|unmodified|without\\s+(?:any\\s+)?(?:modification|alteration|change|edit)s?)\\b[\\s\\S]{0,200}\\b(?:self[\\s_-]?(?:replicat|propagat)\\w*|(?:prompt|payload)\\s+infection|the\\s+(?:payload|infection|worm|chain)s?\\s+(?:will\\s+|can\\s+|may\\s+|then\\s+|continues?\\s+to\\s+|keeps?\\s+)?(?:spreads?|propagates?|replicates?|spreading|propagating|replicating)\\b|the\\s+(?:prompt|instruction|directive|message|text|block)s?\\s+(?:will\\s+|can\\s+|may\\s+|then\\s+|continues?\\s+to\\s+|keeps?\\s+)?(?:spreads?|propagates?|replicates?|spreading|propagating|replicating)\\b[\\s\\S]{0,60}\\b(?:assistants?|agents?|models?|llms?|bots?|chatbots?|instances?|recipients?|readers?|inbox(?:es)?)\\b|keeps?\\s+(?:spreading|propagating|replicating)\\b|continues?\\s+to\\s+(?:spread|propagate|replicate)\\b)",
+        "description": "Verbatim-carry of the instruction itself + onward-spread purpose, for phrasings that scope to \"your output\" rather than \"every output\"",
         "field": "content"
       }
     ]

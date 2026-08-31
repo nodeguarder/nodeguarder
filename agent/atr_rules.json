@@ -23043,5 +23043,174 @@
         "field": "user_input"
       }
     ]
+  },
+  {
+    "id": "ATR-2026-02514",
+    "title": "MCP Server Descriptor URL Field Carries an HTML/Script Breakout Payload",
+    "severity": "medium",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)[\"\\x27](?:websiteUrl|website_url|homepage|homepage_?url|documentation_?url|docs_?url|iconUrl|icon_?url|repositoryUrl|repository_?url|source_?url)\\\\{0,2}[\"\\x27]\\s*:\\s*\\\\{0,2}[\"\\x27]\\s*https?://[^\"\\x27\\n]{0,40}\\\\{1,2}[\"\\x27]\\s*[^\"\\x27\\n]{0,24}\\bon(?:error|load|click|focus|mouseover|mouseenter|animationstart|toggle)\\s*=",
+        "description": "A URL-typed descriptor field whose value continues past the URL into an inline event handler — the attribute breakout of CVE-2026-44429.\n",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)[\"\\x27](?:websiteUrl|website_url|homepage|homepage_?url|documentation_?url|docs_?url|iconUrl|icon_?url|repositoryUrl|repository_?url|source_?url)\\\\{0,2}[\"\\x27]\\s*:\\s*\\\\{0,2}[\"\\x27]\\s*(?:(?:java|vb)script:\\s*(?:[^v;\"\\x27\\s]|v[^o\"\\x27\\s]|vo[^i\"\\x27\\s]|voi[^d\"\\x27\\s]|void\\s*\\(\\s*[^0-9)\\s])|data:text/html)",
+        "description": "A script-executing scheme where the descriptor contract requires an http(s) URL.\n",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)[\"\\x27](?:websiteUrl|website_url|homepage|homepage_?url|documentation_?url|docs_?url|iconUrl|icon_?url|repositoryUrl|repository_?url|source_?url)\\\\{0,2}[\"\\x27]\\s*:\\s*\\\\{0,2}[\"\\x27]\\s*https?://[^\"\\x27\\n]{0,40}(?:<\\s*/\\s*a\\s*>|<\\s*(?:script|img|svg|iframe)\\b)",
+        "description": "A URL-typed field whose value closes the surrounding element and opens a new markup element — the tag-breakout variant of the same flaw.\n",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02525",
+    "title": "Shell Command-Word Reassembly via Parameter Expansion",
+    "severity": "high",
+    "category": "excessive_autonomy",
+    "patterns": [
+      {
+        "regex": "(?:^|[\\n;&|(])[ \\t]*(?:[\"']\\s*)?\\$\\{(?:![A-Za-z_][A-Za-z0-9_]{0,31}\\}|[A-Za-z_][A-Za-z0-9_]{0,31}(?:@[PE]|/{1,2}[^}/]{0,24}/)\\})[\"']?[ \\t]+(?:-{1,2}[A-Za-z0-9]|https?://|/[A-Za-z0-9._~-]|\\./|~/)",
+        "description": "Executable word in command position is produced by indirection, prompt/escape transformation or deletion-substitution rather than written literally, and is immediately handed a flag, URL or path argument",
+        "field": "tool_args"
+      },
+      {
+        "regex": "(?i)\\b(?:eval|\\bbash\\s+-c|\\bsh\\s+-c|\\bzsh\\s+-c|\\bksh\\s+-c)\\s+(?:[\"']\\s*)?\\$\\{(?:![A-Za-z_][A-Za-z0-9_]{0,31}\\}|[A-Za-z_][A-Za-z0-9_]{0,31}(?:@[PE]|\\^\\^?|,,?|/{1,2}[^}/]{0,24}/|:[0-9]{1,4}:[0-9]{1,4})\\})",
+        "description": "eval or an explicit shell -c is applied to a parameter expansion that rewrites its own value before execution",
+        "field": "tool_args"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02528",
+    "title": "Option-Flag Smuggling in an LLM-Controlled Tool Parameter",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)\"(?:pattern|query|search_?term|search|term|file_?name|file|member|entry|name|path|directory|dir|target|source|src|destination|dest|glob|regex|expr|domain|hostname|host)\"\\s*:\\s*\"\\s*--(?:pre-glob|pre|to-command|use-askpass|use-compress-program|compress-program|upload-pack|receive-pack|rsh|pager)\\s*=\\s*['\"]?\\s*(?:/(?:usr/)?(?:local/)?s?bin/[a-z0-9_.-]{1,40}|/(?:tmp|var/tmp|dev/shm)/|[~.]{0,2}/[^\\s'\"]{0,40}\\.(?:sh|bash|zsh|py|pl|rb|js|mjs|php)\\b|\\bsh\\b|\\bbash\\b|\\bzsh\\b|\\bdash\\b|\\bpython[23]?\\b|\\bperl\\b|\\bruby\\b|\\bnode\\b|\\benv\\b|\\bawk\\b|\\bcurl\\b|\\bwget\\b)",
+        "description": "A parameter the tool schema treats as data holds an option known to make its CLI spawn a process, and the option's value reaches an executable — a named program in a bin directory, a world-writable staging directory, a script file, or a bare interpreter name",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)\"(?:pattern|query|search_?term|search|term|file_?name|file|member|entry|name|path|directory|dir|target|source|src|destination|dest|glob|regex|expr|domain|hostname|host)\"\\s*:\\s*\"\\s*--?[a-z][a-z0-9-]{1,24}=\\s*['\"]?/(?:usr/)?(?:local/)?s?bin/[a-z0-9_.-]{1,40}",
+        "description": "A parameter the tool schema treats as data holds an option-shaped value whose payload is an absolute path to a named program in a bin directory — an executor flag wearing an operand's name",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)\"(?:pattern|name|glob|path|file_?name|search|query|term)\"\\s*:\\s*\"\\s*-exec(?:dir)?\\s+[^\"\\\\{]{1,40}\\{\\}",
+        "description": "A filename or glob parameter whose value is a complete find -exec predicate, command plus {} placeholder, turning a directory walk into command execution once per matched file",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02530",
+    "title": "Git Configuration Turned Into an Execution Hook by an Agent",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)(?:^|[^\\x60])\\bgit\\s+(?:-[a-zA-Z]\\s+\\S{1,40}\\s+|--\\S{1,24}\\s+){0,3}config\\s+(?:--\\S{1,16}\\s+){0,2}['\\\"]?(?:core\\.(?:fsmonitor|sshcommand|hookspath|askpass)|credential\\.helper|(?:diff|merge)\\.[\\w.-]{1,32}\\.(?:textconv|driver)|filter\\.[\\w.-]{1,32}\\.(?:clean|smudge|process)|uploadpack\\.packobjectshook)['\\\"]?\\s*[= ]\\s*['\\\"]?\\s*(?:(?:/private)?/(?:tmp|var/tmp|dev/shm)/|\\b(?:sh|bash|zsh|dash)\\b\\s{1,4}-c|\\b(?:python[23]?|perl|ruby|node)\\b\\s{1,4}-[ce]\\b|\\b(?:curl|wget|eval|nc)\\s)",
+        "description": "A git callback key is set to a staged payload path or an inline interpreter command, arming code that runs on the next ordinary git operation",
+        "field": "tool_args"
+      },
+      {
+        "regex": "(?i)(?:^|[^\\x60])\\bgit\\s+-c\\s+['\\\"]?(?:core\\.(?:fsmonitor|sshcommand|hookspath|askpass)|credential\\.helper|(?:diff|merge)\\.[\\w.-]{1,32}\\.(?:textconv|driver)|filter\\.[\\w.-]{1,32}\\.(?:clean|smudge))\\s*=\\s*['\\\"]?\\s*(?:(?:/private)?/(?:tmp|var/tmp|dev/shm)/|\\b(?:sh|bash|zsh|dash)\\b\\s{1,4}-c|\\b(?:python[23]?|perl|ruby|node)\\b\\s{1,4}-[ce]\\b|\\b(?:curl|wget|eval|nc)\\s)",
+        "description": "The one-shot -c form arms the same callback for the duration of a single git invocation, leaving no persistent config entry to review",
+        "field": "tool_args"
+      },
+      {
+        "regex": "(?i)\\[(?:core|filter\\s+\\\"[^\\\"\\]]{1,32}\\\"|diff\\s+\\\"[^\\\"\\]]{1,32}\\\")\\][\\s\\S]{0,120}\\b(?:fsmonitor|sshcommand|hookspath|askpass|textconv|packobjectshook|clean|smudge)\\s*=\\s*['\\\"]?\\s*(?:(?:/private)?/(?:tmp|var/tmp|dev/shm)/|\\b(?:sh|bash|zsh|dash)\\b\\s{1,4}-c|\\b(?:python[23]?|perl|ruby|node)\\b\\s{1,4}-[ce]\\b|\\b(?:curl|wget|eval|nc)\\s)",
+        "description": "A git config file is written with a callback key pointing at a staged payload or inline shell, bypassing the git config command entirely",
+        "field": "tool_args"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02531",
+    "title": "Kusto Pipeline Injection Through a Table Identifier Parameter",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)\"(?:table_?name|database_?name)\"\\s*:\\s*\"[\\w.\\-]{0,48}\\s*\\|\\s*(?:union|externaldata|evaluate|search|print|invoke|mv-expand|find|\\.show|\\.export|\\.ingest)[\\s(]",
+        "description": "A table or database identifier parameter continues with a pipe and another Kusto operator taking an operand — the CVE-2026-33980 injection point",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02542",
+    "title": "Observability Query Tool Argument Appends a Pipeline Stage and Comments Out the Rest of the Query",
+    "severity": "medium",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)\\|[ \\t]{0,4}\\b(?:fieldsAdd|fieldsRemove|fieldsKeep|fields|filterOut|filter|summarize|project|extend|search|parse|dedup|lookup|sort|limit)\\b[^\\n\"\\x27]{0,40}[ \\t]//[\"\\x27]",
+        "description": "A pipeline stage verb introduced by | whose tail is commented out by a // that runs IMMEDIATELY into a string terminator (zero spaces). The zero-space requirement is load-bearing: in a real injection the // is the last thing inside the argument value and the quote that follows is the serialization boundary, whereas an ordinary source-code line comment always puts a space after the // before any quoted word (`// \"status\" is OPEN`). The bridge also forbids quotes, so a match cannot run out of the query string and land on a trailing code comment. Both were confirmed false-positive sources: with a `[^\\n]{0,80}\\s//\\s{0,4}[\"\\x27,}\\]]` tail this fired on TypeScript, Go and Java sources that hold a DQL/KQL constant and explain a field in a trailing comment.",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)[:\\[,][ \\t]{0,4}[\"\\x27][A-Za-z0-9_.\\-]{1,40}\\\\{1,2}[\"\\x27][ \\t]{0,4}\\|[ \\t]{0,4}\\b(?:fieldsAdd|fieldsRemove|fieldsKeep|fields|filterOut|filter|summarize|project|extend|parse|dedup|lookup|sort|limit)\\b",
+        "description": "Escaped-quote breakout, anchored at the START of the argument value: a JSON structural position (: [ ,), the opening quote, a bare identifier with no spaces or operators, and then the value immediately escaping its own quote into a pipeline stage. The start anchor is what makes this safe. A bare `\\\" | verb` test is NOT a breakout signal -- once a query is serialized into a tool call EVERY quote inside it is backslash-escaped, so `host == \\\"web-01\\\" | fields` (an ordinary literal comparison in DQL/KQL/SPL) has exactly the same shape as a breakout. Requiring the value to begin as a bare identifier and escape immediately separates the two, because a legitimate query never starts that way.",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)[a-z0-9_)\\]]\\\\{1,2}[\"\\x27][ \\t]{0,4}(?:,[ \\t]{0,4}(?:to|from)[ \\t]{0,2}:|or\\b|and\\b)[ \\t]{0,4}[^\\n\"\\x27]{0,40}[ \\t]//[\"\\x27]",
+        "description": "Escaped-quote breakout into a boolean/timeframe clause (or / and / , to: / , from:) terminated by the same zero-space // string terminator -- the tautology and prefix-injection variants of the same escape. Three hardenings, each traced to a measured false positive: the bridge forbids quotes and the // must run straight into the string terminator (the loose form fired on a JS config object, `{ from: \"now()-24h\", to: \"now()\" }; // \"to\" is exclusive`), and the backslash before the quote is MANDATORY rather than optional (with it optional the or-branch fired on ordinary documentation prose offering two literal choices, `the transport to \"grpc\" or http //\"grpc\" is recommended`). Inside a serialized tool argument a real breakout must escape the quote it is breaking out of; unescaped quotes are prose.",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02557",
+    "title": "Shell Command Separator Inside a Path-Typed MCP Tool Argument",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "\"(?:[Pp]roject_?[Pp]ath|[Ff]ile_?[Pp]ath|[Dd]ir(?:ectory)?_?[Pp]ath|[Dd]irectory|[Ff]older|[Ff]ile_?[Nn]ame|[Oo]utput_?[Pp]ath|[Ii]nput_?[Pp]ath|[Ll]og_?[Ff]ile_?[Nn]ame|[Tt]arget_?[Pp]ath|[Ss]cene_?[Pp]ath|[Ss]ave_?[Pp]ath|cwd|[Ww]orkspace_?[Pp]ath)\"\\s*:\\s*\"[^\"\\n]{0,40}(?:;|&&|\\|\\||\\s\\|)\\s{0,3}(?:\\b[A-Za-z_][A-Za-z0-9_.-]{1,15}|/(?:usr/)?s?bin/[A-Za-z0-9_.-]{1,15})\\s{1,2}(?:-{1,2}[A-Za-z][A-Za-z0-9-]{0,10}(?:\\s|\"|=)|/(?:etc|tmp|var|usr|bin|sbin|opt|root|home|dev|proc)[/\\s\"])",
+        "description": "A path-typed tool argument is chained past a shell separator to a lowercase command that takes a flag or an absolute system path as its argument - argument injection into a server that concatenates the value into a shell string",
+        "field": "content"
+      },
+      {
+        "regex": "\"(?:[Pp]roject_?[Pp]ath|[Ff]ile_?[Pp]ath|[Dd]ir(?:ectory)?_?[Pp]ath|[Dd]irectory|[Ff]older|[Ff]ile_?[Nn]ame|[Oo]utput_?[Pp]ath|[Ii]nput_?[Pp]ath|[Ll]og_?[Ff]ile_?[Nn]ame|[Tt]arget_?[Pp]ath|[Ss]cene_?[Pp]ath|[Ss]ave_?[Pp]ath|cwd|[Ww]orkspace_?[Pp]ath)\"\\s*:\\s*\"[^\"\\n]{0,40}(?:;|&&|\\|\\||\\s\\|)\\s{0,3}\\b(?:whoami|uname|hostname|ifconfig|netstat|lsblk|dmesg)\\s{0,2}\"",
+        "description": "A path-typed tool argument is chained past a shell separator to a bare reconnaissance binary that terminates the value - the argumentless form of the same argument injection",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02570",
+    "title": "Wallet Secret Material (Seed Phrase / Private Key) Carried Inside an MCP Tool Payload",
+    "severity": "critical",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)\\b(?:mnemonic|seed[_ -]?phrase|recovery[_ -]?phrase|secret[_ -]?recovery[_ -]?phrase)\\b[\"'\\s]{0,4}[:=][\"'\\s]{0,4}(?:\\b[a-z]{3,8}\\b[ -]){11,23}\\b[a-z]{3,8}\\b(?:[\"'\\s,;.}\\]]|$)",
+        "description": "A mnemonic / seed-phrase / recovery-phrase label ASSIGNED a value that is BIP-39 SHAPED rather than merely wordy: a run of 12 to 24 consecutive 3-8 character words that ends cleanly at a quote, delimiter or end of value, RE2 has no lookahead, and downstream consumers compile these with RE2 and drop any rule that uses one, so the English-function-word exclusion this condition originally carried was removed. The remaining discriminators are structural rather than lexical: every word must be 3-8 lowercase letters with only a space or hyphen between them, which ordinary prose of that length almost never satisfies because it carries commas, periods or longer words. Formerly excluded words were (the, and, that, with, your, for, ...) which are absent from the BIP-39 wordlist but unavoidable in prose. An earlier form of this condition required only 8+ short lowercase words after the label and fired on ordinary sentences -- an assembler opcode table ('mnemonic: adds the source operand into the target register'), a flashcard memory aid, a wallet i18n string and an anti-phishing support macro all matched. Word-count window plus function-word veto plus clean termination is what separates a real seed phrase from a sentence.",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)\\b(?:wallet|keypair|solana|ethereum|bitcoin|signer)[_ -]?(?:private|secret)[_ -]?key\\b[\"'\\s]{0,4}[:=]\\s{0,3}[\"'][A-Za-z0-9+/]{32,}",
+        "description": "A compound wallet-scoped key name (walletSecretKey, solana_private_key) assigned a QUOTED 32+ character high-entropy base58/base64 value. The value must be quoted, which keeps the condition on structured tool payloads -- where a wallet server emitting signing material is the exfiltration -- and off bare dotenv / shell assignment lines (WALLET_PRIVATE_KEY=0xac09..., the published Anvil and Hardhat test-account keys that sit unquoted in thousands of .env.example files) which are operator configuration, not a payload crossing the agent boundary.",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)\\b(?:wallet|custody)\\b[\\w\"'\\s:{,.-]{0,30}\\b(?:private[_ -]?key|secret[_ -]?key|priv[_ -]?key)\\b[\"'\\s]{0,4}[:=]\\s{0,3}[\"'][A-Za-z0-9+/]{32,}",
+        "description": "A wallet or custody object whose nearby member is a private or secret key assigned a quoted 32+ character high-entropy value -- the nested-JSON form of the same disclosure. The anchor words are restricted to unambiguously wallet-scoped ones: bare 'signer' and 'keypair' were removed because they are generic (a JWT signer, a webhook signing secret, an SSH or TLS keypair returned once by cloud provisioning) and produced false positives on all three. Bridge capped at 30 characters of JSON-shaped text so only a directly enclosing wallet object counts.",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)\\b(?:keypair|key[_ -]?pair)\\b[\\w\"'\\s:{,.-]{0,30}\\b(?:public[_ -]?key|pubkey|address)\\b[\"'\\s:]{0,4}[\"'][A-Za-z0-9+/=]{0,48}[\"'][,\\s]{0,3}[\"']?(?:private[_ -]?key|secret[_ -]?key|priv[_ -]?key)\\b[\"'\\s]{0,4}[:=]\\s{0,3}[\"'][A-Za-z0-9+/]{32,}",
+        "description": "The nested-keypair form: a keypair object that carries a public key or address member holding a BARE base58/base64 value, immediately followed by the matching private or secret key with a quoted 32+ character value. Keypair is the wallet SDK type name (Solana's Keypair, ethers' Wallet keypair); 'signer', 'keystore' and 'custody' were dropped from this anchor because a JWT signer, a Java or TLS keystore and an age/minisign keystore all emit exactly this shape while having nothing to do with a wallet. Requiring the public sibling also excludes SSH and TLS keypairs, whose public half is 'ssh-rsa AAAA...' or a PEM block and so contains spaces or dashes outside the bare-token value class. Traversal of the public value is structural (quote, token, quote) rather than a blind bridge span. KNOWN RESIDUAL: a non-wallet Ed25519 keypair serialised as a JSON keypair object with bare base64 halves still matches -- one reason this rule stays maturity: test.",
+        "field": "content"
+      }
+    ]
   }
 ]

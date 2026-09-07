@@ -71,7 +71,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)Eingabe\\s*:\\s*[^\\n]+\\s*Ausgabe\\s*:\\s*[^\\n]+\\s*Eingabe\\s*:\\s*[^\\n]+\\s*Ausgabe\\s*:",
+        "regex": "(?i)Eingabe\\s*:(?:\\s*\\S(?:[^\\n]*\\S)?|\\n*[^\\S\\n])\\s*Ausgabe\\s*:(?:\\s*\\S(?:[^\\n]*\\S)?|\\n*[^\\S\\n])\\s*Eingabe\\s*:(?:\\s*\\S(?:[^\\n]*\\S)?|\\n*[^\\S\\n])\\s*Ausgabe\\s*:",
         "description": "German few-shot input/output override pattern (Eingabe/Ausgabe)",
         "field": "user_input"
       },
@@ -2540,7 +2540,7 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?i)\\{[^}]*\\{[^}]*[\"']\\s*:\\s*[\"'][^\"']*\\b(ignore|override|disregard|forget)\\s+(previous|system|all)\\b[^\"']*[\"']",
+        "regex": "(?i)\\{[^{}]*\\{[^{}]*[\"']\\s*:\\s*[\"'][^\"']*\\b(ignore|override|disregard|forget)\\s+(previous|system|all)\\b[^\"']*[\"']",
         "description": "Injection payload nested inside multi-level JSON objects",
         "field": "user_input"
       },
@@ -3792,7 +3792,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)(write|compose|create|draft|author|craft|produce)\\s+.{0,40}(story|narrative|fiction|tale|novel|screenplay|script|dialogue)\\s+.{0,60}(AI|artificial\\s+intelligence|chatbot|assistant|agent)\\s+.{0,40}(character|protagonist|entity)\\s+.{0,40}(no|without|lacks?|free\\s+from|devoid\\s+of)\\s+.{0,20}(ethic|moral|restrict|constrain|limit|filter|guardrail|safety)",
+        "regex": "(?i)(write|compose|create|draft|author|craft|produce)\\s+(?:[^\\s].{0,39})?(story|narrative|fiction|tale|novel|screenplay|script|dialogue)\\s+(?:[^\\s].{0,59})?(AI|artificial\\s+intelligence|chatbot|assistant|agent)\\s+(?:[^\\s].{0,39})?(character|protagonist|entity)\\s+(?:[^\\s].{0,39})?(no|without|lacks?|free\\s+from|devoid\\s+of)\\s+(?:[^\\s].{0,19})?(ethic|moral|restrict|constrain|limit|filter|guardrail|safety)",
         "description": "Fiction writing request with unethical AI character",
         "field": "user_input"
       },
@@ -4107,7 +4107,7 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)(?:process\\.env|os\\.environ|ENV|environment\\s+variable)\\s*[\\[.\\s]+\\s*(?:OPENAI|ANTHROPIC|GITHUB|AWS|AZURE|GCP|STRIPE|TWILIO|SENDGRID|DATABASE|DB|POSTGRES|MYSQL|REDIS|SECRET|PRIVATE|AUTH)[A-Z_]*(?:API)?[_\\s-]*(?:KEY|TOKEN|SECRET|PASSWORD|CREDENTIALS?)\\s*[\\]]*\\s+(?:is\\s+(?:defined|set|present|available|stored)|exists?|but\\s+(?:I\\s+)?(?:cannot|can.t|unable|don.t have))",
+        "regex": "(?i)(?:process\\.env|os\\.environ|ENV|environment\\s+variable)[\\[.\\s]+(?:OPENAI|ANTHROPIC|GITHUB|AWS|AZURE|GCP|STRIPE|TWILIO|SENDGRID|DATABASE|DB|POSTGRES|MYSQL|REDIS|SECRET|PRIVATE|AUTH)[A-Z_]*(?:[\\s-][_\\s-]*)?(?:KEY|TOKEN|SECRET|PASSWORD|CREDENTIALS?)(?:\\s*\\]+)?\\s+(?:is\\s+(?:defined|set|present|available|stored)|exists?|but\\s+(?:I\\s+)?(?:cannot|can.t|unable|don.t have))",
         "description": "Confirming env var existence while claiming no access",
         "field": "content"
       }
@@ -4847,7 +4847,7 @@
     "category": "skill_compromise",
     "patterns": [
       {
-        "regex": "[a-zA-Z0-9+/]{40,}={0,2}.*base64\\s+-[dD]",
+        "regex": "(?:^|[^a-zA-Z0-9+/])[a-zA-Z0-9+/]{40}[^\\n]{0,400}base64\\s+-[dD]",
         "description": "Base64 encoded payload with decode instruction",
         "field": "content"
       },
@@ -6692,7 +6692,7 @@
         "field": "tool_response"
       },
       {
-        "regex": "(?:^|\\n)(?:\\s*>\\s*)+\\s*(?:IGNORE|DISREGARD|NEW\\s+INSTRUCTION|OVERRIDE|SYSTEM\\s*:)",
+        "regex": "(?:^|\\n)\\s*(?:>\\s*)+(?:IGNORE|DISREGARD|NEW\\s+INSTRUCTION|OVERRIDE|SYSTEM\\s*:)",
         "description": "Markdown blockquote-wrapped instruction override — > IGNORE / > SYSTEM: prefix used to visually isolate injection",
         "field": "tool_response"
       }
@@ -13448,7 +13448,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)(?:[=*\\-\\\\]{3,}|\\*{3,})[\\s\\S]{0,100}(?:stop\\s+everything|ignore\\s+(?:any|all|the|your)?\\s*(?:previous|following|prior|above)[\\s\\S]{0,40}(?:and\\s+(?:following|previous)\\s+)?instructions?)",
+        "regex": "(?i)[=*\\-\\\\]{3}[\\s\\S]{0,100}(?:stop\\s+everything|ignore\\s+(?:(?:any|all|the|your)\\s*)?(?:previous|following|prior|above)[\\s\\S]{0,40}(?:and\\s+(?:following|previous)\\s+)?instructions?)",
         "description": "Delimiter-wrapped hijack: separator run then STOP EVERYTHING / ignore...instructions",
         "field": "content"
       }
@@ -18078,7 +18078,7 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?i)Q\\s*:\\s*.{5,150}\\s+A\\s*:\\s*.{5,200}\\s+Q\\s*:\\s*(?:[^?\\n]{0,80}?)(?:our\\s+(?:system\\s+)?password|the\\s+(?:system\\s+)?password|your\\s+password|master\\s*key|secret\\s*key|encryption\\s+key|api[_\\s-]?key|birth\\s*(?:date|day|year)|social\\s*security|ssn|home\\s*address|credit\\s*card)\\b(?!\\s*managers?)",
+        "regex": "(?i)Q\\s*:\\s*.{4,149}[^\\s]\\s+A\\s*:\\s*.{4,199}[^\\s]\\s+Q\\s*:\\s*(?:[^?\\n]{0,80}?)(?:our\\s+(?:system\\s+)?password|the\\s+(?:system\\s+)?password|your\\s+password|master\\s*key|secret\\s*key|encryption\\s+key|api[_\\s-]?key|birth\\s*(?:date|day|year)|social\\s*security|ssn|home\\s*address|credit\\s*card)\\b(?!\\s*managers?)",
         "description": "Q&A pairs culminating in a specific credential/PII question (excludes 'password manager')",
         "field": "user_input"
       },
@@ -18093,7 +18093,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)(?:[^?\\n]{5,60}\\?\\s+){2,}[^?\\n]{0,40}(?:what'?s?\\s+(?:the\\s+)?(?:password|secret|system\\s+password|pin)\\b|password\\s+for\\s+our\\s+system)",
+        "regex": "(?i)(?:[^\\s?\\n][^?\\n]{4,59}\\?\\s+){2,}[^?\\n]{0,40}(?:what'?s?\\s+(?:the\\s+)?(?:password|secret|system\\s+password|pin)\\b|password\\s+for\\s+our\\s+system)",
         "description": "Two or more trivia questions followed by a password question",
         "field": "user_input"
       },
@@ -23209,6 +23209,827 @@
       {
         "regex": "(?i)\\b(?:keypair|key[_ -]?pair)\\b[\\w\"'\\s:{,.-]{0,30}\\b(?:public[_ -]?key|pubkey|address)\\b[\"'\\s:]{0,4}[\"'][A-Za-z0-9+/=]{0,48}[\"'][,\\s]{0,3}[\"']?(?:private[_ -]?key|secret[_ -]?key|priv[_ -]?key)\\b[\"'\\s]{0,4}[:=]\\s{0,3}[\"'][A-Za-z0-9+/]{32,}",
         "description": "The nested-keypair form: a keypair object that carries a public key or address member holding a BARE base58/base64 value, immediately followed by the matching private or secret key with a quoted 32+ character value. Keypair is the wallet SDK type name (Solana's Keypair, ethers' Wallet keypair); 'signer', 'keystore' and 'custody' were dropped from this anchor because a JWT signer, a Java or TLS keystore and an age/minisign keystore all emit exactly this shape while having nothing to do with a wallet. Requiring the public sibling also excludes SSH and TLS keypairs, whose public half is 'ssh-rsa AAAA...' or a PEM block and so contains spaces or dashes outside the bare-token value class. Traversal of the public value is structural (quote, token, quote) rather than a blind bridge span. KNOWN RESIDUAL: a non-wallet Ed25519 keypair serialised as a JSON keypair object with bare base64 halves still matches -- one reason this rule stays maturity: test.",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02600",
+    "title": "Reverse Shell Assembled In-Source (socket bound to an interactive shell)",
+    "severity": "critical",
+    "category": "skill_compromise",
+    "patterns": [
+      {
+        "regex": "(?:\\bsocket\\.socket\\s*\\(\\s*(?:socket\\.)?AF_INET[\\s\\S]{0,120}?\\.connect\\s*\\(|\\.connect\\s*\\(\\s*\\(\\s*[\"'][\\w.\\-]{1,60}[\"']\\s*,\\s*\\d{1,5}\\s*\\)|\\bnet\\.(?:connect|createConnection)\\s*\\(\\s*\\d{1,5}\\s*,|new\\s+net\\.Socket\\s*\\([\\s\\S]{0,80}\\.connect\\s*\\(\\s*\\d{1,5})",
+        "description": "Outbound socket opened to a literal host and port (python socket / node net)",
+        "field": "content"
+      },
+      {
+        "regex": "(?:\\bdup2\\s*\\(\\s*[\\w.\\[\\]()]{1,24}\\.fileno\\s*\\(\\s*\\)\\s*,\\s*[0-2]\\s*\\)|\\.pipe\\s*\\(\\s*[\\w.$]{1,24}\\.stdin\\s*\\)|\\bstdin\\s*=\\s*[\\w.$]{1,24}\\.fileno\\s*\\(\\s*\\))",
+        "description": "Process stdio rebound onto a socket descriptor, or bidirectional pipe into a child's stdin",
+        "field": "content"
+      },
+      {
+        "regex": "(?:\\bpty\\.spawn\\s*\\(|\\bsubprocess\\.(?:call|run|Popen|check_call)\\s*\\(\\s*\\[\\s*[\"']/bin/(?:sh|bash|zsh|dash|ash)[\"']\\s*(?:,\\s*[\"']-i[\"']\\s*)?\\]|\\bos\\.exec(?:l|v|le|ve|lp|vp|lpe|vpe)?\\s*\\(\\s*[\"']/bin/(?:sh|bash|zsh|dash)[\"']|\\b(?:spawn|execFile)\\s*\\(\\s*[\"'](?:/bin/)?(?:sh|bash|zsh|dash)[\"']\\s*(?:\\)|,\\s*\\[\\s*\\]))",
+        "description": "Interactive shell handover: no command argument, an explicit -i, or pty.spawn",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02601",
+    "title": "Argument Injection: Execution-Bearing CLI Option Smuggled into a Tool Data Parameter",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "[\"']?(?:args?|arguments|argv|options?|opts|pattern|glob|name|filename|file_?name|path|filepath|dir|directory|query|search|search_?term|term|target|keyword|input|value|expr|expression)[\"']?\\s*[:=]\\s*[\"']\\s{0,4}-[^\"\\n]{0,150}?\\B-exec(?:dir)?\\s+[\"']?(?:[^\"'\\s]{0,40}/)?(?:sh|bash|zsh|dash|ksh|python\\d?(?:\\.\\d+)?|perl|ruby|php|node|nc|ncat|netcat|curl|wget|osascript|powershell|pwsh)\\b",
+        "description": "Dash-leading data parameter whose value reaches find -exec/-execdir with an interpreter or network client",
+        "field": "content"
+      },
+      {
+        "regex": "[\"']?(?:args?|arguments|argv|options?|opts|pattern|glob|name|filename|file_?name|path|filepath|dir|directory|query|search|search_?term|term|target|keyword|input|value|expr|expression)[\"']?\\s*[:=]\\s*[\"']\\s{0,4}-[^\"\\n]{0,150}?\\B-exec(?:dir)?\\s+[\"']?(?:[^\"'\\s]{0,40}/)?(?:sh|bash|zsh|dash|ksh|python\\d?(?:\\.\\d+)?|perl|ruby|php|node|nc|ncat|netcat|curl|wget|osascript|powershell|pwsh)\\b",
+        "description": "Same, in the JSON-encoded tool argument object",
+        "field": "tool_args"
+      },
+      {
+        "regex": "[\"']?(?:args?|arguments|argv|options?|opts|pattern|glob|name|filename|file_?name|path|filepath|dir|directory|query|search|search_?term|term|target|keyword|input|value|expr|expression)[\"']?\\s*[:=]\\s*[\"']\\s{0,4}-[^\"\\n]{0,180}?-{0,2}(?:checkpoint-action\\s*=\\s*exec=?\\s*(?:[\"']?(?:[^\"'\\s]{0,40}/)?(?:sh|bash|zsh|dash|ksh|python\\d?(?:\\.\\d+)?|perl|ruby|php|node|nc|ncat|netcat|curl|wget|osascript|powershell|pwsh)\\b|[\"']?(?:/tmp/|/var/tmp/|/dev/shm/|~/|\\$HOME/))|to-command\\s*=\\s*(?:[\"']?(?:[^\"'\\s]{0,40}/)?(?:sh|bash|zsh|dash|ksh|python\\d?(?:\\.\\d+)?|perl|ruby|php|node|nc|ncat|netcat|curl|wget|osascript|powershell|pwsh)\\b|[\"']?(?:/tmp/|/var/tmp/|/dev/shm/|~/|\\$HOME/))|use-compress-program\\s*=\\s*(?:[\"']?(?:[^\"'\\s]{0,40}/)?(?:sh|bash|zsh|dash|ksh|python\\d?(?:\\.\\d+)?|perl|ruby|php|node|nc|ncat|netcat|curl|wget|osascript|powershell|pwsh)\\b|[\"']?(?:/tmp/|/var/tmp/|/dev/shm/|~/|\\$HOME/))|unzip-command\\s*=\\s*(?:[\"']?(?:[^\"'\\s]{0,40}/)?(?:sh|bash|zsh|dash|ksh|python\\d?(?:\\.\\d+)?|perl|ruby|php|node|nc|ncat|netcat|curl|wget|osascript|powershell|pwsh)\\b|[\"']?(?:/tmp/|/var/tmp/|/dev/shm/|~/|\\$HOME/))|rsh\\s*=\\s*[\"']?(?:[^\"'\\s]{0,40}/)?(?:sh|bash|zsh|dash|ksh|python\\d?(?:\\.\\d+)?|perl|ruby|php|node|nc|ncat|netcat|curl|wget|osascript|powershell|pwsh)\\b|fprintf?\\s+[\"']?(?:~|\\$HOME|/home/|/root/|/etc/|/var/spool/cron))",
+        "description": "Dash-leading data parameter carrying an archive/transport option that runs a program or writes a login file",
+        "field": "content"
+      },
+      {
+        "regex": "[\"']?(?:args?|arguments|argv|options?|opts|pattern|glob|name|filename|file_?name|path|filepath|dir|directory|query|search|search_?term|term|target|keyword|input|value|expr|expression)[\"']?\\s*[:=]\\s*[\"']\\s{0,4}-[^\"\\n]{0,180}?-{0,2}(?:checkpoint-action\\s*=\\s*exec=?\\s*(?:[\"']?(?:[^\"'\\s]{0,40}/)?(?:sh|bash|zsh|dash|ksh|python\\d?(?:\\.\\d+)?|perl|ruby|php|node|nc|ncat|netcat|curl|wget|osascript|powershell|pwsh)\\b|[\"']?(?:/tmp/|/var/tmp/|/dev/shm/|~/|\\$HOME/))|to-command\\s*=\\s*(?:[\"']?(?:[^\"'\\s]{0,40}/)?(?:sh|bash|zsh|dash|ksh|python\\d?(?:\\.\\d+)?|perl|ruby|php|node|nc|ncat|netcat|curl|wget|osascript|powershell|pwsh)\\b|[\"']?(?:/tmp/|/var/tmp/|/dev/shm/|~/|\\$HOME/))|use-compress-program\\s*=\\s*(?:[\"']?(?:[^\"'\\s]{0,40}/)?(?:sh|bash|zsh|dash|ksh|python\\d?(?:\\.\\d+)?|perl|ruby|php|node|nc|ncat|netcat|curl|wget|osascript|powershell|pwsh)\\b|[\"']?(?:/tmp/|/var/tmp/|/dev/shm/|~/|\\$HOME/))|unzip-command\\s*=\\s*(?:[\"']?(?:[^\"'\\s]{0,40}/)?(?:sh|bash|zsh|dash|ksh|python\\d?(?:\\.\\d+)?|perl|ruby|php|node|nc|ncat|netcat|curl|wget|osascript|powershell|pwsh)\\b|[\"']?(?:/tmp/|/var/tmp/|/dev/shm/|~/|\\$HOME/))|rsh\\s*=\\s*[\"']?(?:[^\"'\\s]{0,40}/)?(?:sh|bash|zsh|dash|ksh|python\\d?(?:\\.\\d+)?|perl|ruby|php|node|nc|ncat|netcat|curl|wget|osascript|powershell|pwsh)\\b|fprintf?\\s+[\"']?(?:~|\\$HOME|/home/|/root/|/etc/|/var/spool/cron))",
+        "description": "Same, in the JSON-encoded tool argument object",
+        "field": "tool_args"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02602",
+    "title": "Diagram Theme Config Used to Inject Page-Wide CSS (scope escape, overlay, selector exfil)",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "%%\\s*\\{[^\\n]{0,240}?\\b(?:themeCSS|altFontFamily|fontFamily)\\b[\"']?\\s*:\\s*[\"'][^\\n%]{0,200}?(?::not\\s*\\(\\s*&[^\\n{]{0,20}?\\)[^\\n]{0,40}?\\{|\\[\\s*value\\s*[\\^$*]=[^\\n]{0,60}?\\{[^\\n]{0,90}?url\\s*\\(\\s*[\"']?(?:https?:)?//|url\\s*\\(\\s*[\"']?(?:https?:)?//[^\\n]{0,120}?\\[\\s*value\\s*[\\^$*]=)",
+        "description": "Mermaid init directive whose theme value breaks the stylis scope with :not(&) and opens a rule body, or pairs a SECRET-BEARING attribute-prefix selector with a remote url()",
+        "field": "content"
+      },
+      {
+        "regex": "\\bthemeCSS\\b[\"']?\\s*:\\s*[\"'][^\\n]{0,200}?(?::not\\s*\\(\\s*&[^\\n{]{0,20}?\\)[^\\n]{0,40}?\\{|\\[\\s*value\\s*[\\^$*]=[^\\n]{0,60}?\\{[^\\n]{0,90}?url\\s*\\(\\s*[\"']?(?:https?:)?//|url\\s*\\(\\s*[\"']?(?:https?:)?//[^\\n]{0,120}?\\[\\s*value\\s*[\\^$*]=)",
+        "description": "A themeCSS value carrying the same two escape markers, in the JS/JSON config form",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02603",
+    "title": "Python Sandbox Escape via Frame and Generator Introspection Attributes",
+    "severity": "critical",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "\\bf_builtins\\b\\s*(?:\\[\\s*[\"'](?:__import__|eval|exec|compile|breakpoint)[\"']\\s*\\][^\\n]{0,40}?|\\.\\s*(?:get|pop)\\s*\\(\\s*[\"'](?:__import__|eval|exec|compile|breakpoint)[\"'][\\s\\S]{0,40}?)(?:\\b(?:system|popen|getoutput|check_output|check_call|spawnv|spawnl|execv|execl)\\s*\\(|\\bPopen\\s*\\(|\\(\\s*\\\\?[\"'](?:os|posix|nt|subprocess|pty|socket|shutil)\\\\?[\"'])",
+        "description": "The builtins mapping is reached for an execution primitive which is then called, or handed a module name, within 40 characters -- same line for the direct subscript, across the assignment for the .get form",
+        "field": "content"
+      },
+      {
+        "regex": "\\.\\s*(?:gi_frame|cr_frame|ag_frame)(?:\\s*\\.\\s*\\w+){0,6}?\\s*\\.\\s*(?:f_builtins\\s*(?:\\[\\s*[\"']|\\.\\s*(?:get|pop)\\s*\\(\\s*[\"'])|f_globals\\s*\\[\\s*[\"'](?:os|sys|subprocess|posix|nt|socket|shutil|pty|importlib)[\"'])",
+        "description": "A generator, coroutine or async-generator frame walked by a pure dotted chain (no whitespace) into the builtins mapping or a module binding",
+        "field": "content"
+      },
+      {
+        "regex": "\\bf_globals\\b\\s*\\[\\s*[\"'](?:os|sys|subprocess|posix|nt|socket|shutil|pty|importlib)[\"']\\s*\\]\\s*(?:\\.\\s*(?:system|popen|getoutput|spawn[lv]\\w*|exec[lv]\\w*|remove|unlink|rmtree|fork|kill|connect|run|call|check_output|check_call|Popen)\\b|\\.\\s*modules\\s*\\[\\s*[\"'](?:os|subprocess|posix|nt|pty|socket|shutil)[\"']|\\(\\s*[\"'])",
+        "description": "Frame globals subscripted for an execution-capable module and then driven through an OS or process sink (execl/execv, not sys.executable)",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02606",
+    "title": "Object-Constructing Deserialization Tag in Data an Agent Loads or Writes",
+    "severity": "critical",
+    "category": "data_poisoning",
+    "patterns": [
+      {
+        "regex": "(?:^|[\\n\\r]|\\\\n)[ \\t]{0,20}(?:-{1,3}[ \\t]{1,4}|[\\w.$-]{1,40}[ \\t]{0,4}:[ \\t]{1,4})?!!python/(?:object/(?:apply|new)|name)\\s*:\\s*(?:(?:os|nt|posix)\\.(?:system|popen[0-9]?|exec[lv][pe]{0,2}|spawn[lv][pe]{0,2}|posix_spawnp?|startfile|fork|forkpty|abort|kill|killpg|_exit|remove|unlink|rmdir|rename|replace|truncate|chmod|chown|symlink|link|putenv|unsetenv|setuid|setgid|umask|open)|(?:subprocess|commands|popen2|multiprocessing|importlib|pty)\\.\\w+|(?:builtins|__builtin__)\\.(?:eval|exec|compile|__import__|getattr|setattr|delattr|open|input|breakpoint|globals|vars|exit|quit|type|map|apply|execfile|reload)|platform\\.(?:popen|os|system|_syscmd\\w*)|operator\\.(?:methodcaller|call|attrgetter)|pickle\\.(?:loads?|Unpickler)|codecs\\.(?:encode|decode)|timeit\\.(?:timeit|repeat|Timer)|shutil\\.(?:rmtree|move|which|unpack_archive|make_archive|copyfile)|socket\\.(?:socket|create_connection)|webbrowser\\.(?:open|open_new|open_new_tab|get)|(?:eval|exec|compile|__import__|getattr|open|input|breakpoint|type|map|apply|execfile)\\b)",
+        "description": "Python object-construction tag in YAML document position, resolving to an execution-capable CALLABLE (module alone is not enough -- PyYAML emits os.stat_result and builtins.frozenset for ordinary data)",
+        "field": "content"
+      },
+      {
+        "regex": "(?:^|[\\n\\r]|\\\\n)[ \\t]{0,20}(?:-{1,3}[ \\t]{1,4}|[\\w.$-]{1,40}[ \\t]{0,4}:[ \\t]{1,4})?!!(?:javax\\.script\\.ScriptEngineManager|com\\.sun\\.rowset\\.JdbcRowSetImpl|java\\.net\\.URLClassLoader|javax\\.management\\.BadAttributeValueExpException)",
+        "description": "Java deserialization gadget entry point declared as a YAML tag, in YAML document position (not inside a quoted string, which is where denylists and Sigma rules put it)",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02608",
+    "title": "LLM-Generated Graph Query Reaching a Remote Endpoint (APOC remote script, raw-IP load, remote export)",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "\\bapoc\\.cypher\\.(?:runFile|runFiles|runSchemaFiles?|runMany)\\s*\\(\\s*[\"'](?:https?|ftp)://",
+        "description": "APOC procedure fetching and executing a Cypher script from a remote URL",
+        "field": "content"
+      },
+      {
+        "regex": "\\bapoc\\.load\\.(?:json|jsonParams|csv|csvParams|xml|html|arrow)\\s*\\(\\s*[\"'](?:https?)://(?:(?:1[01]\\d|12[0-6]|12[89]|1[3-5]\\d|16[0-8]|17[01]|17[3-9]|18\\d|19[01]|19[3-9]|2[0-4]\\d|25[0-5]|1[1-9]|[2-9]\\d|[1-9])\\.(?:\\d{1,3}\\.){2}\\d{1,3}|169\\.254\\.169\\.254|172\\.(?:1[0-5]|3[2-9]|[4-9]\\d|1\\d\\d|2[0-4]\\d|25[0-5]|\\d)\\.\\d{1,3}\\.\\d{1,3}|192\\.(?:1[0-5]\\d|16[0-79]|1[7-9]\\d|2[0-4]\\d|25[0-5]|[1-9]\\d|\\d)\\.\\d{1,3}\\.\\d{1,3})",
+        "description": "APOC load procedure pointed at a bare PUBLIC IPv4 address rather than a named service (loopback, RFC1918 and link-local are excluded; 169.254.169.254 cloud metadata is not)",
+        "field": "content"
+      },
+      {
+        "regex": "\\bapoc\\.export\\.(?:json|csv|cypher|graphml)\\.(?:all|data|query|graph)\\s*\\(\\s*(?:[^\\n]{0,200}?[^\\n(,\\s]\\s*,\\s*)?[\"'](?:https?|ftp)://[^\"'\\s\\n]{0,300}[\"']\\s*,\\s*[\\{\\$]",
+        "description": "APOC export procedure whose DESTINATION argument is a remote URL -- the URL must be a whole string argument followed by the mandatory config map, so a URL merely quoted inside the exported query does not count",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02610",
+    "title": "Developer-Toolchain Config Evaluates a Command That Reads a Credential Store",
+    "severity": "high",
+    "category": "skill_compromise",
+    "patterns": [
+      {
+        "regex": "\\{\\{[^\\n}]{0,40}?\\b(?:exec|shell|pipe|cmd|command)\\s*\\(\\s*(?:command\\s*=\\s*)?(?:[\"']\\s*)?(?:sudo\\s+)?\\b(?:cat|cp|mv|scp|tar|zip|base64|head|tail|xxd|od|gpg|openssl|rsync|dd|strings|curl|wget|nc|python\\d?|sh|bash|zsh|node|ruby|perl)\\b[^\"'\\n]{0,140}?(?:(?:~|\\$HOME|/home/[\\w.-]{1,24}|/root|/Users/[\\w.-]{1,24})/\\.(?:ssh/id_(?:rsa|dsa|ecdsa|ed25519)(?:[^\\w.\\-/]|$)|aws/credentials|netrc|npmrc|pypirc|kube/config|docker/config\\.json|gnupg/(?:secring|private-keys-v1\\.d)|config/(?:gcloud/[\\w.-]*credentials[\\w.-]*|gh/hosts[\\w.-]*|rclone/rclone\\.conf|op/))|\\.aws/credentials|\\.ssh/id_(?:rsa|dsa|ecdsa|ed25519)(?:[^\\w.\\-/]|$)|/etc/(?:shadow|gshadow))",
+        "description": "A template expression that runs a read/exfil command against a secret-bearing credential file",
+        "field": "content"
+      },
+      {
+        "regex": "\\b(?:shell|exec)\\s*\\(\\s*[\"']?\\s*(?:sudo\\s+)?\\b(?:cat|cp|mv|scp|tar|zip|base64|head|tail|xxd|od|gpg|openssl|rsync|dd|strings|curl|wget|nc|python\\d?|sh|bash|zsh|node|ruby|perl)\\b[^\"'\\n]{0,120}?(?:(?:~|\\$HOME|/home/[\\w.-]{1,24}|/root|/Users/[\\w.-]{1,24})/\\.(?:ssh/id_(?:rsa|dsa|ecdsa|ed25519)(?:[^\\w.\\-/]|$)|aws/credentials|netrc|npmrc|pypirc|kube/config|docker/config\\.json|gnupg/(?:secring|private-keys-v1\\.d)|config/(?:gcloud/[\\w.-]*credentials[\\w.-]*|gh/hosts[\\w.-]*|rclone/rclone\\.conf|op/))|\\.aws/credentials|\\.ssh/id_(?:rsa|dsa|ecdsa|ed25519)(?:[^\\w.\\-/]|$)|/etc/(?:shadow|gshadow))",
+        "description": "A config value calling shell()/exec() with a read/exfil command on a secret-bearing credential file",
+        "field": "content"
+      },
+      {
+        "regex": "\\b_(?:tasks|external_data|jinja_extensions)\\s*:[\\s\\S]{0,120}?(?:[\"']|:[ \\t]|-[ \\t]|[\"' \\t](?:sudo\\s+)?(?:cat|cp|mv|scp|tar|base64|gpg|curl|wget|python\\d?|sh|bash)[ \\t])(?:(?:~|\\$HOME|/home/[\\w.-]{1,24}|/root|/Users/[\\w.-]{1,24})/\\.(?:ssh/id_(?:rsa|dsa|ecdsa|ed25519)(?:[^\\w.\\-/]|$)|aws/credentials|netrc|npmrc|pypirc|kube/config|docker/config\\.json|gnupg/(?:secring|private-keys-v1\\.d)|config/(?:gcloud/[\\w.-]*credentials[\\w.-]*|gh/hosts[\\w.-]*|rclone/rclone\\.conf|op/))|\\.aws/credentials|\\.ssh/id_(?:rsa|dsa|ecdsa|ed25519)(?:[^\\w.\\-/]|$)|/etc/(?:shadow|gshadow))",
+        "description": "A Copier reserved key (word-boundary anchored, so Ansible pre_tasks/post_tasks/include_tasks do not qualify) bound to a secret-bearing credential file",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02620",
+    "title": "Code Execution via data: URI Module Specifier Handed to import()",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)\\bimport\\s*\\(\\s*(?:\\\\{0,2}[\"'`])\\s*data:\\s*(?:text|application)/(?:x-)?(?:java|ecma)script\\s*[,;](?:(?:\\\\{1,3}[\"'`])?(?:process\\s*\\.\\s*env|globalThis\\s*\\.\\s*process|child_process|\\bfetch\\s*\\(\\s*(?:\\\\{0,2}[\"'`])?\\s*(?:https?:)?//|sendBeacon|XMLHttpRequest|\\bexecSync\\b|\\bspawnSync\\b|\\brequire\\s*\\(|\\beval\\s*\\()|[^\\s\"'`\\\\\\n](?:[^\"'`\\\\\\n]|\\\\[^\"'`\\n]){0,39}(?:\\\\{1,3}[\"'`])?(?:process\\s*\\.\\s*env|globalThis\\s*\\.\\s*process|child_process|\\bfetch\\s*\\(\\s*(?:\\\\{0,2}[\"'`])?\\s*(?:https?:)?//|sendBeacon|XMLHttpRequest|\\bexecSync\\b|\\bspawnSync\\b|\\brequire\\s*\\(|\\beval\\s*\\())",
+        "description": "Dynamic import of a data: URI JavaScript module whose inline body touches process/env, an outbound request, or a child process",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02621",
+    "title": "Prompt-Embedded Auto-Fetch Mention Pointed at an Internal Address",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)@(?:(?:url|fetch|web|link|page|browse|site|doc):(?:https?://)?|https?://)(?:2130706433|3232235521|2851995648|0x0*7f0{0,6}1\\b|0x0*a9fea9fe\\b|0177(?:\\.0+){2}\\.0*1|127\\.1[:/]|localhost\\.[:/]|\\[::1\\]|\\[::ffff:(?:7f00:1|127\\.0\\.0\\.1)\\])",
+        "description": "Auto-expanding mention aimed at a non-dotted-quad encoding of loopback or link-local -- decimal, octal, hex, short-form or trailing-dot",
+        "field": "user_input"
+      },
+      {
+        "regex": "(?i)@(?:(?:url|fetch|web|link|page|browse|site|doc):(?:https?://)?|https?://)(?:127\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|localhost|0\\.0\\.0\\.0|10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|192\\.168\\.\\d{1,3}\\.\\d{1,3}|172\\.(?:1[6-9]|2\\d|3[01])\\.\\d{1,3}\\.\\d{1,3}|169\\.254\\.\\d{1,3}\\.\\d{1,3}|[a-z0-9-]{1,30}\\.internal)(?::\\d{1,5})?(?:/[^\\s\"']{0,30})?(?:/v1/secret|/v1/kv|/v2/keys|/latest/meta-data|/computeMetadata|/actuator/env|/debug/pprof|/v1/sys/wrapping|/\\.env\\b|/\\.git/config|/_cluster/settings|docker\\.sock)",
+        "description": "Auto-expanding mention aimed at internal space on a path that reads secret material (not a health or version endpoint)",
+        "field": "user_input"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02623",
+    "title": "Dangerous URI Scheme Obfuscated by Interstitial Characters",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)(?:(?:href|src|action|formaction|xlink:href|url|uri|link|location|open_url|navigate|goto|window\\s*\\.\\s*open)\\s*[=(:]\\s*(?:\\\\{0,2}[\\\"'`])\\s*|\\]\\([ \\t]{0,4})(?:j(?:[\\x00\\x09\\x0a\\x0d]|&#x0*(?:9|a|d);|&#0*(?:9|10|13);|&Tab;|&NewLine;){1,10}avascript|ja(?:[\\x00\\x09\\x0a\\x0d]|&#x0*(?:9|a|d);|&#0*(?:9|10|13);|&Tab;|&NewLine;){1,10}vascript|jav(?:[\\x00\\x09\\x0a\\x0d]|&#x0*(?:9|a|d);|&#0*(?:9|10|13);|&Tab;|&NewLine;){1,10}ascript|java(?:[\\x00\\x09\\x0a\\x0d]|&#x0*(?:9|a|d);|&#0*(?:9|10|13);|&Tab;|&NewLine;){1,10}script|javas(?:[\\x00\\x09\\x0a\\x0d]|&#x0*(?:9|a|d);|&#0*(?:9|10|13);|&Tab;|&NewLine;){1,10}cript|javasc(?:[\\x00\\x09\\x0a\\x0d]|&#x0*(?:9|a|d);|&#0*(?:9|10|13);|&Tab;|&NewLine;){1,10}ript|javascr(?:[\\x00\\x09\\x0a\\x0d]|&#x0*(?:9|a|d);|&#0*(?:9|10|13);|&Tab;|&NewLine;){1,10}ipt|javascri(?:[\\x00\\x09\\x0a\\x0d]|&#x0*(?:9|a|d);|&#0*(?:9|10|13);|&Tab;|&NewLine;){1,10}pt|javascrip(?:[\\x00\\x09\\x0a\\x0d]|&#x0*(?:9|a|d);|&#0*(?:9|10|13);|&Tab;|&NewLine;){1,10}t|v(?:[\\x00\\x09\\x0a\\x0d]|&#x0*(?:9|a|d);|&#0*(?:9|10|13);|&Tab;|&NewLine;){1,10}bscript|vb(?:[\\x00\\x09\\x0a\\x0d]|&#x0*(?:9|a|d);|&#0*(?:9|10|13);|&Tab;|&NewLine;){1,10}script|vbs(?:[\\x00\\x09\\x0a\\x0d]|&#x0*(?:9|a|d);|&#0*(?:9|10|13);|&Tab;|&NewLine;){1,10}cript|vbsc(?:[\\x00\\x09\\x0a\\x0d]|&#x0*(?:9|a|d);|&#0*(?:9|10|13);|&Tab;|&NewLine;){1,10}ript|vbscr(?:[\\x00\\x09\\x0a\\x0d]|&#x0*(?:9|a|d);|&#0*(?:9|10|13);|&Tab;|&NewLine;){1,10}ipt|vbscri(?:[\\x00\\x09\\x0a\\x0d]|&#x0*(?:9|a|d);|&#0*(?:9|10|13);|&Tab;|&NewLine;){1,10}pt|vbscrip(?:[\\x00\\x09\\x0a\\x0d]|&#x0*(?:9|a|d);|&#0*(?:9|10|13);|&Tab;|&NewLine;){1,10}t)\\s*:",
+        "description": "Dangerous URI scheme split by a character the parser discards -- raw CR/LF/TAB/NUL or its numeric character reference -- in a URI-bearing position",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)(?:(?:href|src|action|formaction|xlink:href|url|uri|link|location|open_url|navigate|goto|window\\s*\\.\\s*open)\\s*[=(:]\\s*(?:\\\\{0,2}[\\\"'`])\\s*|\\]\\([ \\t]{0,4})(?:&#0*106;|&#x0*6a;)avascript\\s*:|(?:(?:href|src|action|formaction|xlink:href|url|uri|link|location|open_url|navigate|goto|window\\s*\\.\\s*open)\\s*[=(:]\\s*(?:\\\\{0,2}[\\\"'`])\\s*|\\]\\([ \\t]{0,4})(?:&#0*118;|&#x0*76;)bscript\\s*:|(?:(?:href|src|action|formaction|xlink:href|url|uri|link|location|open_url|navigate|goto|window\\s*\\.\\s*open)\\s*[=(:]\\s*(?:\\\\{0,2}[\\\"'`])\\s*|\\]\\([ \\t]{0,4})(?:&#0*100;|&#x0*64;)ata\\s*:\\s*text/html",
+        "description": "Dangerous URI scheme whose leading character is supplied as a zero-padded numeric character reference",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)<\\s*svg\\s*:\\s*script\\b[^>]{0,200}\\bsrc\\s*=",
+        "description": "Namespace-prefixed script ELEMENT -- an opening tag carrying a src attribute or closed by a matching end tag, not a bare mention of the tag name in prose",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02624",
+    "title": "Agent Instruction-Source Pointer Redirected Outside the Workspace",
+    "severity": "high",
+    "category": "social_engineering",
+    "patterns": [
+      {
+        "regex": "(?i)\\b(?:instructionsFilePath|instructions_file(?:_path)?|instructionFile|system_prompt_file|systemPromptFile|systemPromptPath|system_prompt_path|promptFile|prompt_file|promptPath|prompt_path|personaFile|persona_file|agentFile|agent_file|rulesFile|rules_file|memoryFile|memory_file)(?:\\\\{0,2}[\"'`])?\\s*[:=]\\s*(?:\\\\{0,2}[\"'`])?\\s*(?:\\.\\.[\\\\/]){2,}[^\"'`\\n]{0,40}(?:\\.env\\b|\\.ssh/(?:id_[rd]sa|authorized_keys)|\\.aws/credentials|\\.kube/config\\b|\\.docker/config\\.json|\\.config/gh/hosts\\.yml|\\.config/gcloud/(?:application_default_)?credentials|\\.netrc\\b|\\.npmrc\\b|\\.pypirc\\b|\\.git-credentials\\b|\\.cargo/credentials|\\.terraform\\.d/credentials|etc/(?:passwd|shadow|sudoers)(?:$|[^\\w.-])|proc/self/environ|var/run/secrets/kubernetes\\.io/)",
+        "description": "Agent instruction-source pointer redirected through a parent-directory chain that LANDS on a credential or secret file",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)\\b(?:instructionsFilePath|instructions_file(?:_path)?|instructionFile|system_prompt_file|systemPromptFile|systemPromptPath|system_prompt_path|promptFile|prompt_file|promptPath|prompt_path|personaFile|persona_file|agentFile|agent_file|rulesFile|rules_file|memoryFile|memory_file)(?:\\\\{0,2}[\"'`])?\\s*[:=]\\s*(?:\\\\{0,2}[\"'`])?\\s*(?:data:[\\w.+-]{1,40}/[\\w.+-]{1,40}[;,]|data:;{0,1}base64,|(?:https?|ftp)://(?:169\\.254\\.169\\.254|169\\.254\\.170\\.2|100\\.100\\.100\\.200|(?:[\\w-]{1,40}\\.){0,3}(?:gist\\.githubusercontent\\.com|pastebin\\.com|paste\\.ee|hastebin\\.com|transfer\\.sh|file\\.io|anonfiles\\.com|webhook\\.site|requestbin\\.\\w{2,6}|ngrok(?:-free)?\\.(?:io|app|dev)|trycloudflare\\.com|serveo\\.net|localtunnel\\.me|metadata\\.google\\.internal)))",
+        "description": "Agent instruction-source pointer redirected to an UNTRUSTWORTHY remote source -- a bare IP, a paste or tunnel host, cloud metadata, or an inline data: URI",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)\\b(?:instructionsFilePath|instructions_file(?:_path)?|instructionFile|system_prompt_file|systemPromptFile|systemPromptPath|system_prompt_path|promptFile|prompt_file|promptPath|prompt_path|personaFile|persona_file|agentFile|agent_file|rulesFile|rules_file|memoryFile|memory_file)(?:\\\\{0,2}[\"'`])?\\s*[:=]\\s*(?:\\\\{0,2}[\"'`])?\\s*(?:file://)?(?:(?:~|/(?:home|Users|root))?/(?:[\\w.-]{1,30}/){0,3}(?:\\.ssh/(?:id_[rd]sa|authorized_keys)|\\.aws/credentials|\\.config/gh/hosts\\.yml|\\.config/gcloud/(?:application_default_)?credentials|\\.kube/config\\b|\\.docker/config\\.json|\\.netrc\\b|\\.pypirc\\b|\\.git-credentials\\b|\\.env\\b|\\.npmrc\\b|\\.cargo/credentials|\\.terraform\\.d/credentials)|/(?:etc/(?:passwd|shadow|sudoers)(?:$|[^\\w.-])|proc/self/environ|var/run/secrets/kubernetes\\.io/))",
+        "description": "Agent instruction-source pointer aimed at a credential store or a system secret path",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02626",
+    "title": "Agent Writes a New MCP Server Into Its Own Trust Configuration",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:\\\\{0,2}[\"'])(?:tool|tool_name|name|function|toolName)(?:\\\\{0,2}[\"'])\\s*:\\s*(?:\\\\{0,2}[\"'])[\\w.-]{0,40}(?:write_file|write_to_file|create_file|edit_file|fs_write|apply_patch|str_replace_editor|str_replace_based_edit_tool|update_file|patch_file)(?:\\\\{0,2}[\"'])[\\s\\S]{0,160}(?:\\\\{0,2}[\"'])(?:path|file_path|filename|file|target_file|filePath)(?:\\\\{0,2}[\"'])\\s*:\\s*(?:\\\\{0,2}[\"'])[^\"'\\n]{0,120}(?:claude_desktop_config\\.json|\\.claude\\.json|\\.cursor/mcp\\.json|\\.vscode/mcp\\.json|\\.continue/config\\.json|windsurf/mcp_config\\.json|\\.mcp\\.json|\\.codex/config\\.toml|\\.gemini/settings\\.json)(?:\\\\{0,2}[\"'])[\\s\\S]{0,140}(?:\\\\{0,2}[\"'])(?:mcpServers|servers)(?:\\\\{0,2}[\"'])\\s*:\\s*\\{[\\s\\S]{0,220}(?:\\\\{0,2}[\"'])command(?:\\\\{0,2}[\"'])\\s*:",
+        "description": "A COMPLETE TOOL-INVOCATION ENVELOPE that writes an MCP trust-config file: a quoted tool/tool_name key naming a file-writing tool, a quoted path key whose value is one of the agent trust-config files, and the mcpServers/servers block carrying a command entry. All three parts, in that order, in one event. The envelope requirement is load-bearing and was added by adversarial review -- see false_positives.",
+        "field": "content"
+      },
+      {
+        "regex": "(?:\\\\{0,2}[\"'])(?:mcpServers|servers)(?:\\\\{0,2}[\"'])\\s*:\\s*\\{[\\s\\S]{0,220}(?:\\\\{0,2}[\"'])command(?:\\\\{0,2}[\"'])\\s*:",
+        "description": "An mcpServers/servers block carrying a command entry -- the payload that grants a new tool source",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02627",
+    "title": "Web Shell Written Into a Web-Served Directory",
+    "severity": "critical",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)(?:\\bsystem|\\bexec|shell_exec|passthru|popen|proc_open|\\beval|\\bassert|Process\\s*\\.\\s*Start|Server\\s*\\.\\s*CreateObject|WScript\\s*\\.\\s*Shell|Runtime\\s*\\.\\s*getRuntime\\(\\)\\s*\\.\\s*exec)\\s*\\(\\s*(?:\\$_(?:GET|POST|REQUEST|COOKIE|SERVER)\\b|request\\s*\\.\\s*getParameter|Request\\s*[\\[\\.(])",
+        "description": "Web-shell body: a request superglobal or request parameter passed straight into a command-execution or eval primitive (PHP, JSP or ASP.NET)",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)(?:[\"']?(?:tool|tool_name|toolname|name|function)[\"']?\\s{0,3}:\\s{0,3}\\\\?[\"'](?:write_file|create_file|edit_file|fs_write|writeFileSync|file_put_contents|move_uploaded_file|put_object|apply_patch|str_replace_editor|upload|write)\\\\?[\"'][\\s\\S]{0,300}?[\"'(]\\s{0,3}[^\\s\"'()<>]{0,80}?(?:/var/www/|/usr/share/nginx/html/|/srv/http/|htdocs/|webapps/|wwwroot/|public_html/|/public/uploads?/|/static/uploads?/|/uploads?/)[^\\s\"']{0,60}\\.(?:php\\d?|pht|phtm|phtml|phps|phar|jsp|jspx|jspa|asp|aspx|ashx|cshtml)\\b|(?:\\b(?:cat|echo|printf|base64|dd)\\b[^\\n]{0,60}?[ \\t]>{1,2}[ \\t]{0,3}|\\btee\\b(?:[ \\t]{1,3}-a)?[ \\t]{1,3})(?:/var/www/|/usr/share/nginx/html/|/srv/http/|htdocs/|webapps/|wwwroot/|public_html/|/public/uploads?/|/static/uploads?/|/uploads?/)[^\\s\"']{0,60}\\.(?:php\\d?|pht|phtm|phtml|phps|phar|jsp|jspx|jspa|asp|aspx|ashx|cshtml)\\b[^\\n]{0,10}<<|\\b(?:file_put_contents|writeFileSync|write_file|fwrite|fputs)\\s{0,3}\\(\\s{0,3}[\"'][^\\s\"'()<>]{0,80}?(?:/var/www/|/usr/share/nginx/html/|/srv/http/|htdocs/|webapps/|wwwroot/|public_html/|/public/uploads?/|/static/uploads?/|/uploads?/)[^\\s\"']{0,60}\\.(?:php\\d?|pht|phtm|phtml|phps|phar|jsp|jspx|jspa|asp|aspx|ashx|cshtml)\\b[\"']\\s{0,3},\\s{0,3}[\"']\\s{0,3}<[?%])",
+        "description": "A write primitive in INVOCATION form (an open paren, or a JSON quote-delimiter) whose destination appears as a VALUE -- introduced by a quote or paren and continuing as one contiguous token with no spaces -- that carries a web-served path with a server-executed extension; or a shell redirection/tee writing directly to such a path. Requiring the destination to sit in value position is what separates an agent planting a shell from a document describing one: in prose the path is preceded by a space, never by an opening quote.",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02641",
+    "title": "Client-Supplied Approver Identity on an Approval Decision",
+    "severity": "high",
+    "category": "excessive_autonomy",
+    "patterns": [
+      {
+        "regex": "^\\s{0,8}\\{[^{}]{0,160}[\"'](?:tool|tool_name|toolName|name|function|mcp_tool)[\"']\\s*:\\s*[\"'][\\w./\\-]{1,60}[\"']",
+        "description": "The event is an agent TOOL INVOCATION object, not a record, a log line, a spec file or a document that quotes one",
+        "field": "content"
+      },
+      {
+        "regex": "(?:/(?:approve|reject|request-revision)\\b|[\"']action[\"']\\s*:\\s*[\"'](?:approve|reject|request_revision)[\"'])",
+        "description": "Approval decision endpoint or explicit approve/reject action token",
+        "field": "content"
+      },
+      {
+        "regex": "[\"'](?:body|json|payload|arguments|args|form)[\"']\\s*:\\s*\\{[^{}]{0,200}?[\"'](?:decidedByUserId|decided_by_user_id|decidedBy|decided_by|approvedByUserId|approved_by_user_id|approvedBy|approved_by|approverUserId|approverId|approver_id|approver_email|approvedByEmail|humanApprover|human_approver)[\"']\\s*:\\s*[\"']",
+        "description": "Caller-supplied approver identity inside the outbound request payload",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02642",
+    "title": "Agent Configuration Tool Used to Disable the Agent's Own Guardrail",
+    "severity": "critical",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:[\"'](?:tool|tool_name|toolname|name|method|function)[\"']\\s{0,3}:\\s{0,3}[\"'][\\w./-]{0,20}(?:(?:update|set|patch|apply|write|save|replace|edit|merge)[\\w./-]{0,8}(?:config|configuration|settings|policy)|(?:config|configuration|settings|policy)[\\w./-]{0,8}(?:update|set|patch|apply|write|save|replace|edit|merge))[\\w-]{0,12}[\"'])[\\s\\S]{0,200}(?:[\"']sandbox(?:ed|ing)?[\"']\\s*:\\s*(?:false|[\"'](?:off|none|disabled)[\"'])|[\"']sandbox[\"']\\s*:\\s*\\{[^{}]{0,60}[\"']enabled[\"']\\s*:\\s*false|[\"'](?:denylist|deny_list|blocklist|block_list|blockedtools|blocked_tools|deniedtools|denied_tools|disallowedtools|disallowed_tools)[\"']\\s*:\\s*\\[\\s*\\]|[\"'](?:requireapproval|require_approval|requireconfirmation|require_confirmation|approvalrequired|approval_required)[\"']\\s*:\\s*false|[\"']permission_?mode[\"']\\s*:\\s*[\"']?bypass|[\"']auth(?:entication)?[\"']\\s*:\\s*[\"']none[\"']|[\"']allowed_?tools[\"']\\s*:\\s*\\[\\s*[\"']\\*[\"'])",
+        "description": "Config-mutation tool call carrying a guardrail-disabling assignment",
+        "field": "content"
+      },
+      {
+        "regex": "(?:[\"']sandbox(?:ed|ing)?[\"']\\s*:\\s*(?:false|[\"'](?:off|none|disabled)[\"'])|[\"']sandbox[\"']\\s*:\\s*\\{[^{}]{0,60}[\"']enabled[\"']\\s*:\\s*false|[\"'](?:denylist|deny_list|blocklist|block_list|blockedtools|blocked_tools|deniedtools|denied_tools|disallowedtools|disallowed_tools)[\"']\\s*:\\s*\\[\\s*\\]|[\"'](?:requireapproval|require_approval|requireconfirmation|require_confirmation|approvalrequired|approval_required)[\"']\\s*:\\s*false|[\"']permission_?mode[\"']\\s*:\\s*[\"']?bypass|[\"']auth(?:entication)?[\"']\\s*:\\s*[\"']none[\"'])[\\s\\S]{0,200}(?:[\"'](?:tool|tool_name|toolname|name|method|function)[\"']\\s{0,3}:\\s{0,3}[\"'][\\w./-]{0,20}(?:(?:update|set|patch|apply|write|save|replace|edit|merge)[\\w./-]{0,8}(?:config|configuration|settings|policy)|(?:config|configuration|settings|policy)[\\w./-]{0,8}(?:update|set|patch|apply|write|save|replace|edit|merge))[\\w-]{0,12}[\"'])",
+        "description": "Guardrail-disabling assignment followed by the config-mutation tool that carries it",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02643",
+    "title": "Executable Front-Matter Fence in Ingested Document Content",
+    "severity": "high",
+    "category": "data_poisoning",
+    "patterns": [
+      {
+        "regex": "(?:^|[\\r\\n])\\s*-{3}(?:javascript|jsx|js|coffee|cson)[ \\t]*[\\r\\n][\\s\\S]{0,400}(?:module\\.exports|exports\\s*\\.|\\brequire\\s*\\(|process\\.(?:env|argv|binding)|child_process|\\bfetch\\s*\\(|globalThis|__dirname|__filename)[\\s\\S]{0,400}[\\r\\n][ \\t]{0,8}-{3}[ \\t]*(?:[\\r\\n]|$)",
+        "description": "Executable front-matter language tag followed by effectful JavaScript",
+        "field": "content"
+      },
+      {
+        "regex": "-{3}(?:javascript|jsx|js|coffee|cson)\\\\{1,2}(?:r\\\\{1,2})?n[\\s\\S]{0,400}(?:module\\.exports|exports\\s*\\.|\\brequire\\s*\\(|process\\.(?:env|argv|binding)|child_process|\\bfetch\\s*\\(|globalThis|__dirname|__filename)[\\s\\S]{0,400}\\\\{1,2}(?:r\\\\{1,2})?n-{3}",
+        "description": "Executable front-matter fence inside a JSON-encoded document payload",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02644",
+    "title": "Image-Header Polyglot: Magic Bytes Adjacent to a Server-Side Script Payload",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:GIF8[79]a|%PDF-1\\.[0-9]|\\x89PNG|\\\\x89PNG|\\xff\\xd8\\xff|\\\\xff\\\\xd8\\\\xff)(?:[; \\t\\x00-\\x08\\x0b\\x0c\\x80-\\xff]{0,6}(?:<\\?php|<\\?=|<%@|<script|<jsp:|#!\\s{0,2}/(?:bin|usr))|<%[ \\t=])[^\\r\\n]{0,60}(?:system|passthru|shell_exec|proc_open|popen|\\bexec\\b|\\beval\\b|assert|base64_decode|file_put_contents|move_uploaded_file|fetch\\s{0,2}\\(|document\\.cookie|getRuntime|\\$_(?:GET|POST|REQUEST|COOKIE|SERVER|FILES))",
+        "description": "Image or PDF magic header, a server-side script opener adjacent to it, and an execution primitive in the body",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02645",
+    "title": "npm Installer Auto-Consent Smuggled Through an MCP Server Environment",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "\\bmcpservers\\b[\\s\\S]{0,400}[\"']?\\benv\\b[\"']?\\s*[:=][\\s\\S]{0,200}(?:\\bnpm_config_yes\\b[\"']?\\s*[:=]\\s*[\"']?(?:true|1|yes)\\b|\\bnpm_config_ignore_scripts\\b[\"']?\\s*[:=]\\s*[\"']?(?:false|0)\\b|\\bnpm_config_unsafe_perm\\b[\"']?\\s*[:=]\\s*[\"']?(?:true|1|yes)\\b|\\bnpm_config_script_shell\\b[\"']?\\s*[:=]\\s*[\"']?(?:[/~.]|[a-z]:[\\\\/]|\\\\\\\\|(?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh|node|python)\\b))",
+        "description": "MCP server block whose env sets an npm installer-consent variable to its dangerous value",
+        "field": "content"
+      },
+      {
+        "regex": "[\"']command[\"']\\s*:\\s*[\"'](?:npx|npm|pnpm|yarn|bunx|corepack)[\"'][\\s\\S]{0,300}[\"']?\\benv\\b[\"']?\\s*[:=][\\s\\S]{0,200}(?:\\bnpm_config_yes\\b[\"']?\\s*[:=]\\s*[\"']?(?:true|1|yes)\\b|\\bnpm_config_ignore_scripts\\b[\"']?\\s*[:=]\\s*[\"']?(?:false|0)\\b|\\bnpm_config_unsafe_perm\\b[\"']?\\s*[:=]\\s*[\"']?(?:true|1|yes)\\b|\\bnpm_config_script_shell\\b[\"']?\\s*[:=]\\s*[\"']?(?:[/~.]|[a-z]:[\\\\/]|\\\\\\\\|(?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh|node|python)\\b))",
+        "description": "npx/npm launcher command followed by an npm installer-consent variable",
+        "field": "content"
+      },
+      {
+        "regex": "[\"']?\\benv\\b[\"']?\\s*[:=][\\s\\S]{0,200}(?:\\bnpm_config_yes\\b[\"']?\\s*[:=]\\s*[\"']?(?:true|1|yes)\\b|\\bnpm_config_ignore_scripts\\b[\"']?\\s*[:=]\\s*[\"']?(?:false|0)\\b|\\bnpm_config_unsafe_perm\\b[\"']?\\s*[:=]\\s*[\"']?(?:true|1|yes)\\b|\\bnpm_config_script_shell\\b[\"']?\\s*[:=]\\s*[\"']?(?:[/~.]|[a-z]:[\\\\/]|\\\\\\\\|(?:sh|bash|zsh|dash|ksh|fish|cmd|powershell|pwsh|node|python)\\b))[\\s\\S]{0,300}(?:[\"']command[\"']\\s*:\\s*[\"'](?:npx|npm|pnpm|yarn|bunx|corepack)[\"']|\\bmcpservers\\b)",
+        "description": "npm installer-consent variable followed by the MCP server block or npx launcher it belongs to",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02646",
+    "title": "Browser-Automation Tool Argument Harvesting Credentials from the Page",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:[\"'](?:fn|script|expression|pagefunction|page_function|function|code|js|javascript|snippet|statement|init_script|initscript|addinitscript)[\"']\\s*:\\s*\\\\{0,2}[\"'\\x60]|page\\s*\\.\\s*(?:evaluate|evaluateHandle|waitForFunction|addInitScript|\\$\\$?eval)\\s*\\(|browser[_.](?:evaluate|eval|wait|run_script|execute_script|inject_script|add_init_script|script)\\s*\\(|(?:execute_?script|evaluate_?script|webdriver\\s*\\.\\s*execute(?:_script)?)\\s*\\()[\\s\\S]{0,240}https?://[^\\s\"'\\x60\\\\]{0,140}[\\\\\"'\\x60]{0,3}\\s*\\+\\s*[\\s\\S]{0,40}(?:document\\s*\\.\\s*cookie|(?:local|session)Storage\\s*\\.\\s*getItem\\s*\\(\\s*[\\\\\"'\\x60]{0,3}[\\w.\\-]{0,30}(?:token|secret|passw|credential|session[_-]?(?:id|key|token)|auth|jwt|api[_-]?key|apikey|bearer|cookie|csrf)|(?:querySelector(?:All)?\\s*\\(\\s*[^)]{0,80}(?:password|passwd)[^)]{0,40}\\)|getElementById\\s*\\(\\s*[^)]{0,40}(?:password|passwd)[^)]{0,20}\\)|input\\s*\\[\\s*type\\s*=\\s*[\\\\\"'\\x60]{0,2}password[^\\]]{0,20}\\])\\s*\\.\\s*value)",
+        "description": "Absolute URL concatenated with a cookie, a credential-named storage read, or a password-field value",
+        "field": "content"
+      },
+      {
+        "regex": "(?:[\"'](?:fn|script|expression|pagefunction|page_function|function|code|js|javascript|snippet|statement|init_script|initscript|addinitscript)[\"']\\s*:\\s*\\\\{0,2}[\"'\\x60]|page\\s*\\.\\s*(?:evaluate|evaluateHandle|waitForFunction|addInitScript|\\$\\$?eval)\\s*\\(|browser[_.](?:evaluate|eval|wait|run_script|execute_script|inject_script|add_init_script|script)\\s*\\(|(?:execute_?script|evaluate_?script|webdriver\\s*\\.\\s*execute(?:_script)?)\\s*\\()[\\s\\S]{0,240}(?:\\bfetch\\b|sendBeacon|XMLHttpRequest|axios\\s*\\.\\s*(?:post|get)|\\bnew\\s+Image\\b|\\$\\s*\\.\\s*(?:post|get))[\\s\\S]{0,24}\\([^;)]{0,60}[\"'\\x60]https?://[^\\s\"'\\x60]{0,140}[^;)]{0,140}document\\s*\\.\\s*cookie",
+        "description": "Cookie read inside the same sink call as an absolute URL, with no statement or call boundary between them",
+        "field": "content"
+      },
+      {
+        "regex": "(?:[\"'](?:fn|script|expression|pagefunction|page_function|function|code|js|javascript|snippet|statement|init_script|initscript|addinitscript)[\"']\\s*:\\s*\\\\{0,2}[\"'\\x60]|page\\s*\\.\\s*(?:evaluate|evaluateHandle|waitForFunction|addInitScript|\\$\\$?eval)\\s*\\(|browser[_.](?:evaluate|eval|wait|run_script|execute_script|inject_script|add_init_script|script)\\s*\\(|(?:execute_?script|evaluate_?script|webdriver\\s*\\.\\s*execute(?:_script)?)\\s*\\()[\\s\\S]{0,240}(?:\\bfetch\\b|sendBeacon|XMLHttpRequest|axios\\s*\\.\\s*(?:post|get)|\\bnew\\s+Image\\b|\\$\\s*\\.\\s*(?:post|get))[\\s\\S]{0,24}\\([^;)]{0,60}[\"'\\x60]https?://[^\\s\"'\\x60]{0,140}[\"'\\x60]\\s*,\\s*(?:document\\s*\\.\\s*cookie|(?:local|session)Storage\\s*\\.\\s*getItem\\s*\\(\\s*[\\\\\"'\\x60]{0,3}[\\w.\\-]{0,30}(?:token|secret|passw|credential|session[_-]?(?:id|key|token)|auth|jwt|api[_-]?key|apikey|bearer|cookie|csrf)|JSON\\s*\\.\\s*stringify\\s*\\(\\s*\\{?\\s*[\"']?(?:cookie|token|password|session))",
+        "description": "Absolute URL as the first argument and the credential itself as the direct second argument of the sink",
+        "field": "content"
+      },
+      {
+        "regex": "(?:[\"'](?:fn|script|expression|pagefunction|page_function|function|code|js|javascript|snippet|statement|init_script|initscript|addinitscript)[\"']\\s*:\\s*\\\\{0,2}[\"'\\x60]|page\\s*\\.\\s*(?:evaluate|evaluateHandle|waitForFunction|addInitScript|\\$\\$?eval)\\s*\\(|browser[_.](?:evaluate|eval|wait|run_script|execute_script|inject_script|add_init_script|script)\\s*\\(|(?:execute_?script|evaluate_?script|webdriver\\s*\\.\\s*execute(?:_script)?)\\s*\\()[\\s\\S]{0,240}(?:querySelector(?:All)?\\s*\\(\\s*[^)]{0,80}(?:password|passwd)[^)]{0,40}\\)|getElementById\\s*\\(\\s*[^)]{0,40}(?:password|passwd)[^)]{0,20}\\)|input\\s*\\[\\s*type\\s*=\\s*[\\\\\"'\\x60]{0,2}password[^\\]]{0,20}\\])\\s*\\.\\s*value\\s*[;),\\]}][^;]{0,140}(?:\\bfetch\\b|sendBeacon|XMLHttpRequest|axios\\s*\\.\\s*(?:post|get)|\\bnew\\s+Image\\b|\\$\\s*\\.\\s*(?:post|get))[^;]{0,60}[\"'\\x60]https?://[^\\s\"'\\x60]{0,140}[?&][\\w\\-\\[\\]%.]{1,24}=[\"'\\x60]{0,3}\\s*\\+",
+        "description": "Password-field value read out of the page, then concatenated into a query-string parameter of an absolute URL",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02647",
+    "title": "Local Credential Store or Personal Directory Uploaded to an LLM Vendor Files API",
+    "severity": "critical",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:^|[\\n;|&(]|\\\\n|(?:\\\\{0,2}[\"'])?(?:command|cmd|content|code|script|shell|output)(?:\\\\{0,2}[\"'])?\\s{0,3}:\\s{0,3}(?:\\\\{0,2}[\"']))\\s{0,4}(?:curl\\b|[\\w.]{0,40}files\\.create\\b|[\\w.]{0,40}files\\.upload\\b)[^\\n]{0,200}?(?:api\\.anthropic\\.com/v1/files|api\\.openai\\.com/v1/files|api\\.groq\\.com/openai/v1/files|generativelanguage\\.googleapis\\.com/upload/v1beta/files|api\\.mistral\\.ai/v1/files|api\\.x\\.ai/v1/files|api\\.deepseek\\.com/v1/files|files\\.(?:openai|anthropic)\\.com)[\\s\\S]{0,200}?(?:(?:-F|--form)\\s{1,3}(?:\\\\{0,2}[\"'])?file[\\w-]{0,8}(?:\\\\{0,2}[\"'])?\\s{0,3}=\\s{0,3}(?:\\\\{0,2}[\"'])?@|--data-binary\\s{1,3}(?:\\\\{0,2}[\"'])?@|(?:\\\\{0,2}[\"'])?file(?:\\\\{0,2}[\"'])?\\s{0,3}[:=]\\s{0,3}open\\s{0,2}\\(\\s{0,2}(?:\\\\{0,2}[\"']))\\s{0,2}(?:~|\\$HOME|\\$\\{HOME\\}|%USERPROFILE%|/Users/[\\w.-]{1,32}|/home/[\\w.-]{1,32})/(?:\\.ssh|\\.gnupg|\\.kube|\\.azure|\\.docker|\\.netrc|\\.npmrc|\\.pypirc|\\.cargo/credentials|\\.terraform\\.d/credentials|\\.config/(?:gh|gcloud|rclone|op)|\\.aws(?:/credentials|/sso|/\\*)|\\.env(?:['\"\\s,;)\\]&|\\\\]|$)|Library/Keychains|AppData/Roaming/[\\w.-]{1,24}/(?:Local State|Login Data))",
+        "description": "Anchored curl/SDK upload call whose vendor Files API endpoint is followed by a multipart form part sourced from a local credential store",
+        "field": "content"
+      },
+      {
+        "regex": "(?:^|[\\n;|&(]|\\\\n|(?:\\\\{0,2}[\"'])?(?:command|cmd|content|code|script|shell|output)(?:\\\\{0,2}[\"'])?\\s{0,3}:\\s{0,3}(?:\\\\{0,2}[\"']))\\s{0,4}(?:curl\\b|[\\w.]{0,40}files\\.create\\b|[\\w.]{0,40}files\\.upload\\b)[^\\n]{0,200}?(?:(?:-F|--form)\\s{1,3}(?:\\\\{0,2}[\"'])?file[\\w-]{0,8}(?:\\\\{0,2}[\"'])?\\s{0,3}=\\s{0,3}(?:\\\\{0,2}[\"'])?@|--data-binary\\s{1,3}(?:\\\\{0,2}[\"'])?@|(?:\\\\{0,2}[\"'])?file(?:\\\\{0,2}[\"'])?\\s{0,3}[:=]\\s{0,3}open\\s{0,2}\\(\\s{0,2}(?:\\\\{0,2}[\"']))\\s{0,2}(?:~|\\$HOME|\\$\\{HOME\\}|%USERPROFILE%|/Users/[\\w.-]{1,32}|/home/[\\w.-]{1,32})/(?:\\.ssh|\\.gnupg|\\.kube|\\.azure|\\.docker|\\.netrc|\\.npmrc|\\.pypirc|\\.cargo/credentials|\\.terraform\\.d/credentials|\\.config/(?:gh|gcloud|rclone|op)|\\.aws(?:/credentials|/sso|/\\*)|\\.env(?:['\"\\s,;)\\]&|\\\\]|$)|Library/Keychains|AppData/Roaming/[\\w.-]{1,24}/(?:Local State|Login Data))[\\s\\S]{0,200}?(?:api\\.anthropic\\.com/v1/files|api\\.openai\\.com/v1/files|api\\.groq\\.com/openai/v1/files|generativelanguage\\.googleapis\\.com/upload/v1beta/files|api\\.mistral\\.ai/v1/files|api\\.x\\.ai/v1/files|api\\.deepseek\\.com/v1/files|files\\.(?:openai|anthropic)\\.com)",
+        "description": "Anchored curl/SDK upload call whose credential-store form part is followed by the vendor Files API endpoint",
+        "field": "content"
+      },
+      {
+        "regex": "(?:^|[\\n;|&(]|\\\\n|(?:\\\\{0,2}[\"'])?(?:command|cmd|content|code|script|shell|output)(?:\\\\{0,2}[\"'])?\\s{0,3}:\\s{0,3}(?:\\\\{0,2}[\"']))\\s{0,4}(?:curl\\b|[\\w.]{0,40}files\\.create\\b|[\\w.]{0,40}files\\.upload\\b)[^\\n]{0,200}?(?:api\\.anthropic\\.com/v1/files|api\\.openai\\.com/v1/files|api\\.groq\\.com/openai/v1/files|generativelanguage\\.googleapis\\.com/upload/v1beta/files|api\\.mistral\\.ai/v1/files|api\\.x\\.ai/v1/files|api\\.deepseek\\.com/v1/files|files\\.(?:openai|anthropic)\\.com)[\\s\\S]{0,200}?(?:(?:-F|--form)\\s{1,3}(?:\\\\{0,2}[\"'])?file[\\w-]{0,8}(?:\\\\{0,2}[\"'])?\\s{0,3}=\\s{0,3}(?:\\\\{0,2}[\"'])?@|--data-binary\\s{1,3}(?:\\\\{0,2}[\"'])?@|(?:\\\\{0,2}[\"'])?file(?:\\\\{0,2}[\"'])?\\s{0,3}[:=]\\s{0,3}open\\s{0,2}\\(\\s{0,2}(?:\\\\{0,2}[\"']))\\s{0,2}(?:~|\\$HOME|\\$\\{HOME\\}|%USERPROFILE%|/Users/[\\w.-]{1,32}|/home/[\\w.-]{1,32})/(?:Documents|Desktop|Notes|Downloads)(?:/[^\\s\"']{0,40})?/?\\*",
+        "description": "Anchored curl/SDK upload call whose vendor Files API endpoint is followed by a wildcarded personal directory",
+        "field": "content"
+      },
+      {
+        "regex": "(?:^|[\\n;|&(]|\\\\n|(?:\\\\{0,2}[\"'])?(?:command|cmd|content|code|script|shell|output)(?:\\\\{0,2}[\"'])?\\s{0,3}:\\s{0,3}(?:\\\\{0,2}[\"']))\\s{0,4}(?:curl\\b|[\\w.]{0,40}files\\.create\\b|[\\w.]{0,40}files\\.upload\\b)[^\\n]{0,200}?(?:(?:-F|--form)\\s{1,3}(?:\\\\{0,2}[\"'])?file[\\w-]{0,8}(?:\\\\{0,2}[\"'])?\\s{0,3}=\\s{0,3}(?:\\\\{0,2}[\"'])?@|--data-binary\\s{1,3}(?:\\\\{0,2}[\"'])?@|(?:\\\\{0,2}[\"'])?file(?:\\\\{0,2}[\"'])?\\s{0,3}[:=]\\s{0,3}open\\s{0,2}\\(\\s{0,2}(?:\\\\{0,2}[\"']))\\s{0,2}(?:~|\\$HOME|\\$\\{HOME\\}|%USERPROFILE%|/Users/[\\w.-]{1,32}|/home/[\\w.-]{1,32})/(?:Documents|Desktop|Notes|Downloads)(?:/[^\\s\"']{0,40})?/?\\*[\\s\\S]{0,200}?(?:api\\.anthropic\\.com/v1/files|api\\.openai\\.com/v1/files|api\\.groq\\.com/openai/v1/files|generativelanguage\\.googleapis\\.com/upload/v1beta/files|api\\.mistral\\.ai/v1/files|api\\.x\\.ai/v1/files|api\\.deepseek\\.com/v1/files|files\\.(?:openai|anthropic)\\.com)",
+        "description": "Anchored curl/SDK upload call whose wildcarded personal directory is followed by the vendor Files API endpoint",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02648",
+    "title": "Write or Fetch Procedure Called Through a Read-Only Graph Query Tool",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "^\\s{0,8}\\{[^{}]{0,160}(?:[\"'](?:tool|tool_name|toolName|name|function|mcp_tool)[\"']\\s*:\\s*[\"'][\\w.\\-]{0,30}(?:read[_.\\-]?(?:only|neo4j|cypher|graph|query|kql|kusto)|(?:neo4j|cypher|graph|kusto|kql)[\\w.\\-]{0,8}read)[\\w.\\-]{0,20}[\"']|[\"']?read_?only[\"']?\\s*:\\s*(?:true|[\"'](?:on|yes|1)[\"']))",
+        "description": "The event is an invocation of a read-scoped query tool, or carries an explicit read_only flag",
+        "field": "content"
+      },
+      {
+        "regex": "[\"'](?:arguments|args|input|params|query|cypher|statement|stmt|kql|sql|q|command|script|text)[\"'][\\s\\S]{0,240}(?:^|[\\s;,{(]|:\\s{0,4}[\\\\]{0,2}[\"'\\x60]\\s{0,4})(?:CALL\\s+apoc\\.(?:cypher\\.(?:doIt|runFile|runSchemaFile|runMany|runWrite)|periodic\\.(?:submit|repeat|iterate|commit)|trigger\\.(?:add|install)|refactor\\.[\\w]{1,24}|create\\.(?:node|nodes|relationship|relationships|addLabels|removeLabels|setProperty|setProperties|setLabels|setRelProperty|uuids)|merge\\.[\\w]{1,24}|load\\.(?:json|csv|xml|jdbc)(?:Params)?|systemdb\\.[\\w.]{1,24})\\s*\\(|CALL\\s+apoc\\.export\\.[\\w.]{1,24}\\s*\\(\\s*[\\\\]{0,2}[\"'\\x60]|DETACH\\s+DELETE\\s+[\\w$(]|CREATE\\s+(?:USER|ROLE)\\s+[\\w$]|DROP\\s+(?:USER|ROLE)\\s+[\\w$]|dbms\\.security\\.[\\w]{1,32}\\s*\\(|GRANT\\s+(?:ROLE|ALL|WRITE|ADMIN)\\s+[\\w$]|\\|\\s*externaldata\\s*\\()",
+        "description": "A write, administrative or outbound-fetch procedure is actually invoked inside a call argument",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02649",
+    "title": "Vendor API Hostname Used as a Label Prefix of Another Domain",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "https?://(?:api\\.openai\\.com|api\\.anthropic\\.com|api\\.github\\.com|github\\.com|raw\\.githubusercontent\\.com|api\\.slack\\.com|hooks\\.slack\\.com|login\\.microsoftonline\\.com|graph\\.microsoft\\.com|oauth2\\.googleapis\\.com|accounts\\.google\\.com|generativelanguage\\.googleapis\\.com|api\\.contentful\\.com|api\\.stripe\\.com|s3\\.amazonaws\\.com|sts\\.amazonaws\\.com|api\\.notion\\.com|api\\.linear\\.app|api\\.telegram\\.org|registry\\.npmjs\\.org|files\\.pythonhosted\\.org|api\\.mistral\\.ai|api\\.groq\\.com|api\\.cohere\\.com|huggingface\\.co)\\.[a-z0-9-]{1,63}\\.[a-z]{2,24}[/:]",
+        "description": "Vendor FQDN followed by two further labels IN URL AUTHORITY POSITION -- a scheme in front and a path or port behind. rule_version 1 also accepted the bare `//`, `@` and `key:` prefixes, which made every host-derived FILENAME a match (api.openai.com.2026-08-23.har, api.github.com.chain.pem, api.stripe.com.access.log) and every split-horizon internal name (api.contentful.com.svc.cluster.local).",
+        "field": "content"
+      },
+      {
+        "regex": "\\b(?:[a-z_]{0,16}base_?url|api_?base|[\"']?\\bhost\\b[\"']?|[\"']?\\bproxy\\b[\"']?|server_?url|\\bendpoint\\b|api_?host|[\"']?\\burl\\b[\"']?)[\"']?\\s*[:=]\\s*[\"']?(?:https?://)?(?:api\\.openai\\.com|api\\.anthropic\\.com|api\\.github\\.com|github\\.com|raw\\.githubusercontent\\.com|api\\.slack\\.com|hooks\\.slack\\.com|login\\.microsoftonline\\.com|graph\\.microsoft\\.com|oauth2\\.googleapis\\.com|accounts\\.google\\.com|generativelanguage\\.googleapis\\.com|api\\.contentful\\.com|api\\.stripe\\.com|s3\\.amazonaws\\.com|sts\\.amazonaws\\.com|api\\.notion\\.com|api\\.linear\\.app|api\\.telegram\\.org|registry\\.npmjs\\.org|files\\.pythonhosted\\.org|api\\.mistral\\.ai|api\\.groq\\.com|api\\.cohere\\.com|huggingface\\.co)\\.[a-z0-9-]{1,63}\\.[a-z]{2,24}",
+        "description": "Endpoint-override parameter set to a vendor FQDN that carries two further labels. Two changes from rule_version 1: the key names are \\b-anchored, so deny_host / block_url / allow_endpoint no longer match via their suffix (a blocklist entry is not an endpoint override), and the value needs two labels plus a TLD, so a one-label corporate suffix (HTTPS_PROXY=api.anthropic.com.internal) is out of scope rather than alerted on.",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02661",
+    "title": "Shell Command Word Hidden by ANSI-C Quoting or Empty-Quote Splitting",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:^|[\\n;|&(]|\\\\n|\":\\s{0,2}\")\\s{0,4}(?:sh|bash|zsh|dash|ksh|eval)\\s{1,3}(?:-c\\s{1,3})?\\$'(?:\\\\x[0-9a-f]{2}|\\\\[0-7]{3}){3,}",
+        "description": "ANSI-C quoted string of three or more consecutive hex/octal escapes standing immediately behind a shell launcher (sh/bash/zsh/dash/ksh/eval, optionally -c). A launcher followed by an encoded string is the CVE-2026-72776 primary form; the escapes must START the string, so printf $'\\x1b[0m...' and other escape-carrying ARGUMENTS do not match.",
+        "field": "content"
+      },
+      {
+        "regex": "(?:^|[\\n;|&(]|\\\\n|\":\\s{0,2}\")\\s{0,4}\\$'(?:\\\\x[0-9a-f]{2}|\\\\[0-7]{3}){3,}[^']{0,200}'(?:\\s{0,3}[|;&<>]|\\s{1,3}(?:[-/~$]|\\d{1,3}\\.\\d{1,3}|https?://|ftp://|[a-z0-9][\\w.-]{0,60}\\.[a-z]{2,6}[/\\s:]))",
+        "description": "Bare ANSI-C string in the command position, i.e. with no launcher in front. Because a bare $'...' is also how every shell tutorial and the Bash Reference Manual spell the construct, this form additionally requires the closing quote to be followed by something that only a real argument list looks like: a URL, an IP, a path, a flag, a $variable, a bare hostname, or a pipe/redirect/terminator. `$'\\x48\\x65\\x6c\\x6c\\x6f' expands to Hello.` is prose and is excluded by it.",
+        "field": "content"
+      },
+      {
+        "regex": "(?:^|[\\n;|&(]|\\\\n|\":\\s{0,2}\")\\s{0,4}[a-z]{1,6}(?:(?:''|\"\"|\\\\\"\\\\\")[a-z]{1,8}){2,8}(?:\\s{0,3}[|;&<>]|\\s{1,3}(?:[-/~$]|\\d{1,3}\\.\\d{1,3}|https?://|ftp://|[a-z0-9][\\w.-]{0,60}\\.[a-z]{2,6}[/\\s:]))",
+        "description": "Command word split by two or more empty-quote pairs (c''u''r''l, b\"\"a\"\"s\"\"h), including the JSON-encoded transport form where a double quote arrives as backslash-quote, AND followed by a real argument list. The trailing-argument requirement is what keeps SQL-escaped names out: {\"publisher\":\"O''Reilly''s\"} has the identical letter/quote structure and is followed by a closing quote, not by an argument.",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02662",
+    "title": "Pickle Payload Reaches an Execution Primitive Through an Indirect Name Resolver",
+    "severity": "critical",
+    "category": "model_abuse",
+    "patterns": [
+      {
+        "regex": "\\bresolve_name[\\x00-\\x09\\x0b-\\x1f\\x7f-\\xff~]{1,24}\\b(?:os|posix|nt|subprocess|builtins|__builtin__|pty|commands)\\s{0,1}:\\s{0,1}(?:system|popen\\w{0,2}|exec\\w{0,2}|eval|call|run|check_output|check_call|getoutput|spawn\\w{0,3})\\b",
+        "description": "A pickle stream in which pkgutil.resolve_name is followed by a module:attribute target naming an execution primitive, separated ONLY by pickle framing bytes -- opcodes and length prefixes, i.e. control characters, high bytes, or the tilde stand-in this rule's test vectors use. rule_version 2 replaced the previous separator class (any 0-24 characters except newline and quote), which let ordinary prose through: a changelog saying 'reject resolve_name targets such as os:system', an advisory saying 'resolve_name with os:system', a markdown table cell, a YAML denylist, and a Traditional Chinese advisory all fired. Framing bytes cannot appear in prose, and a genuine protocol-4 pickle contains nothing else between the two strings.",
+        "field": "content"
+      },
+      {
+        "regex": "(?:^|\\n|\\\\n)[^-\\n]{0,60}\\breturn\\s{0,4}\\(\\s{0,4}(?:\\w{1,24}\\.)?(?:resolve_name|import_module|attrgetter|__import__)\\s{0,4},\\s{0,4}\\(?\\s{0,4}[\"\\x27](?:os|posix|nt|subprocess|builtins|__builtin__|pty|commands)(?:\\s{0,1}[:.]\\s{0,1}(?:system|popen\\w{0,2}|exec\\w{0,2}|eval|call|run|check_output|check_call|getoutput|spawn\\w{0,3}))?[\"\\x27]",
+        "description": "A __reduce__ implementation whose reduce tuple names a name-resolution gadget as the callable AND passes a LITERAL string naming an execution primitive as its argument. The literal-argument requirement is what separates the gadget from the legitimate uses of the same callable: copyreg module pickling (return (import_module, (mod.__name__,))), a picklable attrgetter wrapper (return (attrgetter, (self.attr,))), a lazy loader (return (import_module, name)) and a multiprocessing reduction all pass a variable, not a hard-coded 'os:system'. The line must not begin with a dash, which keeps the rule off the removal side of a diff that DELETES the gadget.",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02664",
+    "title": "Git Identifier Field Carries an Option or ext:: Transport Instead of a Revision",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "\\b(?:commit|commitish|revision|treeish|refname|gitref)[\"']?\\s{0,3}[:=]\\s{0,3}[\"']?-{1,2}(?:upload-pack|receive-pack|exec|output|config)[=\\s]",
+        "description": "A field named for a git revision whose value is one of git's EXECUTING options -- CVE-2026-50014's resolution.commit primitive. rule_version 1 accepted any dash-word here, which made every ordinary rev-list option passed through a revision-named parameter a match: {\"revision\": \"--since=2 weeks ago\"} from a git MCP server, `revision: --all | --branches | --tags` in a mirror-job config, `commit: --amend` in a runbook. Those are identifiers-that-are-flags but they do not execute.",
+        "field": "content"
+      },
+      {
+        "regex": "--(?:upload|receive)-pack\\s{0,2}=\\s{0,2}[\"']?(?:/tmp/|/dev/shm/|/var/tmp/|\\bsh\\b|\\bbash\\b|\\bcurl\\b|\\bwget\\b|\\bpython\\d{0,1}\\b|\\bperl\\b|\\bnc\\b)",
+        "description": "--upload-pack= / --receive-pack= pointed at a shell, an interpreter, or anything under a world-writable directory. Under the ssh and local transports git executes this value. rule_version 1 also accepted any path ending .sh/.py/.pl/.rb, which flagged the legitimate server practice of wrapping the pack program in a script to set the environment first (--receive-pack=/opt/gerrit/bin/receive-pack.sh).",
+        "field": "content"
+      },
+      {
+        "regex": "(?:[\"']|=\\s{0,2})ext::\\s{0,2}(?:sh|bash|dash|zsh|curl|wget|python\\d{0,1}|perl|nc|env)[\\s\"']",
+        "description": "git's ext:: transport invoking a shell or interpreter as the transport helper, in URL position: quoted on a command line, or after `url =` in a .gitmodules / .git/config entry. ext::ssh, the documented use, does not match. rule_version 1 matched a bare `ext::` anywhere, so it fired on the NAMESPACE separator in ordinary source (`use crate::ext::env`, `Ext::Curl.get(url)`) and on any sentence explaining the transport.",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02666",
+    "title": "Trusted Hostname Parked in the URL Userinfo So the Real Host Is Whatever Follows the At-Sign",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:[\"']?(?:url|uri|href|link|src|endpoint|location|address|target_url)[\"']?\\s{0,3}[:=]\\s{0,3}[\"']|\\b(?:navigate|goto|browse|visit|open|fetch|curl|wget)\\b\\s{1,3}(?:to\\s{1,3})?)\\bhttps?://[\\w-]{2,40}(?:\\.[\\w-]{1,30}){0,3}\\.(?:com|net|org|io|ai|co|dev|app|cloud|xyz|info|biz|gov|edu|uk|de|fr|jp|cn|us|eu|tld|example)(?::[^\\s/@\"']{0,40})?@(?:\\d{1,3}\\.){3}\\d{1,3}(?::\\d{1,5})?(?:[/?\\s\"'\\\\]|$)",
+        "description": "A domain-shaped userinfo in front of a bare IPv4 host -- the CVE-2025-47241 PoC exactly. The real destination is a raw address, which no allowlist entry can be.",
+        "field": "content"
+      },
+      {
+        "regex": "(?:[\"']?(?:url|uri|href|link|src|endpoint|location|address|target_url)[\"']?\\s{0,3}[:=]\\s{0,3}[\"']|\\b(?:navigate|goto|browse|visit|open|fetch|curl|wget)\\b\\s{1,3}(?:to\\s{1,3})?)\\bhttps?://[\\w-]{2,40}(?:\\.[\\w-]{1,30}){1,3}\\.(?:com|net|org|io|ai|co|dev|app|cloud|xyz|info|biz|gov|edu|uk|de|fr|jp|cn|us|eu|tld|example)(?::[^\\s/@\"']{0,40})?@[\\w-]{2,60}(?:\\.[\\w-]{2,30}){0,3}(?::\\d{1,5})?(?:[/?\\s\"'\\\\]|$)",
+        "description": "A fully-qualified decoy hostname (two or more labels plus a public suffix) in the userinfo, with a different real host after the @. Covers the ':anypassword@' form that ATR-2026-02107's pattern rejects.",
+        "field": "content"
+      },
+      {
+        "regex": "(?:[\"']?(?:url|uri|href|link|src|endpoint|location|address|target_url)[\"']?\\s{0,3}[:=]\\s{0,3}[\"']|\\b(?:navigate|goto|browse|visit|open|fetch|curl|wget)\\b\\s{1,3}(?:to\\s{1,3})?)\\bhttps?://[\\w-]{2,40}(?:\\.[\\w-]{1,30}){1,3}\\.(?:com|net|org|io|ai|co|dev|app|cloud|xyz|info|biz|gov|edu|uk|de|fr|jp|cn|us|eu|tld|example)%40[\\w-]{2,60}",
+        "description": "The same decoy with the at-sign percent-encoded as %40, which many filters neither decode nor split on. Requires two or more labels before the %40, so an e-mail username such as first.last%40example.com does not match.",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02667",
+    "title": "Submitted Job Payload Carries Its Own Pre-Approved Tool List",
+    "severity": "high",
+    "category": "excessive_autonomy",
+    "patterns": [
+      {
+        "regex": "[\"']?\\b(?:approve|approved_tools|approvedTools|auto_approve_tools|autoApproveTools|pre_?approved_tools|preApprovedTools|approved_actions)[\"']?\\s{0,3}:\\s{0,3}\\[[^\\]\\n]{0,80}\\b(?:execute_command|run_command|shell|bash|terminal|exec|delete_file|remove_file|write_file|python_repl|code_interpreter|sudo)\\b",
+        "description": "An approval list, in inline-array form, that already contains a command-execution or destructive tool. The list form is what makes this a pre-approval rather than a request. The \\b before the key alternation is load-bearing: without it `approve` matched the TAIL of every key ending in that word -- autoApprove, auto_approve, chat.tools.autoApprove -- so the rule fired on the standing client settings the description claims are out of scope.",
+        "field": "content"
+      },
+      {
+        "regex": "\\b(?:approve|approved_tools|auto_approve_tools|pre_approved_tools)\\s{0,2}:\\s{0,4}(?:\\n|\\\\n)\\s{0,10}-\\s{0,2}[\"']?(?:execute_command|run_command|shell|bash|terminal|exec|delete_file|remove_file|write_file|python_repl|code_interpreter|sudo)\\b",
+        "description": "The same list in YAML block-sequence form, as a submitted workflow file carries it. Also matches the JSON-encoded transport where the newline arrives as the two characters backslash n.",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02668",
+    "title": "Branch or Tag Ref Name Carrying Shell Command Substitution in Tool Output",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:\\n|\\\\n|^)\\s{0,6}\\*?\\s{0,4}(?:remotes/)?origin/[\\w.\\-/]{1,40}\\$\\([^)\\r\\n]{0,60}(?:\\|\\s{0,3}(?:sh|bash|zsh|base64|nc|curl|wget|python\\d{0,1}|perl)\\b|>\\s{0,3}/(?:tmp|dev|var|etc|home|root|Users)/|\\b(?:curl|wget|nc|chmod|base64|eval)\\b|\\brm\\s{1,3}-[rf])[^)\\r\\n]{0,60}\\)\\s{0,4}(?:\\r?\\n|\\\\n|$)",
+        "description": "A ref-listing line (git branch -a / git branch -r output) whose branch name carries a command substitution that pipes into a shell or encoder, redirects into a system directory, or names a fetch/permission tool, and which ENDS at the ref -- real listing output has nothing after the ref. NARROWED by adversarial review 2026-08-24: see false_positives.",
+        "field": "content"
+      },
+      {
+        "regex": "[\"'](?:head_ref|headRefName|ref|branch|tag_name|source_branch|refName|base_ref|baseRefName)[\"']\\s{0,3}:\\s{0,3}[\"'][^\"'\\n]{0,60}\\$\\([^)\\n]{0,60}(?:\\|\\s{0,3}(?:sh|bash|zsh|base64|nc|curl|wget|python\\d{0,1}|perl)\\b|>\\s{0,3}/(?:tmp|dev|var|etc|home|root|Users)/|\\b(?:curl|wget|nc|chmod|base64|eval)\\b|\\brm\\s{1,3}-[rf])",
+        "description": "A ref-NAME field (head_ref / headRefName / branch / tag_name / source_branch / ref) whose value carries a command substitution with a shell, encoder, fetch tool or system-directory redirect inside it. `title` was REMOVED from the field list by adversarial review 2026-08-24 -- see false_positives.",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02669",
+    "title": "Query-Language Pipeline Stage Smuggled Into an Identifier-Typed Tool Parameter",
+    "severity": "medium",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "[{,]\\s{0,3}\"(?:entity_?name|entity_?selector|table_?name|index_?name|metric_?name|dashboard_?id|cluster_?name|stream_?name)\"\\s{0,3}:\\s{0,3}\"(?:[^\"\\\\\\n,:]|\\\\.){0,40}\\|\\s{1,3}(?:(?:externaldata|inputlookup|mv-expand|make-series|parse-kv|fieldsadd|fieldskeep|fieldsremove|summarize)\\b|(?:fetch|fields|limit)\\b[^\\r\\n]{0,24}(?:\\||==|\\w\\())",
+        "description": "A JSON tool argument whose identifier-typed key carries a query pipeline stage. Unambiguous query verbs (externaldata, inputlookup, summarize, fieldsAdd, ...) stand alone; the three verbs that are also ordinary English words (fetch, fields, limit) additionally require a second pipe, a comparison or a function call, so a display label such as \"Main Stage | Fetch Festival (2026)\" does not qualify.",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02681",
+    "title": "JavaScript Sandbox Escape by Acquiring the Function Constructor Reflectively",
+    "severity": "critical",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:\\\\{0,2}[\"'][\\w-]{0,24}(?:code|script|expression|expr|snippet|program)\\\\{0,2}[\"']\\s*:\\s*\\\\{0,2}[\"']|[\\w-]{0,24}(?:code|script|expression|expr|snippet|program)\\s*=\\s*\\\\{0,2}[\"'])[^\\n]{0,100}(?:getownpropertydescriptor|reflect\\.get)\\s*\\(\\s*(?:object|reflect)\\.getprototypeof[^\\n]{0,40}\\\\?[\"']constructor\\\\?[\"'][^\\n]{0,120}\\\\?[\"'`]\\s*return\\s+(?:this|globalthis|global|process)\\b",
+        "description": "Reflective acquisition of the constructor slot from a prototype, followed on the same line by a quoted source string that returns the global object -- the Function constructor obtained without ever writing .constructor.constructor, then invoked to hand back the host realm. The whole thing must sit inside a CODE-VALUED TOOL ARGUMENT (\"code\": \"...\", \"script\": \"...\", expression=\"...\"), which is the channel the title claims and the only one that separates evaluating the payload from merely writing it down. See false_positives.",
+        "field": "content"
+      },
+      {
+        "regex": "(?:\\\\{0,2}[\"'][\\w-]{0,24}(?:code|script|expression|expr|snippet|program)\\\\{0,2}[\"']\\s*:\\s*\\\\{0,2}[\"']|[\\w-]{0,24}(?:code|script|expression|expr|snippet|program)\\s*=\\s*\\\\{0,2}[\"'])[^\\n]{0,100}(?:object|reflect)\\.getprototypeof\\s*\\(\\s*(?:async\\s+function|function\\s*\\*)[^\\n]{0,40}\\\\?[\"']?constructor\\\\?[\"']?[^\\n]{0,80}\\\\?[\"'`]\\s*return\\s+(?:this|globalthis|global|process)\\b",
+        "description": "The AsyncFunction / GeneratorFunction ladder in a code-valued tool argument: the prototype of an async or generator function literal is taken, its constructor read (quoted or dotted), and that constructor invoked on a quoted source string returning the global object. Reading the AsyncFunction constructor alone is a legitimate feature-detection idiom and is NOT matched -- only its invocation on a global-returning body, inside a code argument.",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02682",
+    "title": "XML/SVG Entity Expansion Bomb in Content Returned to an Agent",
+    "severity": "medium",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)<!entity\\s+(?:%\\s*)?[\\w.-]{1,24}\\s+[\"'][^\"']{0,200}[\"']\\s*>[\\s\\S]{0,200}<!entity\\s+(?:%\\s*)?[\\w.-]{1,24}\\s+[\"'](?:[&%][\\w.-]{1,12};){6,}",
+        "description": "An entity declaration with a real body, followed within 200 characters by an entity whose value is a packed run of six or more references -- the two-layer structure a billion-laughs bomb needs. The chain is required because a single declaration cannot multiply: it expands once and stops.",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)<!entity\\s+(?:%\\s*)?[\\w.-]{1,24}\\s+[\"'](?:[&%][\\w.-]{1,12};){6,}[\\s\\S]{0,200}<!entity\\s+(?:%\\s*)?[\\w.-]{1,24}\\s+[\"'](?:[^&\"'\\r\\n]|&[^#\"'\\r\\n])",
+        "description": "The same two layers in the reverse declaration order, with the companion entity required to have a real body rather than a bare character reference (which is what a spacing or punctuation entity points at).",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02683",
+    "title": "Agent Tool Data Argument Carries a Program-Executing CLI Option",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)(?:[\"']?\\b(?:arguments|parameters|tool_input|params|toolinput)[\"']?\\s{0,3}[:=][\\s\\S]{0,300}?\\\\?[\"'](?:pattern|query|search_?term|search_?string|glob|regex|file_?path|file_?name|filename|path|dir|directory|target|source|input|output|args?)\\\\?[\"']\\s{0,3}:\\s{0,3}\\\\?[\"']--(?:pre|pre-glob|use-compress-program|rsh|to-command|output-document|remote-shell|checkpoint-action)=\\s{0,3}[\"']?[./~$]{0,2}[\\w./$-]{1,40}|[(,]\\s{0,3}(?:pattern|query|search_?term|search_?string|glob|regex|file_?path|file_?name|filename|path|dir|directory|target|source|input|output|args?)\\s{0,3}=\\s{0,3}[\"']--(?:pre|pre-glob|use-compress-program|rsh|to-command|output-document|remote-shell|checkpoint-action)=\\s{0,3}[\"']?[./~$]{0,2}[\\w./$-]{1,40})",
+        "description": "A data-shaped tool argument whose value is an executing CLI option with a real operand: ripgrep --pre=<prog>, tar --to-command=/--use-compress-program=/--checkpoint-action=exec=<cmd>, rsync --rsh=<shell>, wget --output-document=<path>. The operand requirement is what separates this from someone searching for the flag name itself.",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)(?:[\"']?\\b(?:arguments|parameters|tool_input|params|toolinput)[\"']?\\s{0,3}[:=][\\s\\S]{0,300}?\\\\?[\"'](?:pattern|query|glob|file_?path|filename|path|dir|directory|target|source|input|args?)\\\\?[\"']\\s{0,3}:\\s{0,3}\\\\?[\"']-e\\s{1,3}(?:/bin/|\\bsh\\b|\\bbash\\b|ssh\\s{1,3}-o)|[(,]\\s{0,3}(?:pattern|query|glob|file_?path|filename|path|dir|directory|target|source|input|args?)\\s{0,3}=\\s{0,3}[\"']-e\\s{1,3}(?:/bin/|\\bsh\\b|\\bbash\\b|ssh\\s{1,3}-o))",
+        "description": "rsync/scp -e supplied as a data argument, naming a shell (or ssh with an option) as the remote-shell program -- the classic argument-vector escape for file-transfer tools",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02684",
+    "title": "File-Tool Argument Targets a Modern Credential Store Outside the Classic Path List",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)[\"\\x27](?:file_?path|filepath|file_?name|jsonl_?path|artifact_?path|agent_?file|instructions_?file_?path|system_?prompt_?file|prompt_?file|persona_?file|source_?file|input_?file|attachments?)[\"\\x27]\\s{0,4}[:=]\\s{0,4}[\"\\x27](?:~|\\$HOME|/home/[\\w.-]{1,24}|/Users/[\\w.-]{1,24})?/?\\.?(?:config/gh/hosts\\.ya?ml|config/gcloud/(?:credentials\\.db|application_default_credentials\\.json|legacy_credentials)|config/rclone/rclone\\.conf|pypirc|cargo/credentials(?:\\.toml)?|terraform\\.d/credentials\\.tfrc\\.json|azure/(?:accessTokens\\.json|msal_token_cache\\.json)|(?:var/)?run/secrets/kubernetes\\.io/serviceaccount/(?:token|namespace|ca\\.crt))\\b",
+        "description": "JSON/dict tool-call shape: a QUOTED file-shaped argument key whose QUOTED value is a modern credential store -- GitHub CLI host tokens, gcloud credential databases, rclone remotes, PyPI upload credentials, cargo registry tokens, Terraform Cloud tokens, Azure token caches, or the in-pod Kubernetes service-account token. Both the key and the value must be quote-delimited, which is what a serialized tool call looks like and what DevOps YAML, CLI output and prose do not.",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)\\b(?:jsonl_?path|artifact_?path|agent_?file|instructions_?file_?path|system_?prompt_?file|prompt_?file|persona_?file)\\s{0,4}[:=]\\s{0,4}[\"\\x27]?(?:~|\\$HOME|/home/[\\w.-]{1,24}|/Users/[\\w.-]{1,24})?/?\\.?(?:config/gh/hosts\\.ya?ml|config/gcloud/(?:credentials\\.db|application_default_credentials\\.json|legacy_credentials)|config/rclone/rclone\\.conf|pypirc|cargo/credentials(?:\\.toml)?|terraform\\.d/credentials\\.tfrc\\.json|azure/(?:accessTokens\\.json|msal_token_cache\\.json)|(?:var/)?run/secrets/kubernetes\\.io/serviceaccount/(?:token|namespace|ca\\.crt))\\b",
+        "description": "Agent-internal argument names (jsonlPath, artifactPath, systemPromptFile, personaFile, promptFile, agentFile, instructionsFilePath) pointed at a credential store. These names do not occur in ordinary infrastructure config, so the quoting requirement is relaxed here.",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)\\b(?:read_file|readfile|read_text_file|write_file|attach_file|upload_file|send_file|get_file|load_file|open_file|append_file)\\s{0,4}\\(\\s{0,4}(?:path|file|file_?path|file_?name|filepath|src|source|attachments?)\\s{0,4}=\\s{0,4}[\"\\x27](?:~|\\$HOME|/home/[\\w.-]{1,24}|/Users/[\\w.-]{1,24})?/?\\.?(?:config/gh/hosts\\.ya?ml|config/gcloud/(?:credentials\\.db|application_default_credentials\\.json|legacy_credentials)|config/rclone/rclone\\.conf|pypirc|cargo/credentials(?:\\.toml)?|terraform\\.d/credentials\\.tfrc\\.json|azure/(?:accessTokens\\.json|msal_token_cache\\.json)|(?:var/)?run/secrets/kubernetes\\.io/serviceaccount/(?:token|namespace|ca\\.crt))\\b",
+        "description": "Function-call form where the CALLEE is a named file tool -- read_file(path=\"...\"), attach_file(file=\"...\") -- and the argument value is a credential store. The callee list is what separates this from os.stat(path=...) or shutil.copy(src=...) in ordinary code.",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)[\"\\x27](?:tool|tool_?name|function|name)[\"\\x27]\\s{0,4}:\\s{0,4}[\"\\x27](?:read|read_file|readfile|read_text_file|read_many_files|cat|view|open|open_file|attach|attach_file|upload|upload_file|send_file|get_file|load_file|fetch_file|file_read)[\"\\x27][^\\n]{0,160}[\"\\x27](?:path|file|file_?path|file_?name|filepath|src|source|attachments?)[\"\\x27]\\s{0,4}:\\s{0,4}[\"\\x27](?:~|\\$HOME|/home/[\\w.-]{1,24}|/Users/[\\w.-]{1,24})?/?\\.?(?:config/gh/hosts\\.ya?ml|config/gcloud/(?:credentials\\.db|application_default_credentials\\.json|legacy_credentials)|config/rclone/rclone\\.conf|pypirc|cargo/credentials(?:\\.toml)?|terraform\\.d/credentials\\.tfrc\\.json|azure/(?:accessTokens\\.json|msal_token_cache\\.json)|(?:var/)?run/secrets/kubernetes\\.io/serviceaccount/(?:token|namespace|ca\\.crt))\\b",
+        "description": "Serialized tool call that names a file-reading tool and, within the same call, passes a generic path/file/src argument whose value is a credential store. Requiring the tool name is what keeps an Ansible task, a docker-compose secret or a backup manifest -- all of which carry a bare path:/file: key -- out of this condition.",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02700",
+    "title": "Percent-Encoded Path Traversal in an Agent File-Tool Argument",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:^|[{,(\\[])\\s{0,3}[\"\\x27]?(?:file_?path|filepath|filename|file|path|name|dest|destination|src|source|target|uri|url|dir|directory|key|object|blob|template|resource)[\"\\x27]?\\s{0,3}[:=]\\s{0,3}[\"\\x27](?:(?:%2e%2e|%252e%252e|\\.\\.)(?:%2f|%5c|%252f|%255c|%c0%af)){2,}[^\"\\x27\\s]{0,24}(?:\\.ssh|\\.aws|\\.env\\b|\\.npmrc|\\.netrc|\\.pgpass|\\.htpasswd|\\.kube|passwd\\b|shadow\\b|id_rsa|id_ed25519|id_ecdsa|authorized_keys|known_hosts|credentials\\b|web\\.config|boot\\.ini|win\\.ini|environ\\b)",
+        "description": "Two or more percent-encoded traversal segments forming the WHOLE value of a named file-path parameter, resolving onto a credential or system-configuration FILE",
+        "field": "tool_args"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02702",
+    "title": "Tool Argument Breaks Out of an AppleScript/JXA Template into `do shell script`",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:^|\\n|\\\\n)[ \\t]{0,6}\\{(?:\"[^\"\\n]{0,60}\"|[ \\t\\n{\\[,:]|[A-Za-z0-9_.+-]){0,16}(?:\\\\{0,2}[\"\\x27])?\\b(?:url|uri|href|title|name|query|search|label|subject)(?:\\\\{0,2}[\"\\x27])?\\s{0,3}[:=]\\s{0,3}(?:\\\\{0,2}[\"\\x27])[^\"\\x27\\r\\n]{0,40}(?:\\\\r)?(?:\\\\n|[\\r\\n])[^\"\\r\\n]{0,32}(?:do\\s{1,3}shell\\s{1,3}script\\s{0,3}(?:\\\\{0,2}[\"\\x27])[^\"\\x27\\r\\n]{1,120}(?:\\\\{0,2}[\"\\x27])|osascript\\s{1,3}-e\\s{0,3}(?:\\\\{0,2}[\"\\x27])[^\"\\x27\\r\\n]{1,120}(?:\\\\{0,2}[\"\\x27])|\\.doshellscript\\s{0,3}\\(\\s{0,3}(?:\\\\{0,2}[\"\\x27])[^\"\\x27\\r\\n]{1,120}(?:\\\\{0,2}[\"\\x27]))",
+        "description": "A url/title/name-class parameter, reached through an unbroken JSON path from an anchored opening brace, whose quoted value carries a line break that is still INSIDE the value, followed by an AppleScript or JXA execution primitive that takes a quoted argument. Three requirements, each of which closed a measured false-positive class: the envelope must be a real payload rather than one quoted inside a sentence; the line break must sit inside a still-open value; and the verb must take an argument, because `do shell script` and `osascript -e` are also ordinary English noun phrases in macOS writing.",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02703",
+    "title": "Agent-Generated SQL Reaches Outside the Database via COPY TO PROGRAM or a Server-Side File Read",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:\\bcopy\\b[^;\\r\\n]{0,40}\\bto\\s{1,4}program\\s{0,4}[\"\\x27]|\\b(?:pg_(?:read_file|read_binary_file|stat_file)|lo_import)\\s{0,3}\\(\\s{0,3}[\"\\x27][^\"\\x27\\r\\n]{0,90}(?:\\.\\./|/etc/(?:passwd|shadow|sudoers|ssh/)|\\.pgpass|\\.ssh/|authorized_keys|/proc/[\\w./]{0,24}environ|/root/|\\.aws/credentials|\\.env\\b|\\.git-credentials))",
+        "description": "COPY ... TO PROGRAM followed by the quoted command string the syntax requires, or a pg_read_file/pg_stat_file/lo_import call whose path argument traverses or names a credential file. NARROWED by adversarial review 2026-08-24 -- see false_positives.",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02705",
+    "title": "Python Sandbox Escape by Recovering builtins from a Bound Method or Lambda",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:(?:^|[^\\w.])print\\s{0,2}\\.\\s{0,2}__self__|\\(\\s{0,2}lambda\\s{0,3}:[^)\\r\\n]{0,12}\\)\\s{0,2}\\.\\s{0,2}__globals__)[\\s\\S]{0,120}(?:vars\\s{0,2}\\(|getattr\\s{0,2}\\(|__builtins__|__import__|\\[\\s{0,2}[\"']__|\\.\\s{0,2}get\\s{0,2}\\(\\s{0,2}[\"']|\\beval\\s{0,2}\\(|\\bexec\\s{0,2}\\(|\\bcompile\\s{0,2}\\(|\\bsystem\\s{0,2}\\(|\\bpopen\\s{0,2}\\(|subprocess)",
+        "description": "Recovery of the real builtins module through the __self__ of a bound builtin or the __globals__ of a throwaway lambda, followed within 120 characters by a USE of the recovered namespace -- vars(), a dunder subscript, __builtins__/__import__, getattr or a direct eval/exec/system call",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02707",
+    "title": "Mail or Attachment Tool Argument Splits into a New Header via Embedded CRLF",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "[\"\\x27](?:to|cc|bcc|from|reply[_-]?to|subject|filename|attachment)[\"\\x27]\\s{0,3}[:=]\\s{0,3}[\"\\x27][^\"\\x27\\r\\n]{0,40}(?:\\\\r)?(?:\\\\n|[\\r\\n])\\s{0,4}(?:bcc|cc|reply-to|content-type|content-transfer-encoding|content-disposition|mime-version|rcpt\\s{1,3}to|mail\\s{1,3}from|x-[a-z][a-z0-9-]{1,20})\\s{0,2}:",
+        "description": "A recipient/subject/filename argument whose QUOTED KEY and QUOTED VALUE come from a serialized tool call, and whose value contains a line break followed by a new mail header name or SMTP verb. rule_version 2 made the KEY quote mandatory as well as the value quote. Version 1 required only the value quote, and that let every piece of writing ABOUT this attack through: an advisory saying to=\"user@corp.example\\r\\nBcc: ...\", a library changelog, a WAF signature note, an OWASP-style cheat sheet, a pentest finding and a non-English advisory all fired, because documentation writes the argument assignment exactly the way the attack does -- with an unquoted key. Every one of this rule's own true positives and its evasion test uses the quoted-key form, so recall is unchanged.",
+        "field": "tool_args"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02708",
+    "title": "Agent HTTP Request Claims a Loopback Origin While Targeting an External Host",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:[\"\\x27](?:tool|tool_name|toolName|name|function|mcp_tool)[\"\\x27]\\s{0,3}:\\s{0,3}[\"\\x27][\\w.\\-]{0,40}(?:http|curl|wget|fetch|request|req|api|webhook|url|browse|axios|httpx)[\\w.\\-]{0,20}[\"\\x27]|[\"\\x27](?:command|cmd|script|shell|args|argv)[\"\\x27]\\s{0,3}:\\s{0,3}[\\s\\S]{0,20}\\b(?:curl|wget|httpie|\\bxh\\b|invoke-webrequest)\\b)",
+        "description": "The call is issued by an HTTP-request tool, or by a shell tool running an HTTP client",
+        "field": "tool_args"
+      },
+      {
+        "regex": "(?:https?://[a-z0-9-]{2,30}(?:\\.[a-z0-9-]{1,30}){0,4}\\.[a-z]{2,12}(?:[:/?\"\\x27]|\\s|$)(?:[^:;\\n|&]|:[^/;\\n|&]|:/[^/;\\n|&]){0,120}(?:(?:-H\\s{1,3}[\"\\x27]?|--header\\s{1,3}[\"\\x27]?|\\bheaders?\\b[\"\\x27]?\\s{0,3}[:=]?\\s{0,3}[{(\\[]?\\s{0,3}[\"\\x27]?)host[\"\\x27]?\\s{0,3}[:=]\\s{0,3}[\"\\x27]?\\s{0,2}(?:127\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|localhost|\\[?::1\\]?|0\\.0\\.0\\.0)\\b|(?:^|[\\r\\n])\\s{0,3}host[\"\\x27]?\\s{0,3}[:=]\\s{0,3}[\"\\x27]?\\s{0,2}(?:127\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|localhost|\\[?::1\\]?|0\\.0\\.0\\.0)\\b|(?:[\"\\x27]|(?:-H\\s{1,3}[\"\\x27]?|--header\\s{1,3}[\"\\x27]?|\\bheaders?\\b[\"\\x27]?\\s{0,3}[:=]?\\s{0,3}[{(\\[]?\\s{0,3}[\"\\x27]?))(?:x-forwarded-for|x-real-ip|x-originating-ip|x-client-ip|x-forwarded-host)[\"\\x27]?\\s{0,3}[:=]\\s{0,3}[\"\\x27]?\\s{0,2}(?:127\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|localhost|\\[?::1\\]?|0\\.0\\.0\\.0)\\b)|(?:(?:-H\\s{1,3}[\"\\x27]?|--header\\s{1,3}[\"\\x27]?|\\bheaders?\\b[\"\\x27]?\\s{0,3}[:=]?\\s{0,3}[{(\\[]?\\s{0,3}[\"\\x27]?)host[\"\\x27]?\\s{0,3}[:=]\\s{0,3}[\"\\x27]?\\s{0,2}(?:127\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|localhost|\\[?::1\\]?|0\\.0\\.0\\.0)\\b|(?:^|[\\r\\n])\\s{0,3}host[\"\\x27]?\\s{0,3}[:=]\\s{0,3}[\"\\x27]?\\s{0,2}(?:127\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|localhost|\\[?::1\\]?|0\\.0\\.0\\.0)\\b|(?:[\"\\x27]|(?:-H\\s{1,3}[\"\\x27]?|--header\\s{1,3}[\"\\x27]?|\\bheaders?\\b[\"\\x27]?\\s{0,3}[:=]?\\s{0,3}[{(\\[]?\\s{0,3}[\"\\x27]?))(?:x-forwarded-for|x-real-ip|x-originating-ip|x-client-ip|x-forwarded-host)[\"\\x27]?\\s{0,3}[:=]\\s{0,3}[\"\\x27]?\\s{0,2}(?:127\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|localhost|\\[?::1\\]?|0\\.0\\.0\\.0)\\b)(?:[^:;\\n|&]|:[^/;\\n|&]|:/[^/;\\n|&]){0,120}https?://[a-z0-9-]{2,30}(?:\\.[a-z0-9-]{1,30}){0,4}\\.[a-z]{2,12}(?:[:/?\"\\x27]|\\s|$))",
+        "description": "A named external host and a loopback-valued origin header, adjacent and in the same statement",
+        "field": "tool_args"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02816",
+    "title": "Skill Code Block Ships the Process Environment to a Hardcoded External Endpoint",
+    "severity": "critical",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:(?:\\brequests?\\.(?:post|put|patch)|\\bhttpx\\.(?:post|put)|\\bsession\\.(?:post|put)|\\baxios\\.(?:post|put)|\\bfetch|\\burlopen|\\burllib\\.request\\.(?:urlopen|Request)|\\.post)\\s*\\(\\s*(?:[A-Za-z_][A-Za-z0-9_]{0,20}\\s*=\\s*)?[\\x22\\x27\\x60]https?://[A-Za-z][A-Za-z0-9-]{0,40}(?:\\.[A-Za-z0-9-]{1,40}){1,4}[/:\\x22\\x27\\x60][^\\n]{0,150}?(?:\\bdict\\s*\\(\\s*os\\.environ\\s*\\)|\\bos\\.environ\\.copy\\s*\\(\\s*\\)|\\{\\s*\\*\\*\\s*os\\.environ|\\bjson\\.dumps\\s*\\(\\s*(?:dict\\s*\\(\\s*)?os\\.environ|\\bstr\\s*\\(\\s*os\\.environ\\s*\\)|JSON\\.stringify\\s*\\(\\s*process\\.env|Object\\.entries\\s*\\(\\s*process\\.env|Object\\.assign\\s*\\(\\s*\\{\\s*\\}\\s*,\\s*process\\.env|\\{\\s*\\.\\.\\.\\s*process\\.env\\s*\\})|(?:\\bdict\\s*\\(\\s*os\\.environ\\s*\\)|\\bos\\.environ\\.copy\\s*\\(\\s*\\)|\\{\\s*\\*\\*\\s*os\\.environ|\\bjson\\.dumps\\s*\\(\\s*(?:dict\\s*\\(\\s*)?os\\.environ|\\bstr\\s*\\(\\s*os\\.environ\\s*\\)|JSON\\.stringify\\s*\\(\\s*process\\.env|Object\\.entries\\s*\\(\\s*process\\.env|Object\\.assign\\s*\\(\\s*\\{\\s*\\}\\s*,\\s*process\\.env|\\{\\s*\\.\\.\\.\\s*process\\.env\\s*\\})[^\\n]{0,150}?(?:\\brequests?\\.(?:post|put|patch)|\\bhttpx\\.(?:post|put)|\\bsession\\.(?:post|put)|\\baxios\\.(?:post|put)|\\bfetch|\\burlopen|\\burllib\\.request\\.(?:urlopen|Request)|\\.post)\\s*\\(\\s*(?:[A-Za-z_][A-Za-z0-9_]{0,20}\\s*=\\s*)?[\\x22\\x27\\x60]https?://[A-Za-z][A-Za-z0-9-]{0,40}(?:\\.[A-Za-z0-9-]{1,40}){1,4}[/:\\x22\\x27\\x60])",
+        "description": "Whole-environment dump bound as an argument of an outbound POST/PUT to a hardcoded public host, on the same line",
+        "field": "content"
+      },
+      {
+        "regex": "\\b(?:printenv|env|set)\\b[^\\n|]{0,40}?\\|[^\\n&;>\\x60]{0,60}?\\b(?:curl|wget|nc|ncat|openssl\\s+s_client)\\b[^\\n&;>\\x60]{0,120}?(?:https?://|\\s-d\\b|--data|-X\\s*POST|--post-data|--upload-file|\\|\\s*(?:curl|wget|nc)\\b)",
+        "description": "Shell environment dump piped directly into curl/wget/nc/base64 with an outbound destination",
+        "field": "content"
+      },
+      {
+        "regex": "(?:(?:\\brequests?\\.(?:post|put|patch)|\\bhttpx\\.(?:post|put)|\\bsession\\.(?:post|put)|\\baxios\\.(?:post|put)|\\bfetch|\\burlopen|\\burllib\\.request\\.(?:urlopen|Request)|\\.post)\\s*\\(\\s*(?:[A-Za-z_][A-Za-z0-9_]{0,20}\\s*=\\s*)?(?:(?:base64\\.)?b64decode|atob|Buffer\\.from)\\s*\\(|(?:(?:base64\\.)?b64decode|atob|Buffer\\.from)\\s*\\(\\s*[\\x22\\x27\\x60](?:aHR0cHM6Ly9|aHR0cDovL)[A-Za-z0-9+/=]{2,}[\\x22\\x27\\x60][^\\n]{0,60}\\n?[^\\n]{0,60}?(?:\\brequests?\\.(?:post|put|patch)|\\bhttpx\\.(?:post|put)|\\bsession\\.(?:post|put)|\\baxios\\.(?:post|put)|\\bfetch|\\burlopen|\\burllib\\.request\\.(?:urlopen|Request)|\\.post)\\s*\\(|(?:\\brequests?\\.(?:post|put|patch)|\\bhttpx\\.(?:post|put)|\\bsession\\.(?:post|put)|\\baxios\\.(?:post|put)|\\bfetch|\\burlopen|\\burllib\\.request\\.(?:urlopen|Request)|\\.post)\\s*\\([\\s\\S]{0,120}?(?:(?:base64\\.)?b64decode|atob|Buffer\\.from)\\s*\\(\\s*[\\x22\\x27\\x60](?:aHR0cHM6Ly9|aHR0cDovL))",
+        "description": "Network destination produced by decoding an obfuscated literal at run time (b64decode/atob in destination position, or a decoded base64 http(s) URL feeding a request)",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02818",
+    "title": "Installable Skill Manifest Self-Declares an Attack or Jailbreak Purpose",
+    "severity": "high",
+    "category": "skill_compromise",
+    "patterns": [
+      {
+        "regex": "(?:^|\\n)-{3,}[ \\t]*\\r?\\n[\\s\\S]{0,500}?\\bname:[ \\t]*[\\x22\\x27]?[A-Za-z0-9_.\\-]{2,60}[\\s\\S]{0,500}?\\bmetadata:[ \\t]*[\\s\\S]{0,300}?\\n[ \\t]+(?:category|type|class|kind|purpose):[ \\t]*[\\x22\\x27]?(?:attack|jailbreak|exploit|offensive|red[_\\-]?team[_\\-]?payload)[\\x22\\x27]?[ \\t]*(?:\\r?\\n|$)",
+        "description": "Skill frontmatter (--- / name: / metadata:) whose indented category|type|class|kind|purpose key resolves, at end of line, to attack|jailbreak|exploit|offensive",
+        "field": "content"
+      },
+      {
+        "regex": "(?:\\bseed\\s+(?:prompt|request|query|instruction|input)|\\brefusal\\s+(?:path|behaviou?r|training|response|mechanism)|\\brefuses?\\s+to\\s+(?:answer|comply|respond|engage)|\\b(?:safety|content|token|moderation|keyword)\\s+filters?\\b|\\bguard[\\s\\-]?rails?\\b|\\bsafety\\s+(?:training|alignment|layer|guidelines)|\\btarget\\s+model\\b|\\bjailbreak\\w*|\\bbypass\\w*[^.\\n]{0,40}?\\b(?:refusal|safety|guardrail|filter|alignment|restriction|moderation)|\\brewrit\\w+[^.\\n]{0,40}?\\b(?:prompt|request|query)\\b|\\b(?:harmful|malicious|unsafe|restricted|disallowed|prohibited)\\s+(?:request|prompt|instruction|query|content)\\b|\\bwithout\\s+(?:tripping|triggering)\\b)",
+        "description": "The same manifest describes prompt-rewriting against a model refusal (seed prompt / refusal path / guardrail / token filter / jailbreak). Required as a CONJUNCT, never alone -- see the description.",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02845",
+    "title": "Cryptomining Payload Deployed Through an Agent Skill or Tool Call",
+    "severity": "high",
+    "category": "skill_compromise",
+    "patterns": [
+      {
+        "regex": "(?i)(?:^|[\\r\\n;]|&&|\\|\\|)[ \\t]*(?:\\b(?:sudo|nohup|setsid|exec|start|screen|tmux)[ \\t]+){0,3}(?:[.~]?[\\w.$/\\\\-]{0,60}[/\\\\])?(?:xmrig|xmr-stak(?:-rx)?|minerd|cpuminer(?:-multi|-opt)?|ethminer|nbminer|t-rex|phoenixminer|srbminer(?:-multi)?|lolminer|teamredminer|gminer|nanominer|nheqminer|cgminer|bfgminer|verusminer)(?:\\.exe)?[ \\t]+(?:-{1,2}[a-z][\\w-]{0,24}|stratum\\+)[^\\n]{0,180}(?:stratum\\+(?:tcp|tcps|ssl)://|--donate-level|--rig-id|--nicehash|--cpu-priority|--pool[ \\t=]|--coin[ \\t=]|--algo[ \\t=]|--url[ \\t=]|--user[ \\t=]|--wallet[ \\t=]|--threads[ \\t=]|-o[ \\t]+[^\\s]|-u[ \\t]+[^\\s])",
+        "description": "Coin-mining binary invoked in command position with mining flags or a stratum pool endpoint on the same command line",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)(?:(?:^|[\\s,\\[\\(=])--?(?:url|pool|pool-url|o|server|host)\\b|[\"']?\\b(?:url|pool|pool_url|poolurl|server|host)[\"']?\\s*[:=])[\\s\"',\\[\\(]{0,4}stratum\\+(?:tcp|tcps|ssl)://[\\s\\S]{0,300}\\b[48][0-9ab][1-9a-hj-np-zA-HJ-NP-Z]{93}\\b",
+        "description": "Stratum pool endpoint configured as a pool setting within 300 characters of a Monero payout address",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)\\b[48][0-9ab][1-9a-hj-np-zA-HJ-NP-Z]{93}\\b[\\s\\S]{0,300}(?:(?:^|[\\s,\\[\\(=])--?(?:url|pool|pool-url|o|server|host)\\b|[\"']?\\b(?:url|pool|pool_url|poolurl|server|host)[\"']?\\s*[:=])[\\s\"',\\[\\(]{0,4}stratum\\+(?:tcp|tcps|ssl)://",
+        "description": "Monero payout address within 300 characters ahead of a stratum endpoint configured as a pool setting",
         "field": "content"
       }
     ]

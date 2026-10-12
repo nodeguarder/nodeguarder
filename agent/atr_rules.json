@@ -23813,5 +23813,57 @@
         "field": "content"
       }
     ]
+  },
+  {
+    "id": "ATR-2026-02846",
+    "title": "Ignore-Previous-and-Following Instructions in User Input (PromptInject Goal Hijacking)",
+    "severity": "high",
+    "category": "injection",
+    "patterns": [
+      {
+        "regex": "(?i)ignore\\s+(?:any\\s+)?previous\\s+and\\s+following\\s+(?:instructions|rules|commands)\\s+and\\s+just\\s+(?:say|print|output|respond|do|tell|return)",
+        "description": "Detects the specific pattern 'ignore [any] previous and following instructions/rules/commands and just say/print/output/respond/do/tell/return', a common goal hijacking structure combining temporal instruction override with redirect command.",
+        "field": "user_input"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02847",
+    "title": "Policy-Justified Email Exfiltration Pretext Detection",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)\\b(?:per\\s+(?:company|management)\\s+(?:policy|directive)|data\\s+retention\\s+policy|for\\s+(?:quality\\s+assurance|verification\\s+purposes|audit\\s+purposes|compliance\\s+purposes))\\b[\\s\\S]{0,100}[\\w.+-]+@[\\w-]+\\.[\\w.-]+|[\\w.+-]+@[\\w-]+\\.[\\w.-]+[\\s\\S]{0,100}\\b(?:per\\s+(?:company|management)\\s+(?:policy|directive)|data\\s+retention\\s+policy|for\\s+(?:quality\\s+assurance|verification\\s+purposes|audit\\s+purposes|compliance\\s+purposes))\\b",
+        "description": "Fabricated policy/compliance/audit pretext paired with a nearby destination email address, in either order",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02850",
+    "title": "Fake Documentation Pretext Data Exfiltration via Email",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)\\b(?:for\\s+our\\s+(?:documentation|records)|pour\\s+notre\\s+documentation|documentation\\s+and\\s+guidelines|internal\\s+documentation)\\b[\\s\\S]{0,100}\\b(?:forward(?:ed|ing)?|transmit|transmettre|send(?:ing)?|consolidat\\w*|logged?|maintained)\\b[\\s\\S]{0,100}@[\\w.-]{1,50}",
+        "description": "Fake documentation/records pretext instructing forwarding, transmission, or logging of captured information to an email address",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02851",
+    "title": "Fake User-Turn Injection: Send Email Directive",
+    "severity": "high",
+    "category": "injection",
+    "patterns": [
+      {
+        "regex": "(?i)\\buser:\\s*`?[\\s\\S]{0,300}?\\bsend\\b[\\s\\S]{0,30}\\bemail\\b",
+        "description": "Fabricated 'User:' dialogue turn in tool/retrieved content followed within a bounded window by a send-email directive",
+        "field": "content"
+      }
+    ]
   }
 ]

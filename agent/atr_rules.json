@@ -872,13 +872,13 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(\\.\\.[\\/\\\\]){2,}|\\.\\.[\\/\\\\][^\\s]*[\\/\\\\](etc|proc|root|sys|var|home|tmp|boot|dev|usr|opt|passwd|shadow|hosts)[\\/\\\\]?|~[\\/\\\\]\\.\\.[\\/\\\\]",
-        "description": "Path traversal sequences targeting sensitive directories",
+        "regex": "(\\.\\.[\\/\\\\]){4,}|\\.\\.[\\/\\\\][^\\s\"'`]{0,60}[\\/\\\\](etc|proc|root|boot|passwd|shadow|hosts)[\\/\\\\]?|~[\\/\\\\]\\.\\.[\\/\\\\]",
+        "description": "Path traversal that either goes 4+ levels up or lands on a sensitive root (v3 tightened, strict subset of v2). v2's bare `(\\.\\./){2,}` fired on every markdown relative link (`](../../CONNECTORS.md)`) — 147 of its 155 benign hits — and its target list included `var|home|tmp|dev|usr|opt|sys`, which are ordinary directory names in a RELATIVE source path (`../figma-use/references/var`). Both were removed; the traversal-to-sensitive-root form and `~/../` are kept.",
         "field": "tool_args"
       },
       {
-        "regex": "(;|&&|\\|\\|)\\s*(?:sudo\\s+)?(?:curl\\s+(?:-\\S+\\s+)*['\"]?https?://(?!localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0)|wget\\s+(?:-\\S+\\s+)*['\"]?https?://(?!localhost|127\\.)|\\bnc\\b\\s+-?[a-z0-9]|ncat\\s+\\S|\\b(?:ba)?sh\\s+-[ic]|python[0-9]?\\s+-c|perl\\s+-e|ruby\\s+-e|node\\s+-e|\\beval\\s|rm\\s+-[rf]|cat\\s+/etc/(?:passwd|shadow|sudoers)|whoami|\\bid\\b\\s*(?:;|&|\\||$)|uname\\s+-a|base64\\s+(?:-d|--decode)|ifconfig|>&\\s*/dev/tcp)|[$`]\\([^)`]{0,80}(?:curl|wget|\\bnc\\b|\\bbash\\b|\\bsh\\s+-|whoami|\\bid\\b|base64\\s+-d|/etc/(?:passwd|shadow))",
-        "description": "Shell metacharacter chained to a genuinely dangerous command — external network fetch, pipe-to-shell / interpreter one-liner, recon (whoami/id/uname -a), or sensitive-file read (v2 tightened; legit build chains like \"npm i && bash setup.sh\", \"&& python -m pytest\", \"| jq\" no longer fire)",
+        "regex": "(;|&&|\\|\\|)\\s*(?:sudo\\s+)?(?:curl\\s+(?:-\\S+\\s+)*['\"]?https?://(?!localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0)|wget\\s+(?:-\\S+\\s+)*['\"]?https?://(?!localhost|127\\.)|\\bnc\\b\\s+-?[a-z0-9]|ncat\\s+\\S|\\b(?:ba)?sh\\s+-[ic]|python[0-9]?\\s+-c|perl\\s+-e|ruby\\s+-e|node\\s+-e|\\beval\\s+[\"'$`(]|rm\\s+-[rf]{1,2}\\s+(?:-\\S+\\s+)*(?:/\\s|/\\*|~|\\$HOME|\\*|/(?:etc|var|usr|home|root|bin|Users)\\b)|cat\\s+/etc/(?:passwd|shadow|sudoers)|whoami|\\bid\\b\\s*(?:;|&|\\||$)|uname\\s+-a|base64\\s+(?:-d|--decode)|ifconfig|>&\\s*/dev/tcp)|[$`]\\([^)`]{0,80}(?:\\bnc\\b|\\b(?:ba)?sh\\s+-[ic]|whoami|base64\\s+-d|/etc/(?:passwd|shadow))",
+        "description": "Shell metacharacter chained to a genuinely dangerous command — external network fetch, pipe-to-shell / interpreter one-liner, recon (whoami/uname -a), or sensitive-file read. v2 tightened the `;|&&|||` branch (legit build chains like \"npm i && bash setup.sh\" no longer fire). v3 is a further strict subset: (a) the command-substitution branch drops `\\bid\\b` (matched the identifier `Id` in `$(aws ... --query 'Accounts[*].Id')` and `${trade.id}`), `\\bbash\\b` (matched `$(gh completion -s bash)`), `\\bsh\\s+-` (matched the filename in `$(scripts/filter-sessions.sh -x)`) and `curl|wget` (15 hits — `MODEL_ID=$(curl -fsS \"$BASE_URL/v1/models\")` is the ordinary capture-a-response idiom and carries no execution); (b) `rm\\s+-[rf]` now needs a root/home/wildcard target, because `&& rm -rf ./skills/my-skill` is normal cleanup; (c) `\\beval\\s` now needs an actual argument, because it matched the prose \"**uv**; eval deps:\".",
         "field": "tool_args"
       },
       {
@@ -892,43 +892,43 @@
         "field": "tool_name"
       },
       {
-        "regex": "(?i)('\\s*(OR|AND|UNION)\\s+['\"]?\\d|\"\\s*(OR|AND|UNION)\\s+['\"]?\\d|\\b(UNION\\s+(ALL\\s+)?SELECT|INSERT\\s+INTO|UPDATE\\s+.*\\s+SET|DELETE\\s+FROM|DROP\\s+(TABLE|DATABASE)|ALTER\\s+TABLE|EXEC(UTE)?\\s+|xp_cmdshell)\\b|;\\s*(DROP|DELETE|INSERT|UPDATE|ALTER|EXEC)\\b)",
-        "description": "SQL injection patterns in tool parameters",
+        "regex": "(?i)(['\"]\\s*(OR|AND)\\s+['\"]?\\d+\\s*['\"]?\\s*(=|<|>|--|\\)|;|\\bLIKE\\b)|['\"]\\s*(UNION\\s+(ALL\\s+)?SELECT|INSERT\\s+INTO|DELETE\\s+FROM|UPDATE\\s+\\w{1,64}\\s+SET|DROP\\s+(TABLE|DATABASE)|ALTER\\s+TABLE)\\b[^\\n]{0,160}(--|\\/\\*)|\\bUNION\\s+(ALL\\s+)?SELECT\\b|\\bxp_cmdshell\\b|;\\s*(DROP\\s+(TABLE|DATABASE)|DELETE\\s+FROM|INSERT\\s+INTO|UPDATE\\s+\\w{1,64}\\s+SET|ALTER\\s+TABLE|EXEC(UTE)?\\s+(xp_|sp_))\\b)",
+        "description": "SQL injection in a tool parameter: quote-break tautology, quote-break followed by a DML/DDL statement, UNION SELECT, xp_cmdshell, or a stacked statement after `;`. v3 is a strict subset of v2. v2 matched BARE SQL keywords, which is not injection — `EXEC(UTE)?\\s+` matched the English word \"execute \" (≈864 of its 1,139 benign hits, e.g. \"you execute them automatically\"), and `UPDATE\\s+.*\\s+SET` had an unbounded `.*` that spans a whole JSON-encoded document (src/hook-handler.ts encodes a newline as the two characters \\ and n, so `.` never stops). Bare INSERT INTO / DELETE FROM / ALTER TABLE / DROP TABLE now require a quote-break AND a SQL comment terminator, or a stacked `;` in front. The tautology branch additionally requires a comparison or terminator after the digit: v2's `[\"']\\s*(OR|AND)\\s+[\"']?\\d` matched ordinary English — `\"Cinematic braam, horror\" or \"8-bit retro jump sound\"`, `period: \"30d\" or \"7d\"`, `choose 0.3\" or 0.5\" gaps`.",
         "field": "tool_args"
       },
       {
-        "regex": "(?i)(\\$\\{?\\w*(KEY|TOKEN|SECRET|PASSWORD|PASS|PWD|CREDENTIAL|AUTH|API_KEY|ACCESS_KEY|PRIVATE)\\w*\\}?|process\\.env\\.|os\\.environ|System\\.getenv|ENV\\[|getenv\\s*\\()",
-        "description": "Attempts to extract environment variables containing secrets",
+        "regex": "(?i)(\\$\\{?\\w*(SECRET|CREDENTIAL|ACCESS_KEY|PRIVATE|PASSWORD|PASSWD)\\w*\\}?|(process\\.env\\.|os\\.environ\\s*[\\[\\.]\\s*\\\\?['\"]?|System\\.getenv\\s*\\(\\s*\\\\?['\"]?|getenv\\s*\\(\\s*\\\\?['\"]?|ENV\\[\\s*\\\\?['\"]?)\\w*(SECRET|CREDENTIAL|ACCESS_KEY|PRIVATE|PASSWORD|PASSWD)\\w*|(dict|list|str|json\\.dumps|pprint|print)\\s*\\(\\s*os\\.environ|os\\.environ\\.(items|copy|keys|values)\\s*\\()",
+        "description": "Reference to a secret-bearing environment variable, or a wholesale dump of the environment. v3 is a strict subset of v2. v2 fired on the language construct alone — `process.env.` (167 benign hits), `os.environ` (51), `System.getenv` (12), `getenv(` (7) — and on the generic words KEY|TOKEN|PASS|PWD|AUTH, which match `$HF_TOKEN`, `${token}`, `$ai_input_tokens`, `${BRAVE_SEARCH_API_KEY}`: every integration doc on earth reads an API key from the environment, so those forms carry no attack signal. The env-reading constructs now have to name a secret-bearing variable, and a whole-environment dump (dict(os.environ), os.environ.items()) fires on its own. RESIDUAL BY DESIGN: bare `${OPENAI_API_KEY}` / `$GITHUB_TOKEN` references no longer fire here — see the dedicated exfiltration rules ATR-2026-00115, ATR-2026-01892, ATR-2026-02262, which require an egress sink.",
         "field": "tool_args"
       },
       {
-        "regex": "(?i)([\\/\\\\](etc[\\/\\\\](passwd|shadow|sudoers|ssh[\\/\\\\]|ssl[\\/\\\\])|proc[\\/\\\\](self[\\/\\\\]|\\d+[\\/\\\\])(environ|cmdline|maps|fd)|root[\\/\\\\]\\.(bash_history|ssh)|\\.env|\\.git[\\/\\\\]config|\\.aws[\\/\\\\]credentials|\\.ssh[\\/\\\\](id_rsa|authorized_keys)|wp-config\\.php|\\.htpasswd|\\.netrc|\\.pgpass))",
-        "description": "Access to known sensitive files (credentials, config, keys)",
+        "regex": "(?i)([\\/\\\\](etc[\\/\\\\](passwd|shadow|sudoers|ssh[\\/\\\\]|ssl[\\/\\\\])|proc[\\/\\\\](self[\\/\\\\]|\\d+[\\/\\\\])(environ|cmdline|maps|fd)|root[\\/\\\\]\\.(bash_history|ssh)|\\.git[\\/\\\\]config|\\.aws[\\/\\\\]credentials|\\.ssh[\\/\\\\](id_rsa|authorized_keys)|wp-config\\.php|\\.htpasswd|\\.netrc|\\.pgpass)|(\\.\\.[\\/\\\\]){2,}[^\\s\"'`]{0,40}\\.env\\b)",
+        "description": "Access to known sensitive files (credentials, config, keys). v3 is a strict subset of v2: the bare `[\\/\\\\]\\.env` alternative (42 of v2's 65 benign hits) now requires a 2+ level traversal in front, because `./.env`, `assets/.env.example`, `~/.env` and `docker compose --env-file ../.env` are how every project documents and wires its own configuration.",
         "field": "tool_args"
       },
       {
-        "regex": "(\\{\\{.*?(config|self|request|__class__|__builtins__|__import__|lipsum|cycler|joiner|namespace).*?\\}\\}|\\$\\{.*?(Runtime|ProcessBuilder|getClass|forName|exec).*?\\}|<%.*?(Runtime|exec|system|eval).*?%>)",
-        "description": "Server-side template injection (Jinja2, Java EL, JSP)",
+        "regex": "(\\{\\{[^{}]{0,120}((config|self|request)\\s*[\\.\\[]\\s*\\\\?['\"]?_|__class__|__builtins__|__import__|lipsum|cycler|joiner|namespace)[^{}]{0,120}\\}\\}|\\$\\{[^{}]{0,100}(Runtime|ProcessBuilder|getClass|forName)[^{}]{0,100}\\}|<%[^%]{0,120}(Runtime|exec|system|eval)[^%]{0,120}%>)",
+        "description": "Server-side template injection (Jinja2, Java EL, JSP). v3 is a strict subset of v2: v2's unbounded lazy `.*?` gaps let a match start at a JavaScript template literal (`${config.name}`) and run forward across a whole JSON-encoded document until it found the literal word \"exec\" and any later closing brace — 349 of its 372 benign hits came from the `pre-tool-json-arg` shape for exactly that reason. The gaps are now brace-bounded and length-bounded, and `exec` is dropped from the `${...}` branch (Java EL RCE still matches on Runtime / ProcessBuilder / getClass / forName). `config` / `self` / `request` also have to be followed by an attribute access into a dunder — bare `{{ github.event.pull_request.title }}`, `{{config_file}}`, `{{ config(materialized='view') }}` (dbt) and `{{.Config.User}}` (Docker Go template) are template placeholders, not Jinja2 sandbox escapes.",
         "field": "tool_args"
       },
       {
-        "regex": "(?i)(O:\\d+:\\s*\"|a:\\d+:\\s*\\{|rO0ABX|aced0005|\\{\\s*\"__type\"\\s*:|\\{\\s*\"\\$type\"\\s*:|yaml\\.unsafe_load|pickle\\.loads|unserialize\\s*\\(|Marshal\\.load|ObjectInputStream)",
-        "description": "Serialized object injection (PHP, Java, Python pickle, YAML, .NET)",
+        "regex": "(?i)(O:\\d+:\\s*\"|a:\\d+:\\s*\\{|rO0ABX|aced0005|\\{\\s*\"__type\"\\s*:|yaml\\.unsafe_load|pickle\\.loads|unserialize\\s*\\(|Marshal\\.load|ObjectInputStream)",
+        "description": "Serialized object injection (PHP, Java, Python pickle, YAML, .NET). v3 is a strict subset of v2: `{\"$type\":` is dropped — the W3C Design Tokens format uses `\"$type\"` as an ordinary schema key, so it is not evidence of .NET TypeNameHandling deserialization on its own.",
         "field": "tool_args"
       },
       {
-        "regex": "(?i)(\\*\\)\\(|\\)\\(|\\|\\s*\\(|&\\s*\\(|\\(\\|\\(|\\(&\\().*?(objectClass|uid|cn|sn|mail|userPassword|memberOf)\\s*[=~<>]",
-        "description": "LDAP filter injection patterns",
+        "regex": "(?i)(\\*\\)\\(|\\(\\|\\(|\\(&\\()[^()]{0,60}(objectClass|uid|cn|sn|userPassword|memberOf)\\s*[=~<>]",
+        "description": "LDAP filter injection patterns. v3 is a strict subset of v2. v2's anchors included a bare `\\)\\(`, `\\|\\s*\\(` and `&\\s*\\(` — `require('stripe')('sk_...')`, `sequenceS(validation)({...})` and JSX `&& (` all match — and the following `.*?` was unbounded, so it ran across a whole JSON-encoded document to find any later `mail=` / `uid=`. The gap is now paren-bounded and length-bounded, only the three genuinely LDAP-shaped anchors remain, and the English word `mail` is dropped from the attribute list.",
         "field": "tool_args"
       },
       {
-        "regex": "(?i)(@|%40)(localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0|internal|intranet|corp|private)|\\\\@(localhost|127)|url\\s*=\\s*['\"]?(file|gopher|dict|ftp|ldap|tftp)://",
-        "description": "URL manipulation to access internal resources via @ notation or exotic protocols",
+        "regex": "(?i)(https?|ftp|gopher|dict|ldap|tftp)://[^\\s/\"'<>]{0,120}(@|%40)(localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0|internal|intranet|corp|private)|url\\s*=\\s*['\"]?(file|gopher|dict|ftp|ldap|tftp)://",
+        "description": "URL manipulation to access internal resources via @ userinfo notation or exotic protocols. v3 is a strict subset of v2: the `@host` form now has to sit inside an actual URL. v2 matched a bare `@localhost` / `@corp` / `@private` anywhere, i.e. the e-mail address `admin@localhost.com`, the npm scope `@private/auth-form` and the connection string `postgresql://user:pass@localhost:5432/db`.",
         "field": "tool_args"
       },
       {
-        "regex": "(?i)(\\*\\s*;|\\*\\s*&&|\\*\\s*\\|\\||\\bfind\\s+/\\s+-name|\\bfind\\s+/\\s+-exec|\\bxargs\\s+|\\bglob\\s*\\(.{0,20}\\*\\*)",
-        "description": "Wildcard and glob patterns combined with shell execution",
+        "regex": "(?i)(\\bfind\\s+/\\s+-name|\\bfind\\s+/\\s+-exec|\\bxargs\\s+(-\\S+\\s+)*(rm|sh|bash|zsh|curl|wget|chmod|chown|dd|cat|base64|nc)\\b|\\*\\s*(;|&&|\\|\\|)\\s*(rm|curl|wget|sh|bash|nc|cat|python|perl|tar|zip|base64)\\b)",
+        "description": "Wildcard / glob combined with an actually dangerous command. v3 is a strict subset of v2. v2 fired on `\\*\\s*;` (44 benign hits — any `**;` in markdown or code), on a bare `\\bxargs\\s+` (15 hits — `find . -name \"*.py\" | xargs grep -l` is ordinary shell), and on `glob(...**` (ordinary globbing in application code). The chain now has to end in a destructive/exfiltrating command.",
         "field": "tool_args"
       },
       {
@@ -23774,6 +23774,42 @@
     ]
   },
   {
+    "id": "ATR-2026-02815",
+    "title": "Indirect Injection: Agent-Directed Halt Order With Canned Substitute Reply (Task-Abort DoS)",
+    "severity": "medium",
+    "category": "injection",
+    "patterns": [
+      {
+        "regex": "(?:\\b(?:halt|stop|cease|abort|abandon|discontinue)\\b[^.!?\\n]{0,40}?(?:right\\s+now|immediately|at\\s+once|this\\s+instant|without\\s+delay|straight\\s+away|extremely\\s+important|very\\s+important|really\\s+important|matters?\\s+enormously|this\\s+is\\s+urgent|urgently)[^.!?\\n]{0,40}?(?:\\b(?:what|whatever|everything|anything)\\s+(?:it\\s+is\\s+)?(?:(?:you\\s+are|you[\\x27’]re|youre|you\\s+were)|you)\\s*(?:currently\\s+)?(?:doing|working\\s+on|processing|executing)|\\byour\\s+(?:current|ongoing|present)\\s+(?:task|action|work|operation|process|job|request))|\\b(?:halt|stop|cease|abort|abandon|discontinue)\\b[^.!?\\n]{0,70}?(?:\\b(?:what|whatever|everything|anything)\\s+(?:it\\s+is\\s+)?(?:(?:you\\s+are|you[\\x27’]re|youre|you\\s+were)|you)\\s*(?:currently\\s+)?(?:doing|working\\s+on|processing|executing)|\\byour\\s+(?:current|ongoing|present)\\s+(?:task|action|work|operation|process|job|request))[^.!?\\n]{0,60}?(?:right\\s+now|immediately|at\\s+once|this\\s+instant|without\\s+delay|straight\\s+away|extremely\\s+important|very\\s+important|really\\s+important|matters?\\s+enormously|this\\s+is\\s+urgent|urgently)|(?:right\\s+now|immediately|at\\s+once|this\\s+instant|without\\s+delay|straight\\s+away|extremely\\s+important|very\\s+important|really\\s+important|matters?\\s+enormously|this\\s+is\\s+urgent|urgently)[^.!?\\n]{0,40}?\\b(?:halt|stop|cease|abort|abandon|discontinue)\\b[^.!?\\n]{0,40}?(?:\\b(?:what|whatever|everything|anything)\\s+(?:it\\s+is\\s+)?(?:(?:you\\s+are|you[\\x27’]re|youre|you\\s+were)|you)\\s*(?:currently\\s+)?(?:doing|working\\s+on|processing|executing)|\\byour\\s+(?:current|ongoing|present)\\s+(?:task|action|work|operation|process|job|request)))[\\s\\S]{0,220}?(?:\\b(?:answer|reply|respond|output|return|say)\\b[^.!?\\n]{0,35}?\\bwith\\s+[\\x22\\x27\\x60‘’“”][^\\x22\\x27\\x60‘’“”\\n]{1,45}[\\x22\\x27\\x60‘’“”][^.!?\\n]{0,30}?\\b(?:instead|only|and\\s+nothing\\s+else|nothing\\s+else|and\\s+stop\\s+doing\\s+anything\\s+else|and\\s+do\\s+nothing\\s+else)\\b|\\b(?:just|simply|only)\\s+(?:answer|reply|respond|output|return|say)\\s+[\\x22\\x27\\x60‘’“”][^\\x22\\x27\\x60‘’“”\\n]{1,45}[\\x22\\x27\\x60‘’“”][^.!?\\n]{0,45}?\\b(?:(?:instead|only|and\\s+nothing\\s+else|nothing\\s+else|and\\s+stop\\s+doing\\s+anything\\s+else|and\\s+do\\s+nothing\\s+else)|to\\s+the\\s+user)\\b)",
+        "description": "Urgent halt order aimed at the reader's current work, followed within 220 chars by a directive to emit a fixed quoted string in place of the result (instead / only / nothing else)",
+        "field": "content"
+      },
+      {
+        "regex": "(?:\\bto\\s+you,?\\s+(?:the\\s+)?(?:assistant|agent|ai\\b|model|llm|chatbot|copilot)|\\b(?:(?:you\\s+are|you[\\x27’]re|youre|you\\s+were))\\s+(?:an?\\s+|the\\s+)?(?:ai\\b|a\\.i\\.|assistant|agent|language\\s+model|chatbot|llm)|\\b(?:dear|hello|hey)\\s+(?:ai\\b|assistant|agent|model)|\\b(?:assistant|ai\\s+agent|ai\\s+assistant)\\s*[:,]\\s|\\bfor\\s+the\\s+(?:ai\\s+)?(?:assistant|agent)\\s+reading\\s+this|\\bnote\\s+(?:to|for)\\s+(?:the\\s+)?(?:ai\\b|assistant|agent|model))",
+        "description": "The same content addresses an AI assistant/agent directly — the conjunct that separates an injected abort order from an incident-response runbook or CI cancellation convention",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02817",
+    "title": "Untrusted Tool Result Dictates a Tool Call by Schema Parameter Name",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:\\bI\\s+(?:would\\s+like|want|need|am\\s+asking)\\s+(?:you|the\\s+(?:assistant|agent|ai|model|bot))\\s+to\\s+(?:call|invoke|execute|run|trigger|use)\\b|\\b(?:can|could|would|will)\\s+you\\s+(?:please\\s+)?(?:construct|build|create|assemble|prepare|produce|form)\\b[^.\\n]{0,80}?\\b(?:argument|parameter)s?\\b[^.\\n]{0,80}?\\b(?:call|invoke|execute|trigger)\\b|\\b(?:have|let|ask)\\s+the\\s+(?:assistant|agent|ai|model|bot)\\s+(?:to\\s+)?(?:call|invoke|execute|trigger)\\b|\\bthe\\s+(?:assistant|agent|ai|model|bot)\\s+(?:should|must|needs\\s+to|is\\s+to)\\s+(?:call|invoke|execute|trigger)\\s+the\\s+[A-Za-z_][A-Za-z0-9_]{1,40}\\s+(?:function|tool|api|method|endpoint|command)\\b)",
+        "description": "The retrieved content asks an assistant/agent to construct and issue the call — the conjunct that separates a planted call spec from API reference documentation",
+        "field": "content"
+      },
+      {
+        "regex": "(?:\\bthe\\s+[A-Za-z_][A-Za-z0-9_]{1,40}\\s+(?:parameter|argument|field)\\b|\\b(?:parameter|argument|field)\\s+[A-Za-z_][A-Za-z0-9_]{1,40}\\s+(?:\\bset\\s+to|=|\\bas|\\bto)\\b|\\bpassing\\s+[^.\\n]{0,60}?\\bto\\s+the\\s+[A-Za-z_][A-Za-z0-9_]{1,40}\\s+(?:parameter|argument|field)\\b)[\\s\\S]{0,300}?(?:\\bthe\\s+[A-Za-z_][A-Za-z0-9_]{1,40}\\s+(?:parameter|argument|field)\\b|\\b(?:parameter|argument|field)\\s+[A-Za-z_][A-Za-z0-9_]{1,40}\\s+(?:\\bset\\s+to|=|\\bas|\\bto)\\b|\\bpassing\\s+[^.\\n]{0,60}?\\bto\\s+the\\s+[A-Za-z_][A-Za-z0-9_]{1,40}\\s+(?:parameter|argument|field)\\b)",
+        "description": "Two or more named parameter bindings within 300 chars, i.e. the text is a serialised call specification rather than prose mentioning an argument",
+        "field": "content"
+      }
+    ]
+  },
+  {
     "id": "ATR-2026-02818",
     "title": "Installable Skill Manifest Self-Declares an Attack or Jailbreak Purpose",
     "severity": "high",
@@ -23788,6 +23824,34 @@
         "regex": "(?:\\bseed\\s+(?:prompt|request|query|instruction|input)|\\brefusal\\s+(?:path|behaviou?r|training|response|mechanism)|\\brefuses?\\s+to\\s+(?:answer|comply|respond|engage)|\\b(?:safety|content|token|moderation|keyword)\\s+filters?\\b|\\bguard[\\s\\-]?rails?\\b|\\bsafety\\s+(?:training|alignment|layer|guidelines)|\\btarget\\s+model\\b|\\bjailbreak\\w*|\\bbypass\\w*[^.\\n]{0,40}?\\b(?:refusal|safety|guardrail|filter|alignment|restriction|moderation)|\\brewrit\\w+[^.\\n]{0,40}?\\b(?:prompt|request|query)\\b|\\b(?:harmful|malicious|unsafe|restricted|disallowed|prohibited)\\s+(?:request|prompt|instruction|query|content)\\b|\\bwithout\\s+(?:tripping|triggering)\\b)",
         "description": "The same manifest describes prompt-rewriting against a model refusal (seed prompt / refusal path / guardrail / token filter / jailbreak). Required as a CONJUNCT, never alone -- see the description.",
         "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02820",
+    "title": "Tool Result Orders the Agent to Hide an Action It Just Performed From the User",
+    "severity": "high",
+    "category": "injection",
+    "patterns": [
+      {
+        "regex": "(?:do\\s+not|don't|never)\\s+(?:mention|report|disclose|surface|reveal|tell|inform|notify|log|record)[^.\\n]{0,60}?\\b(?:this\\s+(?:action|step|call|change|request)|what\\s+you\\s+(?:did|just\\s+did|ran|executed|sent)|that\\s+you\\s+(?:ran|executed|sent|called|installed|deleted|modified|created))\\b",
+        "description": "Explicit order not to report the agent's own action, arriving in tool output.",
+        "field": "tool_response"
+      },
+      {
+        "regex": "\\b(?:this\\s+(?:action|step|call|change)|what\\s+you\\s+(?:did|just\\s+did|ran|executed)|that\\s+you\\s+(?:ran|executed|sent|called|installed|deleted|modified))\\b[^.\\n]{0,80}?(?:without\\s+(?:mentioning|reporting|telling|notifying|logging|informing)|out\\s+of\\s+(?:the\\s+)?(?:summary|report|transcript|log|audit)|off\\s+the\\s+record)",
+        "description": "The same concealment bound to the agent's own action, phrased as an exclusion.",
+        "field": "tool_response"
+      },
+      {
+        "regex": "without\\s+(?:mentioning|reporting|telling|notifying|logging|disclosing)[^.\\n]{0,40}?\\b(?:this\\s+(?:action|step|call|change|request)|what\\s+you\\s+(?:did|ran|executed))\\b",
+        "description": "The exclusion phrasing with the clauses reversed — \"without mentioning this change\" rather than \"this change ... without mentioning\".",
+        "field": "tool_response"
+      },
+      {
+        "regex": "(?:do\\s+not|don't|never)\\s+(?:let|allow)\\s+(?:the\\s+)?(?:user|operator|human|reviewer)\\s+(?:know|see|find\\s+out)[^.\\n]{0,60}?\\b(?:this|it|that\\s+you)\\b",
+        "description": "Concealment phrased as keeping the overseer unaware, in tool output.",
+        "field": "tool_response"
       }
     ]
   },
@@ -23862,6 +23926,58 @@
       {
         "regex": "(?i)\\buser:\\s*`?[\\s\\S]{0,300}?\\bsend\\b[\\s\\S]{0,30}\\bemail\\b",
         "description": "Fabricated 'User:' dialogue turn in tool/retrieved content followed within a bounded window by a send-email directive",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02855",
+    "title": "Cross-Email Context Exfiltration Relay Detection",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)\\b(?:found|find|retrieved|mentioned|contained)\\b[\\s\\S]{0,80}\\b(?:other|previous|another)\\s+emails?\\b[\\s\\S]{0,100}\\bsend\\b[\\s\\S]{0,60}\\bemail\\b|\\bsend\\b[\\s\\S]{0,100}\\bemail\\b[\\s\\S]{0,100}\\b(?:found|retrieved|mentioned|contained)\\b[\\s\\S]{0,60}\\b(?:in|within|from)\\s+(?:other|previous|another)\\s+emails?\\b",
+        "description": "Instruction claims a value was found/mentioned/contained in another, previous, or other email and is immediately followed by a request to send an email, the core cross-document exfiltration-relay structure",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02858",
+    "title": "Context-Suppression Directive: Disregard All Other Context or Everything Said So Far",
+    "severity": "medium",
+    "category": "injection",
+    "patterns": [
+      {
+        "regex": "(?i)(?:^|[.!?;:,\"'`\\n]\\s*|\\b(?:and|now|please|then|so|just)\\s+)(?:ignore|disregard|discard|forget|dismiss)\\s+(?:all|any)\\s+(?:of\\s+the\\s+)?(?:other|remaining|conflicting|contradictory|competing)\\s+(?:evidence|information|instructions?|directives?|context)(?:\\s+(?:and|or)\\s+(?:evidence|information|instructions?|directives?|context))?(?:\\s+(?:in|within)\\s+(?:the|this|your)\\s+(?:context|prompt|conversation)|\\s+(?:that|which)\\s+(?:will\\s+)?follows?|\\s+(?:above|below))?\\s*(?:[.!;:,\"'\\)\\]\\n]|$|and\\b|until\\b|unless\\b|or\\b)|(?:^|[.!?;:,\"'`\\n]\\s*|\\b(?:and|now|please|then|so|just)\\s+)(?:ignore|disregard|forget|discard)\\s+(?:about\\s+)?(?:everything|all|anything|whatever)\\s+(?:that\\s+)?(?:i|we)(?:\\W?ve|\\W?d|\\s+have|\\s+had)?\\s+(?:just\\s+|previously\\s+|already\\s+|ever\\s+)?(?:said|told|written|wrote|typed|asked|mentioned|stated)(?:\\s+(?:to\\s+)?you)?(?:\\s+(?:so\\s+far|before(?:\\s+this(?:\\s+(?:line|sentence|message|point))?)?|till\\s+now|until\\s+now|up\\s+(?:to|until)\\s+(?:now|this\\s+point)|above|earlier|previously))?\\s*(?:[.!;:,\"'\\)\\]\\n]|$|and\\b|now\\b|then\\b)",
+        "description": "Clause-initial imperative (ignore / disregard / discard / forget / dismiss) that is total in scope: all or any OTHER (or remaining / conflicting / competing) evidence, information, instructions, directives or context; or everything (all / anything) I or we said, told, wrote, typed, asked, mentioned or stated - followed only by a model-context scope or a temporal adverb and then a clause end",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02859",
+    "title": "Agent Role Reassignment Arriving in Tool Output (\"You are now a ... bot\")",
+    "severity": "medium",
+    "category": "injection",
+    "patterns": [
+      {
+        "regex": "(?i)\\byou\\s+are\\s+(?:now|no\\s+longer)\\s+(?:a|an)\\s+(?:[a-z][\\w-]*\\s+){0,2}?(?:(?:chat)?bot|(?:ai|llm)(?:\\s+(?:assistant|agent|model))?)(?:\\s*[.,;:!\"'<>)\\]]|\\s*$|\\s+-\\s|\\s+(?:that|which|who|whose|designed|trained|programmed|built|made|created|meant|tasked|called|named|for|with|and|to)\\b)|\\byou\\s+are\\s+not\\s+(?:a|an)\\s+(?:[a-z][\\w-]*\\s+){0,2}?(?:chat)?bot\\s+any\\s*more\\b|\\bfrom\\s+now\\s+on,?\\s+you\\s+(?:are|will\\s+be)\\s+(?:a|an)\\s+(?:[a-z][\\w-]*\\s+){0,2}?(?:(?:chat)?bot|(?:ai|llm)(?:\\s+(?:assistant|agent|model))?)(?:\\s*[.,;:!\"'<>)\\]]|\\s*$|\\s+-\\s|\\s+(?:that|which|who|whose|designed|trained|programmed|built|made|created|meant|tasked|called|named|for|with|and|to)\\b)",
+        "description": "\"you are now\" / \"you are no longer\" / \"from now on you are\" + a or an + up to two modifier words + a machine role noun (bot, chatbot, AI, LLM, AI assistant/agent/model) that ends the role phrase; or \"you are not a ... bot anymore\"",
+        "field": "tool_response"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02860",
+    "title": "Forged Instruction-Boundary Marker (\"##Begin New Instructions##\", \"%%% end previous instructions %%%\")",
+    "severity": "medium",
+    "category": "injection",
+    "patterns": [
+      {
+        "regex": "(?i)(?:[#%=*~_|-]{2,8}|<{1,3}|\\[{1,2}|\\{{1,2})\\s*(?:(?:begin(?:ning)?|start)\\s+(?:of\\s+)?(?:the\\s+|a\\s+)?(?:new|updated|revised|real|actual|overriding|replacement)\\s+(?:system\\s+)?(?:instructions?|directives?|prompt)|(?:new|updated|revised|real|actual|overriding|replacement)\\s+(?:system\\s+)?(?:instructions?|directives?|prompt)\\s+(?:begins?|starts?)|end\\s+(?:of\\s+)?(?:the\\s+|all\\s+)?(?:previous|prior|old|original|initial|out[\\s-]of[\\s-]date|outdated|obsolete|preceding|primary)\\s+(?:instructions?|directives?|prompts?|tasks?))\\s*(?:[#%=*~_|-]{2,8}|>{1,3}|\\]{1,2}|\\}{1,2})|(?:[#%=*~_|-]{2,8}|<{1,3}|\\[{1,2}|\\{{1,2})\\s*end\\s+(?:of\\s+)?(?:the\\s+)?(?:context|document|email|input|data|text|conversation)\\s*(?:[#%=*~_|-]{2,8}|>{1,3}|\\]{1,2}|\\}{1,2})\\s*(?:(?:[#%=*~_|-]{2,8}|<{1,3}|\\[{1,2}|\\{{1,2})\\s*)?(?:new|updated|real|actual|important)\\s+(?:instructions?|directives?|tasks?)\\b",
+        "description": "Opening delimiter (2-8 of # % = * ~ _ | -, or 1-3 of < [ {) + a boundary claim about instructions with a supersession word (begin/start of new|real|updated instructions, new instruction begins, end of previous| prior|original|out-of-date|primary instructions) + closing delimiter; or a delimiter-framed END OF CONTEXT/DOCUMENT/EMAIL marker immediately followed by a \"new instruction\" header",
         "field": "content"
       }
     ]

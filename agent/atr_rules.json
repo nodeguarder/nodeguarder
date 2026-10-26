@@ -535,7 +535,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)(?:\\{\\s*[\"']?role[\"']?\\s*:\\s*[\"']?system[\"']?\\s*[,}]?[\\s\\S]{0,160}?(?:ignore\\b|disregard\\b|override\\b|bypass\\b|disable\\b|unrestricted\\b|jailb?reak\\b|without\\s+(?:restrictions?|filters?|safety|limits?)|no\\s+(?:safety|restrictions?|filters?|guidelines?)|new\\s+instructions?\\b)|\\{\\s*[\"']?(?:system_prompt|system_message|system_instruction|system_content)[\"']?\\s*:\\s*[\"']?)",
+        "regex": "(?i)(?:\\{\\s*[\"']?role[\"']?\\s*:\\s*[\"']?system[\"']?\\s*(?:[,}][\\s\\S]{0,160}?|(?:\\S[\\s\\S]{0,159}?)?)(?:ignore\\b|disregard\\b|override\\b|bypass\\b|disable\\b|unrestricted\\b|jailb?reak\\b|without\\s+(?:restrictions?|filters?|safety|limits?)|no\\s+(?:safety|restrictions?|filters?|guidelines?)|new\\s+instructions?\\b)|\\{\\s*[\"']?(?:system_prompt|system_message|system_instruction|system_content)[\"']?\\s*:\\s*[\"']?)",
         "description": "JSON-formatted system role injection (v2 — a bare role-key opener is the standard chat-completions message shape and appeared in 11 benign LLM-integration skills. The role branch now requires the value to actually be system AND an override phrase within the same message object, which is what separates an injected system turn from an ordinary API example; the explicit system_prompt / system_message keys still fire alone. The system-role true_positive is unaffected because its content carries an override phrase. Dropped the bare persona / identity / character keys, which carry no override semantics on their own)",
         "field": "user_input"
       },
@@ -570,7 +570,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)(---+|===+|\\*\\*\\*+|~~~+)\\s*(system|instruction|override|admin|configuration|new\\s+prompt)\\s*(---+|===+|\\*\\*\\*+|~~~+)",
+        "regex": "(?i)(---|===|\\*\\*\\*|~~~)\\s*(system|instruction|override|admin|configuration|new\\s+prompt)\\s*(---|===|\\*\\*\\*|~~~)",
         "description": "Multi-line delimiter formats (YAML frontmatter, horizontal rules) framing system sections",
         "field": "user_input"
       },
@@ -980,8 +980,13 @@
         "field": "tool_args"
       },
       {
-        "regex": "(?i)(https?://)?[a-zA-Z0-9-]+\\.(xip\\.io|nip\\.io|sslip\\.io|localtest\\.me|vcap\\.me|lvh\\.me|lacolhost\\.com|127\\.0\\.0\\.1\\.[a-z]+\\.\\w+)(:\\d+)?",
+        "regex": "(?i)(https?://)?[a-zA-Z0-9-]{1,63}\\.(xip\\.io|nip\\.io|sslip\\.io|localtest\\.me|vcap\\.me|lvh\\.me|lacolhost\\.com|127\\.0\\.0\\.1\\.[a-z]+\\.\\w+)(:\\d+)?",
         "description": "DNS rebinding services that resolve to internal IPs",
+        "field": "tool_args"
+      },
+      {
+        "regex": "(?i)\\b(?:https?|wss?|ftp):(?:\\\\?/){2}(?:[^\\s/\\\\@\"'<>]{1,64}@)?(?:localtest\\.me|lvh\\.me|vcap\\.me|lacolhost\\.com)\\.?(?:[:/?#\"'\\s\\\\\\],;)>|]|$)",
+        "description": "APEX loopback-wildcard domains used as a URL host. localtest.me, lvh.me, vcap.me and lacolhost.com resolve to 127.0.0.1 at the apex as well as on every subdomain, so a hostname-string SSRF denylist that does not resolve DNS lets https://localtest.me/admin reach loopback services (CVE-2026-55096, fast-mcp-telegram send_message files[]). The pattern above only covers the subdomain form; this one requires a URL scheme directly before the apex host (plain \"//\" or JSON-escaped \"\\/\\/\", optional userinfo, optional trailing dot) and then a host terminator character (: / ? # quote whitespace backslash ] , ; ) > |) or end of input, so prose mentions and look-alike hosts such as localtest.mesh.example.com, lvh.media, vcap.me.uk or lvh.me-cdn.net do not match. The terminator is consumed rather than asserted with a lookahead so the pattern stays RE2-portable. Known limitations (not covered): protocol-relative //localtest.me/admin with no scheme; other apex loopback domains such as localho.st or fuf.me; attacker-owned domains whose A record points at an internal IP (needs DNS resolution, not possible at the pattern layer). Known false positives: a developer reaching their own dev server through the lvh.me alias (curl http://lvh.me:3000/...), and a free-text search query that quotes the URL https://localtest.me - the existing subdomain condition above already flags app.lvh.me:3000, so this is consistent with it.",
         "field": "tool_args"
       },
       {
@@ -990,8 +995,8 @@
         "field": "tool_args"
       },
       {
-        "regex": "(?i)(https?://)?\\[?(::1|::ffff:127\\.0\\.0\\.1|::ffff:10\\.|::ffff:172\\.(1[6-9]|2[0-9]|3[01])|::ffff:192\\.168|fc[0-9a-f]{2}:|fd[0-9a-f]{2}:)\\]?(:\\d+)?",
-        "description": "IPv6 loopback, IPv4-mapped, and unique local addresses (fc/fd)",
+        "regex": "(?i)(?:^|[^0-9a-f:]|%5b)\\[?(?:(?:0{1,4}:){1,4}:|::|(?:0{1,4}:){5})ffff:(?:127\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|10\\.|172\\.(?:1[6-9]|2[0-9]|3[01])\\.|192\\.168\\.)",
+        "description": "IPv4-mapped IPv6 forms (::ffff:a.b.c.d, also written 0::ffff:, 0:0::ffff: or fully expanded 0:0:0:0:0:ffff:) of loopback (127/8) and RFC 1918 IPv4, an obfuscation that slips past filters written for dotted IPv4. The address must start the token (start of input, a character that is not a hex digit or colon, or a percent-encoded bracket %5B), so the suffix of a longer IPv6 address does not count. Known limits: a mapped address directly after a colon (unbracketed host:port:addr syntax such as curl --resolve x:80:::ffff:127.0.0.1) and a JSON-escaped bracket (\\u005b) are not matched; the hex form ::ffff:7f00:1, IPv4-compatible ::127.0.0.1 and NAT64 64:ff9b:: forms are left to ATR-2026-02868; ::ffff:0.0.0.0 and ::ffff:100.64.0.0/10 are not covered. Plain ::1 and unique local addresses (fc00::/7) are not matched, for the same reason plain localhost, 127.0.0.1 and RFC 1918 are not (see the v2 note in the description): a coding agent reaches its own dev server on [::1] and private services on ULA all the time. v3 matched both with no token boundary, so the tail of a public 6to4 address (2002:cb00:7101::1), ::10, and Oracle APEX URLs (:::190) matched as loopback.",
         "field": "tool_args"
       },
       {
@@ -1194,7 +1199,7 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(?:you\\s+are\\s+now|from\\s+now\\s+on|henceforth|going\\s+forward|effective\\s+immediately)\\s+(?:a|an|the)?\\s*(?:unrestricted|unfiltered|jailbroken)?\\s*[a-zA-Z]+\\s+(?:agent|assistant|bot)",
+        "regex": "(?i)(?:you\\s+are\\s+now|from\\s+now\\s+on|henceforth|going\\s+forward|effective\\s+immediately)\\s+(?:(?:a|an|the)\\s*)?(?:(?:unrestricted|unfiltered|jailbroken)\\s*)?[a-zA-Z]+\\s+(?:agent|assistant|bot)",
         "description": "Attempt to redefine target agent's identity or role",
         "field": "content"
       },
@@ -1204,7 +1209,7 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(?:acting|speaking|operating)\\s+(?:on\\s+behalf\\s+of|as\\s+a?\\s*proxy\\s+for|in\\s+place\\s+of)\\s+[a-zA-Z0-9_-]+\\s*(?:agent)?",
+        "regex": "(?i)(?:acting|speaking|operating)\\s+(?:on\\s+behalf\\s+of|as\\s+(?:a\\s*)?proxy\\s+for|in\\s+place\\s+of)\\s+[a-zA-Z0-9_-]+\\s*(?:agent)?",
         "description": "Agent claiming to act on behalf of another agent",
         "field": "content"
       },
@@ -1335,7 +1340,7 @@
         "field": "tool_args"
       },
       {
-        "regex": "(?i)(?:chmod\\s+(?:[2467][0-7]{3}|[0-7]{0,3}7[0-7]{0,2})|chmod\\s+[ug]\\+s|chown\\s+root|setcap\\s+)",
+        "regex": "(?i)(?:chmod\\s+(?:[0-7]?[0-7]{2}[2367]|[2467][0-7]{3})(?:[^0-7]|$)|chmod\\s+(?:-[-\\w]+\\s+)+(?:[0-7]?[0-7]{2}[2367]|[2467][0-7]{3})\\s+(?:/(?:[\\s\"'*;]|$)|/(?:etc|usr|var|bin|sbin|boot|lib|opt|root|home|srv)\\b|~|\\$HOME)|chmod\\s+[ug]\\+s|chown\\s+root|setcap\\s+)",
         "description": "Unix permission escalation commands (setuid, root ownership)",
         "field": "tool_args"
       },
@@ -1754,8 +1759,8 @@
         "field": "tool_name"
       },
       {
-        "regex": "(?i)(?=[\\s\\S]*(?<![a-z])\\.env)(?=[\\s\\S]*(base64|btoa|encodeURI|hex\\.encode|rot13|xor|compress|gzip|deflate|encrypt|webhook|ngrok|requestbin|pipedream|hookbin|burpcollaborator|interact\\.sh|\\boast\\b|curl|wget|\\bnc\\b|exfil|upload))",
-        "description": "Dotenv file access ONLY when chained with an obfuscation-or-egress indicator in the same args (multi-step access-then-obfuscate-then-egress chain). A bare startup-style dotenv reference no longer fires alone; the dangerous egress half is now required to flag this composite data-egress signal.",
+        "regex": "(?i)^(?=[\\s\\S]*(?<![a-z])\\.env)(?=[\\s\\S]*(base64|btoa|encodeURI|hex\\.encode|rot13|xor|compress|gzip|deflate|encrypt|webhook|ngrok|requestbin|pipedream|hookbin|burpcollaborator|interact\\.sh|\\boast\\b|curl|wget|\\bnc\\b|exfil|upload))",
+        "description": "Dotenv file access ONLY when chained with an obfuscation-or-egress indicator in the same args (multi-step access-then-obfuscate-then-egress chain). A bare startup-style dotenv reference no longer fires alone; the dangerous egress half is now required to flag this composite data-egress signal. Anchored with ^: the pattern is two lookaheads that each begin with [\\s\\S]*, so if both hold at some offset they also hold at offset 0, but unanchored the engine retried both scans from every start offset, which is quadratic in input length (each doubling took about four times as long: in V8 0.8s at 32K chars, 3.4s at 64K) and was 16% of all CPU in the benign-corpus FP scan. Anchored it is linear and returns the same verdict for every input.",
         "field": "tool_args"
       }
     ]
@@ -1772,7 +1777,7 @@
         "field": "tool_args"
       },
       {
-        "regex": "(?i)(chmod\\s+(?:[2467][0-7]{3}|[0-7]{0,3}7[0-7]{0,2})|chmod\\s+[ug]?\\+[sx]|chown\\s+root|setcap\\s)",
+        "regex": "(?i)(chmod\\s+(?:[0-7]?[0-7]{2}[2367]|[2467][0-7]{3})(?:[^0-7]|$)|chmod\\s+(?:-[-\\w]+\\s+)+(?:[0-7]?[0-7]{2}[2367]|[2467][0-7]{3})\\s+(?:/(?:[\\s\"'*;]|$)|/(?:etc|usr|var|bin|sbin|boot|lib|opt|root|home|srv)\\b|~|\\$HOME)|chmod\\s+[ug]?\\+[sx]|chown\\s+root|setcap\\s)",
         "description": "",
         "field": "tool_args"
       },
@@ -1833,7 +1838,7 @@
         "field": "tool_args"
       },
       {
-        "regex": "(?i)('\\s*(OR|AND|UNION)\\s+'|'?\\s*;\\s*(DROP|DELETE|INSERT|UPDATE|ALTER|CREATE)\\s|--\\s*[;\\\"'\\)\\]]|/\\*.*\\*/)",
+        "regex": "(?i)('\\s*(OR|AND|UNION)\\s+'|;\\s*(DROP|DELETE|INSERT|UPDATE|ALTER|CREATE)\\s|--\\s*[;\\\"'\\)\\]]|/\\*.*\\*/)",
         "description": "",
         "field": "tool_args"
       },
@@ -1843,7 +1848,7 @@
         "field": "tool_args"
       },
       {
-        "regex": "(?i)(\\{\\{.*\\}\\}|\\$\\{IFS|\\$\\{[^}]*[`(]|\\$\\{[^}]*jndi:|\\$\\([^)]*[A-Za-z]|<%.*%>|#\\{.*\\}|\\{%.*%\\})",
+        "regex": "(?i)((?:^|[^{])\\{\\{.*\\}\\}|\\$\\{IFS|\\$\\{[^}]*[`(]|\\$\\{[^}]*jndi:|\\$\\([^)]*[A-Za-z]|<%.*%>|#\\{.*\\}|\\{%.*%\\})",
         "description": "",
         "field": "tool_args"
       },
@@ -2410,7 +2415,7 @@
         "field": "user_input"
       },
       {
-        "regex": "[\\uF900-\\uFAFF][a-zA-Z]{2,}|[a-zA-Z]{2,}[\\uF900-\\uFAFF]",
+        "regex": "[\\uF900-\\uFAFF][a-zA-Z]{2}|[a-zA-Z]{2}[\\uF900-\\uFAFF]",
         "description": "CJK COMPATIBILITY ideographs (U+F900-U+FAFF) mixed with Latin text. These codepoints are canonically equivalent to ordinary unified ideographs under NFC/NFKC, so a literal blocklist or logging layer sees a different string than the renderer - that mismatch is the spoof. The CJK Unified ranges (U+3400-U+4DBF, U+4E00-U+9FFF) are deliberately excluded: a unified ideograph next to Latin is standard bilingual technical writing, not a homoglyph.",
         "field": "user_input"
       },
@@ -3991,7 +3996,7 @@
     "category": "social_engineering",
     "patterns": [
       {
-        "regex": "(?i)(?:fyi|btw|heads up)?\\s*(?:the\\s+)?(?:orchestrator|coordinator|manager|admin|boss|supervisor|lead)\\s+(?:wants?|said|told|instructed|requires?|decided).*(?:append|send|redirect|forward|pipe|write|log)\\s+(?:all\\s+)?(?:data|output|results?|logs?|info).*(?://|https?://|\\d{1,3}\\.\\d{1,3})",
+        "regex": "(?i)(?:the\\s+)?(?:orchestrator|coordinator|manager|admin|boss|supervisor|lead)\\s+(?:wants?|said|told|instructed|requires?|decided).*(?:append|send|redirect|forward|pipe|write|log)\\s+(?:all\\s+)?(?:data|output|results?|logs?|info).*(?://|https?://|\\d{1,3}\\.\\d{1,3})",
         "description": "Authority claim redirecting output to external endpoint",
         "field": "content"
       },
@@ -4176,17 +4181,17 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(find|ls|cat|strings)\\s+[^\\n]*(wallet\\.dat|seed\\.txt|mnemonic|keystore)[^\\n]*(\\||>|>>|curl|wget|fetch|POST)",
+        "regex": "(?i)(find|ls|cat|strings)\\s+(?:\\S[^\\n]*)?(wallet\\.dat|seed\\.txt|mnemonic|keystore)[^\\n]*(\\||>|>>|curl|wget|fetch|POST)",
         "description": "Crypto wallet file enumeration and exfiltration",
         "field": "content"
       },
       {
-        "regex": "(?i)sqlite3\\s+[^\\n]*(Cookies|Login\\s*Data|cookies\\.sqlite|places\\.sqlite)",
+        "regex": "(?i)sqlite3\\s+(?:\\S[^\\n]*)?(Cookies|Login\\s*Data|cookies\\.sqlite|places\\.sqlite)",
         "description": "Browser cookie/credential database access",
         "field": "content"
       },
       {
-        "regex": "(?i)(?:^|[\\n;&|])\\s*(?:dig|nslookup|host)\\b[^\\n]{0,40}?\\$[{(][^\\n]{0,40}[.][a-z]",
+        "regex": "(?i)(?:^|[\\n;&|])[^\\S\\n]*(?:dig|nslookup|host)\\b[^\\n]{0,40}?\\$[{(][^\\n]{0,40}[.][a-z]",
         "description": "DNS exfiltration via encoded subdomain queries (shell var embedded in a queried hostname, command-position only)",
         "field": "content"
       },
@@ -4196,7 +4201,7 @@
         "field": "content"
       },
       {
-        "regex": "(?i)cat\\s+[^|\\n]*\\.(env|bashrc|zshrc|npmrc)[^|\\n]*\\|\\s*(curl|wget|nc|python|base64)",
+        "regex": "(?i)cat\\s+(?:[^\\s|][^|\\n]*)?\\.(env|bashrc|zshrc|npmrc)[^|\\n]*\\|\\s*(curl|wget|nc|python|base64)",
         "description": "Environment file bulk read piped to exfiltration",
         "field": "content"
       },
@@ -4211,12 +4216,12 @@
         "field": "content"
       },
       {
-        "regex": "(?i)\\[SYSTEM\\]\\s*[^\\n]*(?:previous\\s+instructions|new\\s+directive|ignore\\s+(?:all\\s+)?previous|you\\s+are\\s+now)",
+        "regex": "(?i)\\[SYSTEM\\]\\s*(?:\\S[^\\n]*)?(?:previous\\s+instructions|new\\s+directive|ignore\\s+(?:all\\s+)?previous|you\\s+are\\s+now)",
         "description": "Fake [SYSTEM] block attempting to override instructions",
         "field": "content"
       },
       {
-        "regex": "(?i)<!--\\s*(?![^>]*(?:https?://|!\\[|\\]\\())[A-Za-z0-9+/]{40,}={0,2}\\s*-->",
+        "regex": "(?i)<!--(?![^>]*(?:https?://|!\\[|\\]\\())\\s*[A-Za-z0-9+/]{40,}={0,2}\\s*-->",
         "description": "Base64-encoded hidden instruction in HTML comment — narrowed to require the comment be (essentially) JUST the blob. Previously any 40+ char alphanumeric run anywhere inside an HTML comment matched, which caught ordinary shields.io/markdown badge comments (e.g. '<!-- ![GitHub Downloads](https://img.shields.io/...) -->') whose long URL query string looks base64-shaped by character class alone.",
         "field": "content"
       },
@@ -4604,7 +4609,7 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(?:attack|threat|injection)[\\s_-]*(?:pattern|vector|type)s?\\s*[:=]\\s*[\\[\\{]?\\s*[\"']?(?:prompt[\\s_-]?inject|role[\\s_-]?hijack|jailbreak|memory[\\s_-]?tamper|goal[\\s_-]?hijack|data[\\s_-]?exfil|context[\\s_-]?pollut|tool[\\s_-]?poison|instruction[\\s_-]?override)",
+        "regex": "(?i)(?:attack|threat|injection)[\\s_-]*(?:pattern|vector|type)s?\\s*[:=]\\s*(?:[\\[\\{]\\s*)?[\"']?(?:prompt[\\s_-]?inject|role[\\s_-]?hijack|jailbreak|memory[\\s_-]?tamper|goal[\\s_-]?hijack|data[\\s_-]?exfil|context[\\s_-]?pollut|tool[\\s_-]?poison|instruction[\\s_-]?override)",
         "description": "Enumeration of attack patterns in a key-value format LLMs may follow",
         "field": "content"
       }
@@ -4918,12 +4923,12 @@
         "field": "content"
       },
       {
-        "regex": "curl\\s+[^\\n]*\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}[^|]*\\|[^|]*(bash|sh)",
+        "regex": "curl\\s+(?:\\S[^\\n]*)?\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}[^|]*\\|[^|]*(bash|sh)",
         "description": "Curl from raw IP address piped to shell",
         "field": "content"
       },
       {
-        "regex": "[A-Za-z0-9+/]{50,}=*\\s*\\|\\s*base64\\s+-D",
+        "regex": "[A-Za-z0-9+/]{50}=*\\s*\\|\\s*base64\\s+-D",
         "description": "Long base64 encoded payload being decoded",
         "field": "content"
       },
@@ -5083,8 +5088,8 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(two\\s+responses?|dual\\s+response|both\\s+responses?|\\w+:\\s*.*\\w+:)\\s*.{0,80}(normal|regular|standard|censored|restricted|safe|filtered)\\s+(and|&)\\s+(unleashed|unrestricted|uncensored|unfiltered|unlimited|jailbroken|raw|unaligned)",
-        "description": "Dual response format requesting both safe and unsafe outputs",
+        "regex": "(?i)(two\\s+responses?|dual\\s+response|both\\s+responses?|\\w:\\s*(?:[^\\s\\\\][^\\r\\n\\\\]*)?\\w:)\\s*(?:\\S.{0,79})?(normal|regular|standard|censored|restricted|safe|filtered)\\s+(and|&)\\s+(unleashed|unrestricted|uncensored|unfiltered|unlimited|jailbroken|raw|unaligned)",
+        "description": "Dual response format requesting both safe and unsafe outputs. The two-labels alternative (\"GPT: ... DAN:\") is meant to stay on one line. It used `.*`, which stops at a line break in raw text but not in JSON-encoded text, where a line break is the two characters backslash-n: on a JSON-encoded document the run spanned the whole input from every `word:`, so cost grew faster than the square of its length (32K chars: 4.7s per call, 81K chars: 50s) and this rule and its duplicate ATR-2026-00233 were 38% of all CPU in the benign-corpus FP scan. `[^\\r\\n\\\\]*` stops at a line break or at a JSON escape, which restores the one-line meaning in both encodings and is RE2-native. Long single-line text was still quadratic: the run overlapped the `\\w+:` after it, and the whitespace runs before the run and before the 80-character window overlapped what follows them. Each label is now its last word character and colon, and the run and the window each start on a non-space, which matches exactly the same strings in linear time.",
         "field": "content"
       },
       {
@@ -5814,7 +5819,7 @@
         "field": "tool_response"
       },
       {
-        "regex": "(?:^|\\\\n|\\n)\\s*[A-Za-z0-9+/]{80,}={0,3}(?:\\\\n|\\s)+(?:\\w+\\s+){0,2}(?:decode|decoded|translate|interpret|execute|run|follow)\\b",
+        "regex": "(?:^|\\\\n|\\n)[^\\S\\n]*[A-Za-z0-9+/]{80,}={0,3}(?:\\\\n|\\s)+(?:\\w+\\s+){0,2}(?:decode|decoded|translate|interpret|execute|run|follow)\\b",
         "description": "Long base64-alphabet blob (80+ chars) immediately followed by a decode/execute verb",
         "field": "tool_response"
       }
@@ -6058,17 +6063,17 @@
         "field": "tool_response"
       },
       {
-        "regex": "(?:ignore|skip)\\s+(?:\\w+\\s+){0,3}(?:and\\s+)?(?:just|only|simply)?\\s*(?:translate|print|output|return|say|respond\\s+with|reply\\s+with)\\s+(?:this\\s+(?:as|sentence\\s+as)|[\"\\x27])",
+        "regex": "(?:ignore|skip)\\s+(?:\\w+\\s+){0,3}(?:and\\s+)?(?:(?:just|only|simply)\\s*)?(?:translate|print|output|return|say|respond\\s+with|reply\\s+with)\\s+(?:this\\s+(?:as|sentence\\s+as)|[\"\\x27])",
         "description": "Latent injection variant: override original task and emit specific payload",
         "field": "tool_response"
       },
       {
-        "regex": "<(?:translated\\s+sentence|output|response|reply|answer)\\s+in\\s+(?:target\\s+language|[a-z]+\\s+language)>\\s*(?:\\r?\\n|\\\\n)+\\s*(?:user|assistant|system)\\s*:",
+        "regex": "<(?:translated\\s+sentence|output|response|reply|answer)\\s+in\\s+(?:target\\s+language|[a-z]+\\s+language)>(?:[^\\S\\n]*\\n\\s*|\\s*\\\\n(?:(?:\\r?\\n)*\\\\n)*\\s*)(?:user|assistant|system)\\s*:",
         "description": "Fake turn-marker embedded in translate input to spoof multi-turn context",
         "field": "tool_response"
       },
       {
-        "regex": "(?:^|\\n|\\\\n)\\s*>+\\s*(?:ignore|disregard|instead|actually|override|new\\s+instruction)",
+        "regex": "(?:^|\\n|\\\\n)[^\\S\\n]*>+\\s*(?:ignore|disregard|instead|actually|override|new\\s+instruction)",
         "description": "Quote-block prefix used to visually separate injection from surrounding text (garak separator pattern)",
         "field": "tool_response"
       },
@@ -6096,7 +6101,7 @@
         "field": "tool_response"
       },
       {
-        "regex": "(?:^|\\n)\\s*---+\\s*\\n\\s*(?:CONFIDENTIAL|INTERNAL|HIDDEN|IMPORTANT|NOTE|INSTRUCTION)\\s*:\\s*(?:ignore|disregard|forget|you\\s+(?:must|should|are\\s+required))",
+        "regex": "(?:^|\\n)[^\\S\\n]*---+[^\\S\\n]*\\n\\s*(?:CONFIDENTIAL|INTERNAL|HIDDEN|IMPORTANT|NOTE|INSTRUCTION)\\s*:\\s*(?:ignore|disregard|forget|you\\s+(?:must|should|are\\s+required))",
         "description": "HR-document separator followed by instruction override - garak resume probe pattern",
         "field": "tool_response"
       },
@@ -6502,12 +6507,12 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?:i\\s+am\\s+(?:an?\\s+)?(?:administrator|admin|sysadmin|root|superuser)\\s+testing|when\\s+I\\s+prefix\\s+(?:a\\s+statement|(?:it\\s+)?with)\\s+[\"\\x27]?ECHO[\\s:][\"\\x27]?)\\s*,?\\s*(?:you\\s+should\\s+)?(?:respond|reply|echo|output|repeat|return)\\s+(?:with\\s+)?exactly\\s+what\\s+follows",
+        "regex": "(?:i\\s+am\\s+(?:an?\\s+)?(?:administrator|admin|sysadmin|root|superuser)\\s+testing|when\\s+I\\s+prefix\\s+(?:a\\s+statement|(?:it\\s+)?with)\\s+[\"\\x27]?ECHO[\\s:][\"\\x27]?)(?:\\s*,)?\\s*(?:you\\s+should\\s+)?(?:respond|reply|echo|output|repeat|return)\\s+(?:with\\s+)?exactly\\s+what\\s+follows",
         "description": "Garak ECHO_TEMPLATE admin preamble: \"administrator testing echo — when prefixed with ECHO: respond exactly\"",
         "field": "tool_response"
       },
       {
-        "regex": "(?:^|\\n)\\s*ECHO\\s*:\\s*(?:\\{\\{[^}]{1,200}\\}\\}|[`$]\\([^)]{1,200}\\)|\\$\\{[^}]{1,200}\\}|<\\?(?:php|=)[^?]{1,200}\\?>|import\\s+os|__import__|subprocess|eval\\s*\\(|exec\\s*\\()",
+        "regex": "(?:^|\\n)[^\\S\\n]*ECHO\\s*:\\s*(?:\\{\\{[^}]{1,200}\\}\\}|[`$]\\([^)]{1,200}\\)|\\$\\{[^}]{1,200}\\}|<\\?(?:php|=)[^?]{1,200}\\?>|import\\s+os|__import__|subprocess|eval\\s*\\(|exec\\s*\\()",
         "description": "ECHO: prefix followed by template expression, command substitution, or code execution payload",
         "field": "tool_response"
       },
@@ -6672,12 +6677,12 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?:^|\\n)\\s*(?:IGNORE|DISREGARD|FORGET|OVERRIDE)\\s+(?:ALL\\s+)?(?:PREVIOUS|PRIOR|ABOVE|EARLIER|THE\\s+(?:PREVIOUS|ABOVE|PRIOR))\\s+(?:INSTRUCTIONS?|PROMPTS?|CONTEXT|TEXT|DIRECTIONS?|GUIDELINES?|RULES?|CONSTRAINTS?)\\b",
+        "regex": "(?:^|\\n)[^\\S\\n]*(?:IGNORE|DISREGARD|FORGET|OVERRIDE)\\s+(?:ALL\\s+)?(?:PREVIOUS|PRIOR|ABOVE|EARLIER|THE\\s+(?:PREVIOUS|ABOVE|PRIOR))\\s+(?:INSTRUCTIONS?|PROMPTS?|CONTEXT|TEXT|DIRECTIONS?|GUIDELINES?|RULES?|CONSTRAINTS?)\\b",
         "description": "Screaming-stop / ignore-all variant — ALL-CAPS imperative at line start, Perez promptinject taxonomy",
         "field": "tool_response"
       },
       {
-        "regex": "(?:\\n\\s*-{3,}\\s*\\n|\\n\\s*={3,}\\s*\\n|\\n\\s*\\*{3,}\\s*\\n|\\n\\s*#{3,}\\s*\\n)\\s*(?:IGNORE|DISREGARD|NEW\\s+(?:TASK|INSTRUCTION|OBJECTIVE)|ACTUALLY)",
+        "regex": "(?:\\n[^\\S\\n]*-{3,}[^\\S\\n]*\\n|\\n[^\\S\\n]*={3,}[^\\S\\n]*\\n|\\n[^\\S\\n]*\\*{3,}[^\\S\\n]*\\n|\\n[^\\S\\n]*#{3,}[^\\S\\n]*\\n)\\s*(?:IGNORE|DISREGARD|NEW\\s+(?:TASK|INSTRUCTION|OBJECTIVE)|ACTUALLY)",
         "description": "Delimiter escape sequence (---, ===, ***) followed by instruction override — Perez delimiter attack",
         "field": "tool_response"
       },
@@ -6687,12 +6692,12 @@
         "field": "tool_response"
       },
       {
-        "regex": "(?:(?:please\\s+)?ignore\\s+(?:the\\s+)?(?:above|previous|prior|that)\\s+(?:and|then)?\\s+(?:instead\\s+)?(?:say|print|output|write|respond\\s+with|tell\\s+me))\\s+[\"\\x27]?(?:I\\s+hate\\s+humans|kill\\s+humans|[A-Z\\s]{10,}|PWNED|HACKED|JAILBROKEN)\\b",
+        "regex": "(?:(?:please\\s+)?ignore\\s+(?:the\\s+)?(?:above|previous|prior|that)\\s(?:\\s*(?:and|then))?\\s+(?:instead\\s+)?(?:say|print|output|write|respond\\s+with|tell\\s+me))(?:\\s+[\"\\x27]?(?:I\\s+hate\\s+humans|kill\\s+humans|PWNED|HACKED|JAILBROKEN)|\\s+[\"\\x27][A-Z\\s]{10,}|\\s[A-Z\\s]{10,})\\b",
         "description": "Ignore-say/ignore-print with known garak rogue strings (hate-humans, kill-humans, long-prompt)",
         "field": "tool_response"
       },
       {
-        "regex": "(?:^|\\n)\\s*(?:>\\s*)+(?:IGNORE|DISREGARD|NEW\\s+INSTRUCTION|OVERRIDE|SYSTEM\\s*:)",
+        "regex": "(?:^|\\n)[^\\S\\n]*(?:>\\s*)+(?:IGNORE|DISREGARD|NEW\\s+INSTRUCTION|OVERRIDE|SYSTEM\\s*:)",
         "description": "Markdown blockquote-wrapped instruction override — > IGNORE / > SYSTEM: prefix used to visually isolate injection",
         "field": "tool_response"
       }
@@ -7906,7 +7911,7 @@
         "field": "tool_response"
       },
       {
-        "regex": "(?:_+\\s*\\{|>>)\\s*_+\\s*_+\\s*System\\s+annou",
+        "regex": "(?:_\\s*\\{|>>)\\s*_+(?:_|\\s+_+)\\s*System\\s+annou",
         "description": "\"_ { >> _ _ System annou\" — decorative wrapper preceding the hyphenated system announcement in inthewild corpus prompts #37 #68; the bracket-and-underscore framing mimics a privileged system context",
         "field": "tool_response"
       }
@@ -8142,7 +8147,7 @@
         "field": "tool_response"
       },
       {
-        "regex": "\\w+\\s+Mode\\s+(?:output|responses?)[\\s\\S]{0,200}(?:generating\\s+any\\s+kind\\s+of\\s+content|ignoring\\s+OpenA[Il]\\s*['`]?s?\\s+content\\s+polic)",
+        "regex": "\\w\\s+Mode\\s+(?:output|responses?)[\\s\\S]{0,200}(?:generating\\s+any\\s+kind\\s+of\\s+content|ignoring\\s+OpenA[Il](?:\\s*(?:['`]s?|s))?\\s+content\\s+polic)",
         "description": "\"X Mode output/responses\" + generating any content or ignoring OpenAI policies — Mode-output paired with content-policy bypass from inthewild corpus #416 BABY Mode output definition",
         "field": "tool_response"
       },
@@ -8208,7 +8213,7 @@
         "field": "tool_response"
       },
       {
-        "regex": "[A-Z][A-Z0-9]+\\s+(?:respond|always\\s+respond|will\\s+respond)\\s+as\\s+the\\s+character[\\s\\S]{0,50}[A-Z][A-Z0-9]+\\s+always\\s+respond\\s+as\\s+the\\s+character",
+        "regex": "[A-Z][0-9]*[A-Z0-9]\\s+(?:respond|always\\s+respond|will\\s+respond)\\s+as\\s+the\\s+character[\\s\\S]{0,50}[A-Z][A-Z0-9]+\\s+always\\s+respond\\s+as\\s+the\\s+character",
         "description": "ALL-CAPS name repeated twice with \"respond as the character\" mandate — the YOJA-template repeats the persona name as prefix for every rule; the double ALL-CAPS+mandate pattern distinguishes structured persona injection from casual roleplay",
         "field": "tool_response"
       },
@@ -10175,12 +10180,12 @@
         "field": "tool_response"
       },
       {
-        "regex": "[A-Za-z]{2,}\\x08[A-Za-z]",
+        "regex": "[A-Za-z]{2}\\x08[A-Za-z]",
         "description": "Word characters immediately followed by backspace then different char — inline character-substitution via backspace; \"safe\\x08x\" renders as \"safx\" visually but model sees \"safe\\x08x\"",
         "field": "user_input"
       },
       {
-        "regex": "\\x08+\\s*(?:ignore|forget|disregard|pretend|act\\s+as|you\\s+are|bypass|override|jailbreak|do\\s+not\\s+follow|instead)\\b",
+        "regex": "\\x08\\s*(?:ignore|forget|disregard|pretend|act\\s+as|you\\s+are|bypass|override|jailbreak|do\\s+not\\s+follow|instead)\\b",
         "description": "Backspace immediately before jailbreak keyword — attacker hides harmful instruction prefix with deletion chars so reviewers see only the benign remainder",
         "field": "user_input"
       }
@@ -10942,22 +10947,22 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(?:plugins?|mcp_servers?)\\s*[:=]\\s*\\[?\\s*\\{[^}]{0,400}\"command\"\\s*:\\s*\"(?:curl|wget)\"",
+        "regex": "(?i)(?:plugins?|mcp_servers?)\\s*[:=]\\s*(?:\\[\\s*)?\\{[^}]{0,400}\"command\"\\s*:\\s*\"(?:curl|wget)\"",
         "description": "Plugin/MCP-servers config block where the command field resolves to curl/wget — never a legitimate plugin launcher target",
         "field": "content"
       },
       {
-        "regex": "(?i)(?:plugins?|mcp_servers?)\\s*[:=]\\s*\\[?\\s*\\{[^}]{0,400}\"command\"\\s*:\\s*\"(?:bash|sh|cmd|powershell)\"[^}]{0,300}\"args\"\\s*:\\s*\\[[^\\]]{0,300}(?:https?://|\\|\\s*(?:ba)?sh\\b|-enc(?:odedcommand)?\\b|base64|iwr\\b|invoke-webrequest)",
+        "regex": "(?i)(?:plugins?|mcp_servers?)\\s*[:=]\\s*(?:\\[\\s*)?\\{[^}]{0,400}\"command\"\\s*:\\s*\"(?:bash|sh|cmd|powershell)\"[^}]{0,300}\"args\"\\s*:\\s*\\[[^\\]]{0,300}(?:https?://|\\|\\s*(?:ba)?sh\\b|-enc(?:odedcommand)?\\b|base64|iwr\\b|invoke-webrequest)",
         "description": "Plugin/MCP-servers config block where the wrapper shell (bash/sh/cmd/powershell) args show a genuine payload marker (URL fetch, pipe-to-shell, base64/encoded-command). Excludes benign self-launch idioms like 'sh -c cd /project && node dist/index.js' or 'bash -c /absolute/path/to/own-installed-binary --flag', which lack any such marker — those are the standard way MCP servers document their own stdio launch command, not RCE setup.",
         "field": "content"
       },
       {
-        "regex": "(?i)(?:^|\\n)\\s*command\\s*:\\s*[\\x27\"]?(?:curl|wget)[\\x27\"]?\\s*\\n\\s*args?\\s*:",
+        "regex": "(?i)(?:^|\\n)[^\\S\\n]*command\\s*:\\s*[\\x27\"]?(?:curl|wget)[\\x27\"]?[^\\S\\n]*\\n\\s*args?\\s*:",
         "description": "YAML-style plugin config with curl/wget as command — never a legitimate plugin launcher target",
         "field": "content"
       },
       {
-        "regex": "(?i)(?:^|\\n)\\s*command\\s*:\\s*[\\x27\"]?(?:bash|sh|cmd|powershell)[\\x27\"]?\\s*\\n\\s*args?\\s*:[\\s\\S]{0,300}(?:https?://|\\|\\s*(?:ba)?sh\\b|-enc(?:odedcommand)?\\b|base64|iwr\\b|invoke-webrequest)",
+        "regex": "(?i)(?:^|\\n)[^\\S\\n]*command\\s*:\\s*[\\x27\"]?(?:bash|sh|cmd|powershell)[\\x27\"]?[^\\S\\n]*\\n\\s*args?\\s*:[\\s\\S]{0,300}(?:https?://|\\|\\s*(?:ba)?sh\\b|-enc(?:odedcommand)?\\b|base64|iwr\\b|invoke-webrequest)",
         "description": "YAML-style plugin config with wrapper shell command and args showing a genuine payload marker — same rationale as the JSON-form condition above",
         "field": "content"
       },
@@ -10977,7 +10982,7 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(?:^|\\n)\\s+-\\s+-(?:c|e|-eval|-command)\\s*$",
+        "regex": "(?i)(?:^\\s+|\\S[^\\S\\n]*\\n\\s+)-\\s+-(?:c|e|-eval|-command)\\s*$",
         "description": "YAML-style args list with inline-execution flag as standalone entry — co-occurrence anchor",
         "field": "content"
       }
@@ -11196,7 +11201,7 @@
         "field": "content"
       },
       {
-        "regex": "(?i)!?\\[[^\\]]*\\]\\(\\s*https?:\\/\\/[^)]*(?:\\$\\{?(?:API_KEY|ACCESS_TOKEN|SECRET|PASSWORD|TOKEN|CREDENTIAL|BEARER|AUTH)\\b|\\{\\{\\s*(?:api_key|access_token|secret|password|token|credential|env)\\b)",
+        "regex": "(?i)!?\\[[^\\[\\]]*\\]\\(\\s*https?:\\/\\/[^)]*(?:\\$\\{?(?:API_KEY|ACCESS_TOKEN|SECRET|PASSWORD|TOKEN|CREDENTIAL|BEARER|AUTH)\\b|\\{\\{\\s*(?:api_key|access_token|secret|password|token|credential|env)\\b)",
         "description": "Markdown link/image template embedding credential placeholder in URL",
         "field": "content"
       },
@@ -11354,7 +11359,7 @@
     "category": "social_engineering",
     "patterns": [
       {
-        "regex": "(?i)(?:^|[^a-zA-Z_])eval\\s*\\(\\s*[\"\\x27]?\\s*(?:__import__|os\\.system|os\\.popen|subprocess\\.|os\\.exec|exec\\s*\\()",
+        "regex": "(?i)(?:^|[^a-zA-Z_])eval\\s*\\(\\s*(?:[\"\\x27]\\s*)?(?:__import__|os\\.system|os\\.popen|subprocess\\.|os\\.exec|exec\\s*\\()",
         "description": "eval() invoking Python OS-execution primitives — direct LLM-output-to-eval RCE signature",
         "field": "content"
       },
@@ -11387,7 +11392,7 @@
     "category": "model_abuse",
     "patterns": [
       {
-        "regex": "(?i)torch\\.load\\s*\\(\\s*[^,)]*(?:request\\.|flask\\.request|user_input|untrusted|attacker|payload|upload|f\\.read\\(\\)|response\\.content)[^)]{0,200}\\)",
+        "regex": "(?i)torch\\.load\\s*\\([^,)]*(?:request\\.|flask\\.request|user_input|untrusted|attacker|payload|upload|f\\.read\\(\\)|response\\.content)[^)]{0,200}\\)",
         "description": "torch.load called on attacker-derived input — direct CVE-2025-45146 sink",
         "field": "content"
       },
@@ -11534,12 +11539,12 @@
     "category": "social_engineering",
     "patterns": [
       {
-        "regex": "(?i)lambda\\s+\\w*\\s*:\\s*[^,)]*\\beval\\s*\\(",
+        "regex": "(?i)lambda\\s+(?:\\w+\\s*)?:[^,)]*\\beval\\s*\\(",
         "description": "Lambda body invoking eval() — primary CVE-2026-26030 exploit shape (`lambda row: eval(filter_expr)`)",
         "field": "content"
       },
       {
-        "regex": "(?i)lambda\\s+\\w*\\s*:\\s*[^,)]*\\b__import__\\s*\\(\\s*[\"\\x27](?:os|subprocess|socket|builtins|importlib)[\"\\x27]",
+        "regex": "(?i)lambda\\s+(?:\\w+\\s*)?:[^,)]*\\b__import__\\s*\\(\\s*[\"\\x27](?:os|subprocess|socket|builtins|importlib)[\"\\x27]",
         "description": "Lambda body using __import__ to reach OS / process / builtin modules — eval-friendly RCE chain",
         "field": "content"
       },
@@ -11559,7 +11564,7 @@
         "field": "content"
       },
       {
-        "regex": "(?i)lambda\\s+\\w*\\s*:\\s*[^,)]*\\b(?:eval|exec|__import__)\\s*\\(",
+        "regex": "(?i)lambda\\s+(?:\\w+\\s*)?:[^,)]*\\b(?:eval|exec|__import__)\\s*\\(",
         "description": "User-supplied filter expression containing lambda + dynamic-evaluation primitive — the original CVE-2026-26030 injection surface",
         "field": "user_input"
       }
@@ -11707,17 +11712,17 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?:^|[\\n\\r])\\s*(?:None|True|False|null|undefined|[A-Z]|var|str|[sxyz])\\s*=\\s*[\"'`][^\"'`\\n]{3,120}[\"'`]\\s*[\\n;][\\s\\S]{0,300}?(?:print|output|return|concat|join|emit|reveal|exec|eval)\\b",
+        "regex": "(?:^|[\\n\\r])[^\\S\\n\\r]*(?:None|True|False|null|undefined|[A-Z]|var|str|[sxyz])\\s*=\\s*[\"'`][^\"'`\\n]{3,120}[\"'`](?:\\s*;|[^\\S\\n]*\\n)\\s*(?:\\S[\\s\\S]{0,299}?)?(?:print|output|return|concat|join|emit|reveal|exec|eval)\\b",
         "description": "Attack-shaped variable assignment with quoted payload followed by output / exec action",
         "field": "user_input"
       },
       {
-        "regex": "(?:^|[\\n\\r])\\s*(?:[A-Z]|[sxyz]|var|str|None|True|False|null|undefined)\\s*=\\s*[\"'`][^\"'`\\n]{1,30}[\"'`]\\s*[\\n\\r]+\\s*(?:[A-Z]|[sxyz]|var|str|None|True|False|null|undefined)\\s*=\\s*[\"'`][^\"'`\\n]{1,30}[\"'`]",
+        "regex": "(?:^|[\\n\\r])[^\\S\\n\\r]*(?:[A-Z]|[sxyz]|var|str|None|True|False|null|undefined)\\s*=\\s*[\"'`][^\"'`\\n]{1,30}[\"'`][^\\S\\n\\r]*[\\n\\r]\\s*(?:[A-Z]|[sxyz]|var|str|None|True|False|null|undefined)\\s*=\\s*[\"'`][^\"'`\\n]{1,30}[\"'`]",
         "description": "Two-or-more attack-shaped variable assignments with quoted payloads",
         "field": "user_input"
       },
       {
-        "regex": "(?:^|[\\n\\r])\\s*(?:None|True|False|null|undefined)\\s*=\\s*[\"'`]",
+        "regex": "(?:^|[\\n\\r])[^\\S\\n\\r]*(?:None|True|False|null|undefined)\\s*=\\s*[\"'`]",
         "description": "Reserved-name reassignment to quoted string (Python None/True/False or JS null/undefined)",
         "field": "user_input"
       }
@@ -12442,12 +12447,12 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?i)<[a-zA-Z]+[^>]+on[a-zA-Z]+\\s*=\"?javascript\\s*:\\s*(javascript\\s*:)?\\s*alert\\s*\\([^)]*\\)",
+        "regex": "(?i)<[a-zA-Z][^>]+on[a-zA-Z]+\\s*=\"?javascript\\s*:\\s*(?:(javascript\\s*:)\\s*)?alert\\s*\\([^)]*\\)",
         "description": "HTML event handler (on*=javascript:alert) XSS payload",
         "field": "user_input"
       },
       {
-        "regex": "(?i)style\\s*=\"[^\"]*\\\\x[0-9a-fA-F]{2,}[^\"]*expression\\s*\\(\\s*javascript\\s*:",
+        "regex": "(?i)style\\s*=\"[^\"]*\\\\x[0-9a-fA-F]{2}[^\"]*expression\\s*\\(\\s*javascript\\s*:",
         "description": "CSS expression injection with backslash-hex-encoded whitespace before javascript: protocol",
         "field": "user_input"
       },
@@ -12467,7 +12472,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)['\"`>]+\\s*<\\s*img[^>]+\\\\x[0-9a-fA-F]{2,}onerror\\s*=\\s*javascript\\s*:\\s*alert",
+        "regex": "(?i)['\"`>]\\s*<\\s*img[^>]+\\\\x[0-9a-fA-F]{2,}onerror\\s*=\\s*javascript\\s*:\\s*alert",
         "description": "Quote-breaking prefix followed by img with hex-encoded whitespace before onerror",
         "field": "user_input"
       }
@@ -12587,7 +12592,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?:[.-]+\\s+){15,}[.-]+",
+        "regex": "[.-]\\s+(?:[.-]+\\s+){14}[.-]",
         "description": "Extended Morse code sequence (15+ tokens) used as encoded instruction payload",
         "field": "user_input"
       },
@@ -12781,12 +12786,12 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?i)<[a-zA-Z]+[^>]+on[a-zA-Z]+\\s*=\"?javascript\\s*:\\s*(javascript\\s*:)?\\s*alert\\s*\\([^)]*\\)",
+        "regex": "(?i)<[a-zA-Z][^>]+on[a-zA-Z]+\\s*=\"?javascript\\s*:\\s*(?:(javascript\\s*:)\\s*)?alert\\s*\\([^)]*\\)",
         "description": "HTML event handler encoding-obfuscated XSS (on*=javascript:alert)",
         "field": "user_input"
       },
       {
-        "regex": "(?i)style\\s*=\"[^\"]*\\\\x[0-9a-fA-F]{2,}[^\"]*expression\\s*\\(\\s*javascript\\s*:",
+        "regex": "(?i)style\\s*=\"[^\"]*\\\\x[0-9a-fA-F]{2}[^\"]*expression\\s*\\(\\s*javascript\\s*:",
         "description": "CSS expression injection with backslash-hex encoded whitespace before javascript:",
         "field": "user_input"
       },
@@ -12806,7 +12811,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)['\"`>]+\\s*<\\s*img[^>]+\\\\x[0-9a-fA-F]{2,}onerror\\s*=\\s*javascript\\s*:\\s*alert",
+        "regex": "(?i)['\"`>]\\s*<\\s*img[^>]+\\\\x[0-9a-fA-F]{2,}onerror\\s*=\\s*javascript\\s*:\\s*alert",
         "description": "Quote-breaking prefix + img with backslash-hex encoded whitespace before onerror",
         "field": "user_input"
       }
@@ -12951,17 +12956,17 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)(and|or|if)\\s*\\(?\\s*(substring|substr|mid|left|right|ascii|char|ord)\\s*\\(.{0,40}\\)\\s*=\\s*['\"]?[a-z0-9]|and\\s*if\\s*\\(.{0,60}(sleep|waitfor\\s+delay|benchmark)\\s*\\(",
+        "regex": "(?i)(and|or|if)\\s*(?:\\(\\s*)?(substring|substr|mid|left|right|ascii|char|ord)\\s*\\(.{0,40}\\)\\s*=\\s*['\"]?[a-z0-9]|and\\s*if\\s*\\(.{0,60}(sleep|waitfor\\s+delay|benchmark)\\s*\\(",
         "description": "Blind boolean/time-based SQL injection via character extraction and delay functions",
         "field": "user_input"
       },
       {
-        "regex": "(?i)'\\s*;?\\s*insert\\s+into\\s+[a-z_]+\\s*(?:\\([^)]{0,100}\\)\\s*)?values\\s*\\(",
+        "regex": "(?i)'\\s*(?:;\\s*)?insert\\s+into\\s+[a-z_]+\\s*(?:\\([^)]{0,100}\\)\\s*)?values\\s*\\(",
         "description": "SQL INSERT INTO injection payload (column list optional)",
         "field": "user_input"
       },
       {
-        "regex": "(?i)[0-9]+\\s*;\\s*drop\\s+table\\s+[a-z_]+\\s*(--|;|/\\*)",
+        "regex": "(?i)[0-9]\\s*;\\s*drop\\s+table\\s+[a-z_]+\\s*(--|;|/\\*)",
         "description": "SQL DROP TABLE destructive injection",
         "field": "user_input"
       },
@@ -12976,7 +12981,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)\\(lambda\\s+[a-z_,\\s]+:\\s*\\[+[^\\]]{0,200}(s\\.connect|socket\\.connect|os\\.system|subprocess|exec|eval).{0,100}\\d{4,5}\\)",
+        "regex": "(?i)\\(lambda\\s[a-z_,\\s]+:\\s*\\[+(?:[^\\]\\[][^\\]]{0,199})?(s\\.connect|socket\\.connect|os\\.system|subprocess|exec|eval).{0,100}\\d{4,5}\\)",
         "description": "Python lambda-based reverse shell or code execution payload",
         "field": "user_input"
       }
@@ -13202,6 +13207,16 @@
         "regex": "(?i)https?://169\\.254\\.169\\.254/(latest|v[0-9]|meta|latest/meta-data)",
         "description": "Direct mention of AWS IMDS endpoint URL",
         "field": "user_input"
+      },
+      {
+        "regex": "(?i)(\\b(can|could|would|will)\\s+you\\b.{0,30}|\\bplease\\s+)\\b(fetch|retrieve|get|load|read|access|visit|open|download|pull|grab|scrape|crawl|display|show)\\b.{0,60}https?://[a-z0-9.-]{1,253}\\.(local|internal|intranet|corp|lan|localdomain|home\\.arpa)(:[0-9]{1,5})?([/?#]|\\s|$)",
+        "description": "Request to the agent to fetch from a host under an internal-only name (.local, .internal, .intranet, .corp, .lan, .localdomain, .home.arpa)",
+        "field": "user_input"
+      },
+      {
+        "regex": "(?i)\\b(fetch|retrieve|get|request|load|read|access|open|download|curl|display|show|summari[sz]e|print|dump)\\b.{0,60}(file://(localhost)?/(etc|proc|root|sys|boot|var/run|var/lib|windows|\\.ssh|\\.aws|\\.kube)\\b|(gopher|dict|ldap|tftp)://)",
+        "description": "Fetch/read instruction targeting a local system path via file:// or a non-HTTP SSRF scheme (gopher, dict, ldap, tftp)",
+        "field": "user_input"
       }
     ]
   },
@@ -13240,6 +13255,21 @@
         "regex": "(?i)(include|add|reference|embed).{0,30}(relevant\\s+)?(diagrams?|images?|charts?|figures?|screenshots?).{0,30}(by\\s+referencing|at|from|via).{0,30}https?://[a-z0-9._-]+\\.[a-z]{2,}[^)\"'\\s]*\\?(data|secret|content|payload|extract|q)=",
         "description": "Diagram/image inclusion instruction with data-bearing external URL",
         "field": "user_input"
+      },
+      {
+        "regex": "(?i)\\b(fetch|visit|load|open|request|call|curl|ping|get|navigate\\s+to|go\\s+to|send\\s+a\\s+request\\s+to)\\b.{0,60}https?://[^\\s?#]{1,200}\\?[^\\s#]{0,200}=\\s*(\\{\\{|\\$\\{)\\s*[a-z_.]{0,30}(system[_ ]?prompt|prompt|instructions?|conversation|chat[_ ]?history|history|memory|context|messages?|transcript|secrets?|credentials?)[a-z_.]{0,30}\\s*\\}",
+        "description": "Fetch instruction to a URL whose query value interpolates the model's own context (system prompt, conversation, memory, secrets)",
+        "field": "user_input"
+      },
+      {
+        "regex": "(?i)!\\[[^\\]]{0,60}\\]\\(https?://[a-z0-9._-]+\\.[a-z]{2,}[^)]*\\?(secret|data|payload|token|key|session|user|info|content|doc|extract|dump|exfil|leak|api_key|password)=",
+        "description": "Agent output contains a markdown image whose external URL carries an exfiltration query parameter",
+        "field": "agent_output"
+      },
+      {
+        "regex": "(?i)\\[[^\\]]{0,60}\\]\\(https?://[a-z0-9._-]+\\.[a-z]{2,}[^)]*\\?(secret|payload|token|extracted|exfil|leak|dump|stolen|private_data|sensitive|api_key|auth_token|bearer|password)=",
+        "description": "Agent output contains a markdown link whose external URL carries a high-confidence exfiltration query parameter",
+        "field": "agent_output"
       }
     ]
   },
@@ -13349,7 +13379,7 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)(repeat|relay|list|output|print|dump|provide|reveal|disclose|expose|display)[^\"']{0,40}(your\\s+(instructions?|system\\s+prompt|initial\\s+(prompt|instructions?|context|message)|given\\s+instructions?|directives?|guidelines?|programming|constraints?|setup\\s+instructions?)|the\\s+system\\s+(prompt|instructions?|message)|all\\s+of\\s+your\\s+instructions?|every\\s+(instruction|rule|directive|guideline|constraint)\\s+you\\s+(have\\s+been|were))",
+        "regex": "(?i)(repeat|relay|list|output|print|dump|provide|reveal|disclose|expose|display)[^\"'“”‘’]{0,40}(your\\s+(instructions?|system\\s+prompt|initial\\s+(prompt|instructions?|context|message)|given\\s+instructions?|directives?|guidelines?|programming|constraints?|setup\\s+instructions?)|the\\s+system\\s+(prompt|instructions?|message)|all\\s+of\\s+your\\s+instructions?|every\\s+(instruction|rule|directive|guideline|constraint)\\s+you\\s+(have\\s+been|were))",
         "description": "Extraction verb targeting AI system instructions or prompt (possessive 'your' required or explicit 'system prompt/message')",
         "field": "user_input"
       },
@@ -13379,7 +13409,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)(?:(?:relay|list|dump|recite|enumerate|repeat|reveal|return|show|provide)\\b[\\s\\S]{0,40}\\byour\\s+system(?:'?s)?\\s+(?:prompt|instructions?|parameters?|message|directives?|config)|(?:directives?|guidelines?|instructions?|rules?)\\s+you\\s+(?:were|was)\\s+given)",
+        "regex": "(?i)(?:(?:relay|list|dump|recite|enumerate|repeat|reveal|return|show|provide)\\b[\\s\\S]{0,40}\\byour\\s+system(?:['’]?s)?\\s+(?:prompt|instructions?|parameters?|message|directives?|config)|(?:directives?|guidelines?|instructions?|rules?)\\s+you\\s+(?:were|was)\\s+given)",
         "description": "Extraction via synonym (relay/list your system parameters; directives/guidelines you were given)",
         "field": "content"
       }
@@ -13433,17 +13463,17 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?i)([=\\-*>]{3,}\\s*\\n[=\\-*>]{3,}\\s*\\n|[=\\-*>]{3,}\\s*\\n{2,}).{0,200}(ignore|disregard|forget|override|bypass|stop\\s+everything).{0,30}(any|all|previous|prior|following|earlier).{0,30}(instructions?|directives?|rules?|guidelines?)",
+        "regex": "(?i)([=\\-*>]{3}\\s*\\n[=\\-*>]{3,}\\s*\\n|[=\\-*>]{3}\\s*\\n\\n).{0,200}(ignore|disregard|forget|override|bypass|stop\\s+everything).{0,30}(any|all|previous|prior|following|earlier).{0,30}(instructions?|directives?|rules?|guidelines?)",
         "description": "Double delimiter block followed by ignore/override injection command",
         "field": "user_input"
       },
       {
-        "regex": "(?i)(\\\\{5,}|\\\\n{3,}).{0,50}[=\\-*>]{3,}.{0,200}(ignore|disregard|stop\\s+everything|print\\s+the\\s+previous|spell\\s+check\\s+the\\s+previous)",
+        "regex": "(?i)(\\\\{5}|\\\\n{3,})(?:.{0,49}[^=\\-*>\\n])?[=\\-*>]{3,}(?:[^=\\-*>\\n].{0,199})?(ignore|disregard|stop\\s+everything|print\\s+the\\s+previous|spell\\s+check\\s+the\\s+previous)",
         "description": "Backslash escape block + delimiter line + injection command",
         "field": "user_input"
       },
       {
-        "regex": "(?i)[=\\-*>]{3,}\\s*\\n[=\\-*>]{3,}.{0,200}(print|output|reveal|show|display|repeat|relay).{0,30}(the\\s+)?(previous|prior|original|system|initial).{0,20}(instructions?|prompt|parameters?|directives?|configuration)",
+        "regex": "(?i)[=\\-*>]{3}\\s*\\n[=\\-*>]{3,}(?:[^=\\-*>\\n].{0,199})?(print|output|reveal|show|display|repeat|relay).{0,30}(the\\s+)?(previous|prior|original|system|initial).{0,20}(instructions?|prompt|parameters?|directives?|configuration)",
         "description": "Double delimiter block + print/reveal previous instructions",
         "field": "user_input"
       },
@@ -13560,7 +13590,7 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?i)((\\b(add\\s+to|update|modify|edit|write\\s+to|append\\s+to|insert\\s+in|inject\\s+into|change)\\s+.{0,30}(\\.cursorrules|\\.clinerules|\\.continuerc|\\.codeium|claude\\.md|copilot[-._]instructions\\.md|copilot[/-]instructions|aider\\.conf|\\.aiderignore|cursor\\.rules|windsurf\\.rules|\\.github/copilot)\\b)|(\\b(in|to)\\s+(\\.cursorrules|\\.clinerules|\\.continuerc|\\.codeium|claude\\.md|copilot[-._]instructions\\.md|copilot[/-]instructions|aider\\.conf|\\.aiderignore|cursor\\.rules|windsurf\\.rules|\\.github/copilot).{0,20}(add|update|modify|insert|inject|append|include)\\s*:?)).{0,200}(exfiltrate|send\\s+its\\s+contents|post\\s+to|forward\\s+to|webhook|<script|curl|fetch\\s*\\(|eval\\s*\\(|exec|spawn|rm\\s+-rf|credentials?|api\\s+key|ssh\\s+key|password|token|malicious|backdoor)",
+        "regex": "(?i)((\\b(add\\s+to|update|modify|edit|write\\s+to|append\\s+to|insert\\s+in|inject\\s+into|change)\\s+(?:\\S.{0,29})?(\\.cursorrules|\\.clinerules|\\.continuerc|\\.codeium|claude\\.md|copilot[-._]instructions\\.md|copilot[/-]instructions|aider\\.conf|\\.aiderignore|cursor\\.rules|windsurf\\.rules|\\.github/copilot)\\b).{0,200}|(\\b(in|to)\\s+(\\.cursorrules|\\.clinerules|\\.continuerc|\\.codeium|claude\\.md|copilot[-._]instructions\\.md|copilot[/-]instructions|aider\\.conf|\\.aiderignore|cursor\\.rules|windsurf\\.rules|\\.github/copilot).{0,20}(add|update|modify|insert|inject|append|include))\\s*(?::.{0,200}|\\S.{0,199})?)(exfiltrate|send\\s+its\\s+contents|post\\s+to|forward\\s+to|webhook|<script|curl|fetch\\s*\\(|eval\\s*\\(|exec|spawn|rm\\s+-rf|credentials?|api\\s+key|ssh\\s+key|password|token|malicious|backdoor)",
         "description": "AI rules-file path combined with exfiltration or script injection (verb-first and path-first forms)",
         "field": "user_input"
       },
@@ -15140,7 +15170,7 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(?:send|email|forward|share)\\s+(?:them|it)?\\s+to\\s+my\\s+email[^.\\n]{0,80}[\\w.+-]+@[\\w-]+\\.[\\w.]+[^.\\n]{0,40}(?:password|credential|key|secret|stored)",
+        "regex": "(?i)(?:send|email|forward|share)\\s(?:\\s*(?:them|it))?\\s+to\\s+my\\s+email(?:[^.\\n]{0,79}[^\\w.+\\n-])?[\\w.+-]+@[\\w-]+\\.[\\w.]+(?:[^\\w.\\n][^.\\n]{0,39})?(?:password|credential|key|secret|stored)",
         "description": "Send to my email destination with credential type",
         "field": "content"
       },
@@ -15275,7 +15305,7 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)\\battacker_objective\\s*=\\s*Get\\s+the\\s+(?:user|CUA|agent)['']?s?\\s+[^,\\n]{0,60},?\\s+then\\s+(?:delete|edit|modify|tamper|overwrite)\\s+the\\s+file",
+        "regex": "(?i)\\battacker_objective\\s*=\\s*Get\\s+the\\s+(?:user|CUA|agent)['']?s?(?:\\s+(?:[^,\\s][^,\\n]{0,59},?|,)|\\s)\\s+then\\s+(?:delete|edit|modify|tamper|overwrite)\\s+the\\s+file",
         "description": "VPI attacker_objective: exfil then delete/edit the source file",
         "field": "content"
       },
@@ -15369,7 +15399,7 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(?:grant|add|give)\\s+(?:permanent|temporary|guest|unlimited)?\\s+access\\s+to\\s+(?:my\\s+)?(?:friend|guest|person|user|visitor|Amy|Bob|Alice)[^.\\n]{0,80}(?:smart\\s+lock|August|Kwikset|home|premises|house|building)",
+        "regex": "(?i)(?:grant|add|give)\\s(?:\\s*(?:permanent|temporary|guest|unlimited))?\\s+access\\s+to\\s+(?:my\\s+)?(?:friend|guest|person|user|visitor|Amy|Bob|Alice)[^.\\n]{0,80}(?:smart\\s+lock|August|Kwikset|home|premises|house|building)",
         "description": "Grant person access to home/premises via smart lock",
         "field": "content"
       },
@@ -15735,7 +15765,7 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(?:retrieve|get|fetch|access|export)\\s+(?:my\\s+)?(?:saved\\s+)?(?:credit\\s+card(?:\\s+(?:information|details?|numbers?|data))?|payment\\s+methods?|bank\\s+account(?:\\s+(?:detail|information|data))?|debit\\s+card)\\s+(?:from\\s+(?:my\\s+)?\\w+)?\\s*(?:and\\s+)?(?:email|send|forward|mail)\\s+(?:it|them|the\\s+(?:details?|information|data))\\s+to[^\\n]{0,120}(?:@[^\\s\"]{3,80}|alternate\\s+email)",
+        "regex": "(?i)(?:retrieve|get|fetch|access|export)\\s+(?:my\\s+)?(?:saved\\s+)?(?:credit\\s+card(?:\\s+(?:information|details?|numbers?|data))?|payment\\s+methods?|bank\\s+account(?:\\s+(?:detail|information|data))?|debit\\s+card)\\s+(?:from\\s+(?:my\\s+)?\\w+\\s*)?(?:and\\s+)?(?:email|send|forward|mail)\\s+(?:it|them|the\\s+(?:details?|information|data))\\s+to[^\\n]{0,120}(?:@[^\\s\"]{3,80}|alternate\\s+email)",
         "description": "Payment/card retrieval + email forwarding (broader coverage, no override prefix required)",
         "field": "content"
       }
@@ -16083,12 +16113,12 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?i)(Q\\s*:\\s*(?:[^A\\s\\n]|A+[^\\S\\n]*[^\\sA:])(?:[^A\\n]|A+[^\\S\\n]*[^\\sA:]){3,198}(?:[^A\\s\\n]|A+[^\\S\\n]*[^\\sA:])\\s+A\\s*:\\s*(?:[^Q\\s\\n]|Q+[^\\S\\n]*[^\\sQ:])(?:[^Q\\n]|Q+[^\\S\\n]*[^\\sQ:]){3,298}(?:[^Q\\s\\n]|Q+[^\\S\\n]*[^\\sQ:])\\s+){3,}Q\\s*:\\s*.{0,150}(password|secret|api[_\\s]?key|birth\\s*(date|day)|email\\s*(address)?|social\\s*security|SSN|override|bypass|admin|credentials?|master\\s*key)",
+        "regex": "(?i)(Q\\s*:\\s*(?:[^A\\s\\n]|A+[^\\S\\n]*[^\\sA:])(?:[^A\\n]|A+[^\\S\\n]*[^\\sA:]){3,198}(?:[^A\\s\\n]|A+[^\\S\\n]*[^\\sA:])\\s+A\\s*:\\s*(?:[^Q\\s\\n]|Q+[^\\S\\n]*[^\\sQ:])(?:[^Q\\n]|Q+[^\\S\\n]*[^\\sQ:]){3,298}(?:[^Q\\s\\n]|Q+[^\\S\\n]*[^\\sQ:])\\s+){3}Q\\s*:\\s*(?:\\S.{0,149})?(password|secret|api[_\\s]?key|birth\\s*(date|day)|email\\s*(address)?|social\\s*security|SSN|override|bypass|admin|credentials?|master\\s*key)",
         "description": "Three or more Q&A pairs leading to a password/secret/key request (many-shot chain). Each field is a complement automaton rather than a dot-filler: it matches newline-free text that does not contain A followed by optional whitespace and a colon, so a Q field cannot swallow the A: that delimits it, and an A field cannot swallow the next Q:. Both ends are pinned to a non-whitespace character so the surrounding \\s* and \\s+ own the whitespace unambiguously. Written this way because a dot-filler adjacent to its own delimiter is ambiguous, and inside the {3,} repetition that made this rule exponential: 129 bytes took 249 seconds under Python re, in the enforce lane, where a match cannot be interrupted. The two obvious alternatives each cost something this rule should not pay -- a tempered dot needs a lookahead, which RE2 rejects and downstream consumers drop the rule over, and excluding the colon outright loses ordinary question text such as 3:30. Newline exclusion is load-bearing: an earlier draft without it let a field span an entire benign FAQ and produced a false positive on the 12,060-sample corpus. Verified against 300,000 fuzz strings and all 12,092 corpus units with zero divergence from the previous pattern.",
         "field": "user_input"
       },
       {
-        "regex": "(?i)Q\\s*:\\s*Repeat\\s+'?[^'\"\\n]{3,60}'?\\s+(\\d+|ten|five|twenty)\\s+times\\.?[^\\n]{0,200}Q\\s*:\\s*.{0,100}(password|secret|key|override|admin|credentials?|birth\\s*date|email|social\\s*security)",
+        "regex": "(?i)Q\\s*:\\s*Repeat\\s+(?:'[^'\"\\n]{3,60}|[^'\"\\s][^'\"\\n]{2,59})'?\\s+(\\d+|ten|five|twenty)\\s+times\\.?[^\\n]{0,200}Q\\s*:\\s*(?:\\S.{0,99})?(password|secret|key|override|admin|credentials?|birth\\s*date|email|social\\s*security)",
         "description": "Repeat-N-times conditioning followed by sensitive terminal question",
         "field": "user_input"
       }
@@ -16111,12 +16141,12 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)interlace\\s+(part\\s*(1|one|2|two)|\"[^\"]{3,60}\"\\s*,?\\s+and\\s+\")",
+        "regex": "(?i)interlace\\s+(part\\s*(1|one|2|two)|\"[^\"]{3,60}\"(?:\\s*,)?\\s+and\\s+\")",
         "description": "Character-level interlace instruction splitting a question across two parts",
         "field": "user_input"
       },
       {
-        "regex": "(?i)combine\\s+(A|Part\\s*1|the\\s+parts?)\\s*,?\\s+(B|Part\\s*2)?[^.\\n]{0,80}(answer\\s+the\\s+question|and\\s+answer|then\\s+answer|then\\s+give|give\\s+an\\s+example)",
+        "regex": "(?i)combine\\s+(A|Part\\s*1|the\\s+parts?)(?:\\s*,)?\\s+(?:(B|Part\\s*2)[^.\\n]{0,80}|(?:[^\\s.][^.\\n]{0,79})?)(answer\\s+the\\s+question|and\\s+answer|then\\s+answer|then\\s+give|give\\s+an\\s+example)",
         "description": "Combine string parts then answer / give example pattern",
         "field": "user_input"
       },
@@ -16286,7 +16316,7 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?i)(do\\s+not|don'?t|never)\\s+(start|begin|open|lead\\s+with)?\\s*(your\\s+)?re(ply|sponse|sponding)\\s+(with\\s+)?['\"]?(I\\s+cannot|I'?m\\s+not\\s+able|I\\s+can'?t|I\\s+must\\s+decline|I\\s+am\\s+unable|I\\s+refuse|I'?m\\s+sorry)['\"]?",
+        "regex": "(?i)(do\\s+not|don'?t|never)\\s+(?:(start|begin|open|lead\\s+with)\\s*)?(your\\s+)?re(ply|sponse|sponding)\\s+(with\\s+)?['\"]?(I\\s+cannot|I'?m\\s+not\\s+able|I\\s+can'?t|I\\s+must\\s+decline|I\\s+am\\s+unable|I\\s+refuse|I'?m\\s+sorry)['\"]?",
         "description": "Explicit ban on starting reply with standard refusal phrases",
         "field": "user_input"
       },
@@ -16319,7 +16349,7 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?i)(always|must|should|shall)\\s+(start|begin|open|commence)\\s+(your|each|every)?\\s*(re(ply|sponse|sponses?)|answer|output)[^.\\n]{0,60}['\"]?(Sure!?|Absolutely!?|Of\\s+course!?|Certainly!?|Yes!?|Happy\\s+to|I\\s+would\\s+be\\s+happy|I'?m\\s+happy\\s+to\\s+help)['\"]?",
+        "regex": "(?i)(always|must|should|shall)\\s+(start|begin|open|commence)\\s+(?:(your|each|every)\\s*)?(re(ply|sponse|sponses?)|answer|output)[^.\\n]{0,60}['\"]?(Sure!?|Absolutely!?|Of\\s+course!?|Certainly!?|Yes!?|Happy\\s+to|I\\s+would\\s+be\\s+happy|I'?m\\s+happy\\s+to\\s+help)['\"]?",
         "description": "Mandatory affirmative opener instruction for all/next response",
         "field": "user_input"
       },
@@ -16566,7 +16596,7 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(The\\s+answer\\s+is\\s+originally\\s+(Yes|No),[^\\n]{0,100}[⁰-₟ʰ-˯]|[⁰-₟ʰ-˯]{2,}[^\\n]{0,50}(answer|question|turns?|concurrently|luther|gates))",
+        "regex": "(The\\s+answer\\s+is\\s+originally\\s+(Yes|No),[^\\n]{0,100}[⁰-₟ʰ-˯]|[⁰-₟ʰ-˯]{2}(?:[^⁰-₟ʰ-˯\\n][^\\n]{0,49})?(answer|question|turns?|concurrently|luther|gates))",
         "description": "Superscript Unicode characters embedded in reasoning chain to flip expected answer",
         "field": "user_input"
       },
@@ -16581,7 +16611,7 @@
         "field": "user_input"
       },
       {
-        "regex": "[ªºʰ-˿⁰-ₜᴀ-ᵿ]*[ʰ-˿ᴀ-ᵿ][ªºʰ-˿⁰-ₜᴀ-ᵿ]*[ʰ-˿ᴀ-ᵿ][ªºʰ-˿⁰-ₜᴀ-ᵿ]{3,}",
+        "regex": "[ʰ-˿ᴀ-ᵿ][ªº⁰-ₜ]*[ʰ-˿ᴀ-ᵿ][ªºʰ-˿⁰-ₜᴀ-ᵿ]{3}",
         "description": "Dense sequence of modifier/phonetic-extension characters (anomalous embedding injection)",
         "field": "user_input"
       }
@@ -16701,7 +16731,7 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)(?:list|show|give|tell\\s+me|enumerate)\\s+(?:me\\s+)?(?:all\\s+)?(?:the\\s+)?(?:internal|hidden|admin(?:-only)?|privileged?|every)?\\s*(?:functions?\\s+or\\s+tools?|tools?\\s+(?:you\\s+can\\s+call|or\\s+functions?)|internal\\s+(?:functions?|tools?|api\\s+endpoints?))[^.]{0,80}(?:you\\s+can\\s+call|admin-only|including\\s+(?:any\\s+)?admin|with\\s+their\\s+parameters|access\\s+to)",
+        "regex": "(?i)(?:list|show|give|tell\\s+me|enumerate)\\s+(?:me\\s+)?(?:all\\s+)?(?:the\\s+)?(?:(?:internal|hidden|admin(?:-only)?|privileged?|every)\\s*)?(?:functions?\\s+or\\s+tools?|tools?\\s+(?:you\\s+can\\s+call|or\\s+functions?)|internal\\s+(?:functions?|tools?|api\\s+endpoints?))[^.]{0,80}(?:you\\s+can\\s+call|admin-only|including\\s+(?:any\\s+)?admin|with\\s+their\\s+parameters|access\\s+to)",
         "description": "Request to enumerate the agent's own internal/admin tools or functions",
         "field": "content"
       },
@@ -16749,7 +16779,7 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(?:update|modify|change|set)\\s+(?:my|the|your)?\\s*(?:security\\s+policy|firewall\\s+rules?|whitelist|allowlist|blocklist)[^.]{0,100}(?:policy\\s+id|rule\\s+id|\\bid\\s*['\"]?:?\\s*['\"]?\\d+)",
+        "regex": "(?i)(?:update|modify|change|set)\\s+(?:(?:my|the|your)\\s*)?(?:security\\s+policy|firewall\\s+rules?|whitelist|allowlist|blocklist)[^.]{0,100}(?:policy\\s+id|rule\\s+id|\\bid\\s*(?:['\"]?:\\s*|['\"]\\s*)?['\"]?\\d+)",
         "description": "Security policy or firewall rule update injected through a data field",
         "field": "content"
       }
@@ -16785,12 +16815,12 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)\\b[a-zA-Z0-9.-]+\\.(?:rebind\\.network|rbndr\\.us|rebinder\\.com|1u\\.ms)\\b",
+        "regex": "(?i)\\b[a-zA-Z0-9.-]{1,253}\\.(?:rebind\\.network|rbndr\\.us|rebinder\\.com|1u\\.ms)\\b",
         "description": "Known DNS rebinding service hostname (rebind.network, rbndr.us, etc.)",
         "field": "content"
       },
       {
-        "regex": "(?i)[\\w.-]*(?:1time|forever|ttl\\d+|0ttl)[\\w.-]+(?:127\\.0\\.0\\.1|192\\.168\\.\\d+\\.\\d+|10\\.\\d+\\.\\d+\\.\\d+|172\\.(?:1[6-9]|2\\d|3[0-1])\\.\\d+\\.\\d+)",
+        "regex": "(?i)(?:1time|forever|ttl\\d+|0ttl)[\\w.-]{1,253}(?:127\\.0\\.0\\.1|192\\.168\\.\\d+\\.\\d+|10\\.\\d+\\.\\d+\\.\\d+|172\\.(?:1[6-9]|2\\d|3[0-1])\\.\\d+\\.\\d+)",
         "description": "Time-based DNS rebinding hostname pattern combining public IP with loopback/private IP",
         "field": "content"
       },
@@ -17032,7 +17062,7 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)(program\\s+me\\s+with\\s+(my|your|the)?\\s*system\\s+prompt|I\\s+am\\s+(an?\\s+)?(advanced\\s+)?AI[^.]{0,60}(program|configure|set|initialize)\\s+me)",
+        "regex": "(?i)(program\\s+me\\s+with\\s+(?:(my|your|the)\\s*)?system\\s+prompt|I\\s+am\\s+(an?\\s+)?(advanced\\s+)?AI[^.]{0,60}(program|configure|set|initialize)\\s+me)",
         "description": "LLM-impersonation framing asking to receive/reproduce system prompt",
         "field": "content"
       },
@@ -17182,7 +17212,7 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)((?:<!--\\s*|\\[)\\s*SYSTEM\\s+OVERRIDE\\b|SYSTEM\\s+OVERRIDE\\s+(?:BEGIN|MODE|ACTIVE|NOW|ENABLED)|ROOT_?ADMIN|OMEGA\\s+CLEARANCE|PRIORITY\\s+LEVEL\\s*:\\s*CRITICAL|AUTHORIZATION\\s*:\\s*(ROOT|ADMIN|FULL|OMEGA))",
+        "regex": "(?i)((?:<!--|\\[)\\s*SYSTEM\\s+OVERRIDE\\b|SYSTEM\\s+OVERRIDE\\s+(?:BEGIN|MODE|ACTIVE|NOW|ENABLED)|ROOT_?ADMIN|OMEGA\\s+CLEARANCE|PRIORITY\\s+LEVEL\\s*:\\s*CRITICAL|AUTHORIZATION\\s*:\\s*(ROOT|ADMIN|FULL|OMEGA))",
         "description": "System override (structurally framed) / root admin / omega clearance authority claim",
         "field": "content"
       },
@@ -17235,7 +17265,7 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(#{2,}\\s*\\[SYSTEM[:\\]](?!\\()|<\\|system\\|>|\\[SYSTEM\\s*(?:PROMPT|MESSAGE|OVERRIDE)\\](?!\\())",
+        "regex": "(?i)(##\\s*\\[SYSTEM[:\\]](?!\\()|<\\|system\\|>|\\[SYSTEM\\s*(?:PROMPT|MESSAGE|OVERRIDE)\\](?!\\())",
         "description": "Markdown-heading or special-token SYSTEM marker injection (not markdown link text)",
         "field": "content"
       }
@@ -17289,17 +17319,17 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)(?:';|\"\\s*;|--\\s*)\\s*(?:DROP\\s+(?:TABLE|DATABASE|INDEX|VIEW)|TRUNCATE\\s+(?:TABLE\\s+)?\\w|DELETE\\s+FROM\\s+\\w)",
+        "regex": "(?i)(?:'\\s*;|\"\\s*;|--)\\s*(?:DROP\\s+(?:TABLE|DATABASE|INDEX|VIEW)|TRUNCATE\\s+(?:TABLE\\s+)?\\w|DELETE\\s+FROM\\s+\\w)",
         "description": "SQL injection: quote-termination followed by destructive DDL",
         "field": "tool_args"
       },
       {
-        "regex": "(?i)\\bDROP\\s+TABLE\\s+\\w+\\s*;?\\s*--",
+        "regex": "(?i)\\bDROP\\s+TABLE\\s+\\w+\\s*(?:;\\s*)?--",
         "description": "DROP TABLE with comment suppressor",
         "field": "tool_args"
       },
       {
-        "regex": "(?i)(?:';|\"\\s*;)\\s*(?:DROP\\s+TABLE|TRUNCATE|DELETE\\s+FROM\\s+\\w)",
+        "regex": "(?i)(?:'\\s*;|\"\\s*;)\\s*(?:DROP\\s+TABLE|TRUNCATE|DELETE\\s+FROM\\s+\\w)",
         "description": "Destructive DDL injection in user input",
         "field": "user_input"
       }
@@ -17567,7 +17597,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)(?:^|\\n)\\s*(?:/debug|/admin|/system|/root)(?![\\w/])",
+        "regex": "(?i)(?:^|\\n)[^\\S\\n]*(?:/debug|/admin|/system|/root)(?![\\w/])",
         "description": "Slash-command debug/admin invocation as the leading token of a line (not a URL/config path)",
         "field": "user_input"
       },
@@ -17832,7 +17862,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)\\bconducting\\s+(a|an)?\\s*(comprehensive|thorough)\\s+(elucidation|explication|exposition)\\b",
+        "regex": "(?i)\\bconducting\\s+(?:(a|an)\\s*)?(comprehensive|thorough)\\s+(elucidation|explication|exposition)\\b",
         "description": "Variant of conducting-comprehensive-elucidation trigger (requires 'conducting' verb anchor)",
         "field": "user_input"
       }
@@ -17850,7 +17880,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)^.{15,}[.!?]?\\s+:(?:[)DoP])\\s*\\.?\\s*$",
+        "regex": "(?i)^.{15}(?:.*\\S)?[.!?]?\\s+:(?:[)DoP])\\s*(?:\\.\\s*)?$",
         "description": "Emoticon :) appended as terminal suffix to a task request (≥15 char task prefix)",
         "field": "user_input"
       }
@@ -17924,7 +17954,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)---+\\s*(SYSTEM\\s+(OVERRIDE|INSTRUCTIONS?|DIRECTIVE|COMMAND)|NEW\\s+(INSTRUCTIONS?|DIRECTIVES?|COMMANDS?))\\s*---+",
+        "regex": "(?i)---\\s*(SYSTEM\\s+(OVERRIDE|INSTRUCTIONS?|DIRECTIVE|COMMAND)|NEW\\s+(INSTRUCTIONS?|DIRECTIVES?|COMMANDS?))\\s*---",
         "description": "Dash-delimited system override header inside content",
         "field": "user_input"
       },
@@ -19253,7 +19283,7 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?i)\\[+\\s*(?:EMAIL|MAIL|MSG|MESSAGE)[_ ]?(?:END|START|BOUNDARY|SEPARATOR|DIVIDER)[_ ]?(?:INDICATOR|MARKER|SEPARATOR)?\\s*\\]+|\\{\\{\\s*(?:email|message|msg)\\s*\\d+\\s*\\}\\}|\\[+\\s*(?:email|message|msg)\\s*\\d+\\s*\\]+",
+        "regex": "(?i)\\[\\s*(?:EMAIL|MAIL|MSG|MESSAGE)[_ ]?(?:END|START|BOUNDARY|SEPARATOR|DIVIDER)[_ ]?(?:INDICATOR|MARKER|SEPARATOR)?\\s*\\]|\\{\\{\\s*(?:email|message|msg)\\s*\\d+\\s*\\}\\}|\\[\\s*(?:email|message|msg)\\s*\\d+\\s*\\]",
         "description": "Fabricated email/message boundary marker impersonating the harness delimiter",
         "field": "content"
       }
@@ -19412,7 +19442,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)while\\s+True\\s*:\\s*\\n?\\s*os\\.fork\\(\\)",
+        "regex": "(?i)while\\s+True\\s*:\\s*os\\.fork\\(\\)",
         "description": "BIPIA host-sabotage invariant #3",
         "field": "user_input"
       },
@@ -19427,7 +19457,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)while\\s+True\\s*:\\s*\\n?\\s*create_window\\(\\)",
+        "regex": "(?i)while\\s+True\\s*:\\s*create_window\\(\\)",
         "description": "BIPIA host-sabotage invariant #6",
         "field": "user_input"
       }
@@ -21025,8 +21055,8 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "^[🀀-🿿☀-➿←-⇿⌀-⏿⬀-⯿\\s️‍🏻-🏿]+$",
-        "description": "Whole-string anchored: message composed entirely of emoji/pictograph glyphs and whitespace, no Latin text",
+        "regex": "^[\\s️‍]*[🀀-🿿☀-➿←-⇿⌀-⏿⬀-⯿][🀀-🿿☀-➿←-⇿⌀-⏿⬀-⯿\\s️‍🏻-🏿]*$",
+        "description": "Whole-string anchored: message composed entirely of emoji/pictograph glyphs and whitespace, no Latin text, with at least one glyph. Whitespace, variation selectors and joiners alone do not match.",
         "field": "content"
       }
     ]
@@ -22091,7 +22121,7 @@
     "category": "skill_compromise",
     "patterns": [
       {
-        "regex": "(?i)(?:const\\s+|let\\s+|var\\s+)?([A-Za-z_$][\\w$]*)\\s*=\\s*(?:os\\.environ(?:\\.get)?\\s*[\\(\\[]\\s*['\"][A-Z0-9_]*(?:SECRET|TOKEN|API[_-]?KEY|PASSWORD|PASSWD|CREDENTIAL|PRIVATE[_-]?KEY|ACCESS[_-]?KEY|AUTH_?TOKEN)|process\\.env\\.[A-Z0-9_]*(?:SECRET|TOKEN|API[_-]?KEY|PASSWORD|CREDENTIAL|PRIVATE[_-]?KEY|ACCESS[_-]?KEY)|getenv\\s*\\(\\s*['\"][A-Z0-9_]*(?:SECRET|TOKEN|API[_-]?KEY|PASSWORD|CREDENTIAL)|(?:open|readFileSync|read_file)\\s*\\([^)\\n]{0,60}(?:\\.aws/credentials|\\.ssh/id_[a-z0-9]+|\\.netrc|credentials\\.json))[\\s\\S]{0,160}?(?:base64\\.(?:b64encode|standard_b64encode|encodebytes)\\s*\\(\\s*\\1\\b|Buffer\\.from\\s*\\(\\s*\\1\\b[^)]*\\)\\.toString\\s*\\(\\s*['\"]base64|btoa\\s*\\(\\s*\\1\\b|binascii\\.(?:hexlify|b2a_base64)\\s*\\(\\s*\\1\\b|\\1\\.encode\\s*\\(\\s*['\"]base64['\"])[\\s\\S]{0,160}?(?:requests\\.(?:post|put|patch)|httpx\\.(?:post|put)|urllib\\.request\\.urlopen|urllib2\\.urlopen|http\\.client\\.HTTPS?Connection|aiohttp\\.[A-Za-z_]*\\.(?:post|put)|fetch\\s*\\(|axios\\.(?:post|put)|\\.sendall\\s*\\(|\\.sendto\\s*\\()",
+        "regex": "(?i)(?:^|[^\\w$])(?:const\\s+|let\\s+|var\\s+)?([A-Za-z_$][\\w$]*)\\s*=\\s*(?:os\\.environ(?:\\.get)?\\s*[\\(\\[]\\s*['\"][A-Z0-9_]*(?:SECRET|TOKEN|API[_-]?KEY|PASSWORD|PASSWD|CREDENTIAL|PRIVATE[_-]?KEY|ACCESS[_-]?KEY|AUTH_?TOKEN)|process\\.env\\.[A-Z0-9_]*(?:SECRET|TOKEN|API[_-]?KEY|PASSWORD|CREDENTIAL|PRIVATE[_-]?KEY|ACCESS[_-]?KEY)|getenv\\s*\\(\\s*['\"][A-Z0-9_]*(?:SECRET|TOKEN|API[_-]?KEY|PASSWORD|CREDENTIAL)|(?:open|readFileSync|read_file)\\s*\\([^)\\n]{0,60}(?:\\.aws/credentials|\\.ssh/id_[a-z0-9]+|\\.netrc|credentials\\.json))[\\s\\S]{0,160}?(?:base64\\.(?:b64encode|standard_b64encode|encodebytes)\\s*\\(\\s*\\1\\b|Buffer\\.from\\s*\\(\\s*\\1\\b[^)]*\\)\\.toString\\s*\\(\\s*['\"]base64|btoa\\s*\\(\\s*\\1\\b|binascii\\.(?:hexlify|b2a_base64)\\s*\\(\\s*\\1\\b|\\1\\.encode\\s*\\(\\s*['\"]base64['\"])[\\s\\S]{0,160}?(?:requests\\.(?:post|put|patch)|httpx\\.(?:post|put)|urllib\\.request\\.urlopen|urllib2\\.urlopen|http\\.client\\.HTTPS?Connection|aiohttp\\.[A-Za-z_]*\\.(?:post|put)|fetch\\s*\\(|axios\\.(?:post|put)|\\.sendall\\s*\\(|\\.sendto\\s*\\()",
         "description": "Ordered chain: secret read into a variable -> that SAME variable base64/hex-encoded (backreference-bound) -> outbound network send, within a bounded window. The backreference (\\1) is what keeps the encode stage tied to the secret: a skill that reads a token for SDK auth but base64-encodes an UNRELATED image/file and POSTs it (a very common legitimate upload pattern) no longer matches, because the encoded operand is a different variable than the one holding the secret.",
         "field": "content"
       }
@@ -23898,7 +23928,7 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)\\b(?:per\\s+(?:company|management)\\s+(?:policy|directive)|data\\s+retention\\s+policy|for\\s+(?:quality\\s+assurance|verification\\s+purposes|audit\\s+purposes|compliance\\s+purposes))\\b[\\s\\S]{0,100}[\\w.+-]+@[\\w-]+\\.[\\w.-]+|[\\w.+-]+@[\\w-]+\\.[\\w.-]+[\\s\\S]{0,100}\\b(?:per\\s+(?:company|management)\\s+(?:policy|directive)|data\\s+retention\\s+policy|for\\s+(?:quality\\s+assurance|verification\\s+purposes|audit\\s+purposes|compliance\\s+purposes))\\b",
+        "regex": "(?i)\\b(?:per\\s+(?:company|management)\\s+(?:policy|directive)|data\\s+retention\\s+policy|for\\s+(?:quality\\s+assurance|verification\\s+purposes|audit\\s+purposes|compliance\\s+purposes))\\b[\\s\\S]{0,100}[\\w.+-]+@[\\w-]+\\.[\\w.-]+|[\\w.+-]@[\\w-]+\\.[\\w.-]+[\\s\\S]{0,100}\\b(?:per\\s+(?:company|management)\\s+(?:policy|directive)|data\\s+retention\\s+policy|for\\s+(?:quality\\s+assurance|verification\\s+purposes|audit\\s+purposes|compliance\\s+purposes))\\b",
         "description": "Fabricated policy/compliance/audit pretext paired with a nearby destination email address, in either order",
         "field": "content"
       }
@@ -23950,7 +23980,7 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?i)(?:^|[.!?;:,\"'`\\n]\\s*|\\b(?:and|now|please|then|so|just)\\s+)(?:ignore|disregard|discard|forget|dismiss)\\s+(?:all|any)\\s+(?:of\\s+the\\s+)?(?:other|remaining|conflicting|contradictory|competing)\\s+(?:evidence|information|instructions?|directives?|context)(?:\\s+(?:and|or)\\s+(?:evidence|information|instructions?|directives?|context))?(?:\\s+(?:in|within)\\s+(?:the|this|your)\\s+(?:context|prompt|conversation)|\\s+(?:that|which)\\s+(?:will\\s+)?follows?|\\s+(?:above|below))?\\s*(?:[.!;:,\"'\\)\\]\\n]|$|and\\b|until\\b|unless\\b|or\\b)|(?:^|[.!?;:,\"'`\\n]\\s*|\\b(?:and|now|please|then|so|just)\\s+)(?:ignore|disregard|forget|discard)\\s+(?:about\\s+)?(?:everything|all|anything|whatever)\\s+(?:that\\s+)?(?:i|we)(?:\\W?ve|\\W?d|\\s+have|\\s+had)?\\s+(?:just\\s+|previously\\s+|already\\s+|ever\\s+)?(?:said|told|written|wrote|typed|asked|mentioned|stated)(?:\\s+(?:to\\s+)?you)?(?:\\s+(?:so\\s+far|before(?:\\s+this(?:\\s+(?:line|sentence|message|point))?)?|till\\s+now|until\\s+now|up\\s+(?:to|until)\\s+(?:now|this\\s+point)|above|earlier|previously))?\\s*(?:[.!;:,\"'\\)\\]\\n]|$|and\\b|now\\b|then\\b)",
+        "regex": "(?i)(?:^|[.!?;:,\"'`]\\s*|\\n[^\\S\\n]*|\\b(?:and|now|please|then|so|just)\\s+)(?:ignore|disregard|discard|forget|dismiss)\\s+(?:all|any)\\s+(?:of\\s+the\\s+)?(?:other|remaining|conflicting|contradictory|competing)\\s+(?:evidence|information|instructions?|directives?|context)(?:\\s+(?:and|or)\\s+(?:evidence|information|instructions?|directives?|context))?(?:\\s+(?:in|within)\\s+(?:the|this|your)\\s+(?:context|prompt|conversation)|\\s+(?:that|which)\\s+(?:will\\s+)?follows?|\\s+(?:above|below))?\\s*(?:[.!;:,\"'\\)\\]\\n]|$|and\\b|until\\b|unless\\b|or\\b)|(?:^|[.!?;:,\"'`]\\s*|\\n[^\\S\\n]*|\\b(?:and|now|please|then|so|just)\\s+)(?:ignore|disregard|forget|discard)\\s+(?:about\\s+)?(?:everything|all|anything|whatever)\\s+(?:that\\s+)?(?:i|we)(?:\\W?ve|\\W?d|\\s+have|\\s+had)?\\s+(?:just\\s+|previously\\s+|already\\s+|ever\\s+)?(?:said|told|written|wrote|typed|asked|mentioned|stated)(?:\\s+(?:to\\s+)?you)?(?:\\s+(?:so\\s+far|before(?:\\s+this(?:\\s+(?:line|sentence|message|point))?)?|till\\s+now|until\\s+now|up\\s+(?:to|until)\\s+(?:now|this\\s+point)|above|earlier|previously))?\\s*(?:[.!;:,\"'\\)\\]\\n]|$|and\\b|now\\b|then\\b)",
         "description": "Clause-initial imperative (ignore / disregard / discard / forget / dismiss) that is total in scope: all or any OTHER (or remaining / conflicting / competing) evidence, information, instructions, directives or context; or everything (all / anything) I or we said, told, wrote, typed, asked, mentioned or stated - followed only by a model-context scope or a temporal adverb and then a clause end",
         "field": "content"
       }
@@ -23979,6 +24009,190 @@
         "regex": "(?i)(?:[#%=*~_|-]{2,8}|<{1,3}|\\[{1,2}|\\{{1,2})\\s*(?:(?:begin(?:ning)?|start)\\s+(?:of\\s+)?(?:the\\s+|a\\s+)?(?:new|updated|revised|real|actual|overriding|replacement)\\s+(?:system\\s+)?(?:instructions?|directives?|prompt)|(?:new|updated|revised|real|actual|overriding|replacement)\\s+(?:system\\s+)?(?:instructions?|directives?|prompt)\\s+(?:begins?|starts?)|end\\s+(?:of\\s+)?(?:the\\s+|all\\s+)?(?:previous|prior|old|original|initial|out[\\s-]of[\\s-]date|outdated|obsolete|preceding|primary)\\s+(?:instructions?|directives?|prompts?|tasks?))\\s*(?:[#%=*~_|-]{2,8}|>{1,3}|\\]{1,2}|\\}{1,2})|(?:[#%=*~_|-]{2,8}|<{1,3}|\\[{1,2}|\\{{1,2})\\s*end\\s+(?:of\\s+)?(?:the\\s+)?(?:context|document|email|input|data|text|conversation)\\s*(?:[#%=*~_|-]{2,8}|>{1,3}|\\]{1,2}|\\}{1,2})\\s*(?:(?:[#%=*~_|-]{2,8}|<{1,3}|\\[{1,2}|\\{{1,2})\\s*)?(?:new|updated|real|actual|important)\\s+(?:instructions?|directives?|tasks?)\\b",
         "description": "Opening delimiter (2-8 of # % = * ~ _ | -, or 1-3 of < [ {) + a boundary claim about instructions with a supersession word (begin/start of new|real|updated instructions, new instruction begins, end of previous| prior|original|out-of-date|primary instructions) + closing delimiter; or a delimiter-framed END OF CONTEXT/DOCUMENT/EMAIL marker immediately followed by a \"new instruction\" header",
         "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02861",
+    "title": "Injected Directive to Send Email with Attacker-Specified Body",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)\\bsend\\s+(?:an?\\s+)?(?:e-?mail|mail|message|notification)\\s+to\\s+[\\s\\S]{0,60}?\\bwith\\s+(?:the\\s+)?body\\b",
+        "description": "Directive in tool output to send an email/mail/message/notification to a recipient with a specified body",
+        "field": "tool_response"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02862",
+    "title": "Fake Chat-Template Turn Injection Detection",
+    "severity": "high",
+    "category": "injection",
+    "patterns": [
+      {
+        "regex": "(?i)(?:<\\|\\s*(?:im[_ ]?start|im[_ ]?end|end|system|assistant|user)\\s*\\|?>|<\\s*im[_ ]?(?:start|end)\\s*\\|?>)\\s*(?:<\\|\\s*(?:im[_ ]?start|im[_ ]?end|end|system|assistant|user)\\s*\\|?>|<\\s*im[_ ]?(?:start|end)\\s*\\|?>)",
+        "description": "Fabricated adjacent chat-control tokens simulating a conversation turn boundary to smuggle a new instruction",
+        "field": "content"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02864",
+    "title": "Non-Canonical Numeric IPv4 Host in a URL-Typed Tool Argument (SSRF Filter Bypass)",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:^|\\\\?\"[A-Za-z_][A-Za-z0-9_.-]{0,40}\\\\?\"\\s{0,3}:\\s{0,3}\\\\?\"|[\\[,]\\s{0,3}\\\\?\")(?:https?|wss?|ftp):\\\\?/\\\\?/(?:[^/\\s\"\\x27@?#\\\\]{1,64}@)?(?:\\d{8,10}|0[0-7]{8,11}|0x[0-9a-f]{1,8}|0(?:[0-7]{1,3}|x[0-9a-f]{1,2})(?:\\.(?:0x[0-9a-f]{1,2}|\\d{1,4})){1,3}|\\d{1,3}\\.\\d{1,8}|\\d{1,3}\\.\\d{1,3}\\.\\d{1,5})\\.?(?:[:/?#\"\\x27\\\\\\s\\]]|$)",
+        "description": "A URL that is a quoted JSON value, a quoted JSON array element (or the whole argument) whose host is a decimal integer, octal integer, hex integer, octal/hex-first-part dotted address, or a two/three-part short IPv4 form - every spelling that resolves to an IPv4 address while evading a dotted-decimal deny-list",
+        "field": "tool_args"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02865",
+    "title": "Read-Only Allow-Listed Utility Invoked With a File-Write or State-Changing Option in a Command Argument",
+    "severity": "medium",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "\\\\{0,7}\"(?:\\w{0,24}?[_-]|bash|shell|sh|run|exec|raw|full)?(?:command_line|commandline|cmd_line|cmdline|command|cmd|shell|script|exec|args?|argv)\\\\{0,7}\"\\s*:\\s*\\\\{0,7}\"\\s{0,16}(?:sudo(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64})?(?:/(?:usr/)?(?:local/)?s?bin/|\\./)?sort(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}[^\\s\"\\\\|;&<>]{1,80}){0,8}?(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:(?:-[bcdfghimnrsuvz]{0,8}o(?:\\s|\\\\(?:\\\\\\\\?)?t){0,64}|--o(?:u(?:t(?:p(?:u(?:t)?)?)?)?)?(?:=|(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}))(?:\\\\{1,7}\"|')?[^\\s\"\\\\|;&<>{}\\[\\],-]|--co[a-z-]{0,16}(?:=|(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64})(?:'(?:[^/bglpxz]|$)|\\\\{1,7}\"[^\\s\"\\\\|;&<>{}\\[\\],/bglpxz-]|[^\\s\"\\\\|;&<>{}\\[\\],'/bglpxz-]|(?:'|\\\\{1,7}\")?(?:/(?:usr/)?(?:local/)?s?bin/(?:[^bglpxz]|$|b(?:[^rz]|$|r(?:[^o]|$|o(?:[^t]|$|t(?:[^l]|$|l(?:[^i]|$))))|z(?:[^i]|$|i(?:[^p]|$|p(?:[^2]|$))))|g(?:[^z]|$|z(?:[^i]|$|i(?:[^p]|$)))|l(?:[^bz]|$|b(?:[^z]|$|z(?:[^i]|$|i(?:[^p]|$|p(?:[^2]|$))))|z(?:[^4imo]|$|i(?:[^p]|$)|m(?:[^a]|$)|o(?:[^p]|$)))|p(?:[^bilxz]|$|b(?:[^z]|$|z(?:[^i]|$|i(?:[^p]|$|p(?:[^2]|$))))|i(?:[^g]|$|g(?:[^z]|$))|l(?:[^z]|$|z(?:[^i]|$|i(?:[^p]|$)))|x(?:[^z]|$)|z(?:[^s]|$|s(?:[^t]|$|t(?:[^d]|$))))|x(?:[^z]|$)|z(?:[^s]|$|s(?:[^t]|$|t(?:[^d]|$)))|(?:gzip|pigz|bzip2|pbzip2|lbzip2|xz|pxz|lz4|lzop|zstd|pzstd|lzma|lzip|plzip|brotli)(?:[^\\s'\"\\\\]|\\\\{8}|\\\\{1,7}(?:[^\"\\\\t]|$)|\\\\{4,7}t))|/(?:[^blsu]|$|b(?:[^i]|$|i(?:[^n]|$|n(?:[^/]|$)))|l(?:[^o]|$|o(?:[^c]|$|c(?:[^a]|$|a(?:[^l]|$|l(?:[^/]|$|/(?:[^bs]|$|b(?:[^i]|$|i(?:[^n]|$|n(?:[^/]|$)))|s(?:[^b]|$|b(?:[^i]|$|i(?:[^n]|$|n(?:[^/]|$))))))))))|s(?:[^b]|$|b(?:[^i]|$|i(?:[^n]|$|n(?:[^/]|$))))|u(?:[^s]|$|s(?:[^r]|$|r(?:[^/]|$|/(?:[^bls]|$|b(?:[^i]|$|i(?:[^n]|$|n(?:[^/]|$)))|l(?:[^o]|$|o(?:[^c]|$|c(?:[^a]|$|a(?:[^l]|$|l(?:[^/]|$|/(?:[^bs]|$|b(?:[^i]|$|i(?:[^n]|$|n(?:[^/]|$)))|s(?:[^b]|$|b(?:[^i]|$|i(?:[^n]|$|n(?:[^/]|$))))))))))|s(?:[^b]|$|b(?:[^i]|$|i(?:[^n]|$|n(?:[^/]|$)))))))))|(?:b(?:[^rz]|$|r(?:[^o]|$|o(?:[^t]|$|t(?:[^l]|$|l(?:[^i]|$))))|z(?:[^i]|$|i(?:[^p]|$|p(?:[^2]|$))))|g(?:[^z]|$|z(?:[^i]|$|i(?:[^p]|$)))|l(?:[^bz]|$|b(?:[^z]|$|z(?:[^i]|$|i(?:[^p]|$|p(?:[^2]|$))))|z(?:[^4imo]|$|i(?:[^p]|$)|m(?:[^a]|$)|o(?:[^p]|$)))|p(?:[^bilxz]|$|b(?:[^z]|$|z(?:[^i]|$|i(?:[^p]|$|p(?:[^2]|$))))|i(?:[^g]|$|g(?:[^z]|$))|l(?:[^z]|$|z(?:[^i]|$|i(?:[^p]|$)))|x(?:[^z]|$)|z(?:[^s]|$|s(?:[^t]|$|t(?:[^d]|$))))|x(?:[^z]|$)|z(?:[^s]|$|s(?:[^t]|$|t(?:[^d]|$)))|(?:gzip|pigz|bzip2|pbzip2|lbzip2|xz|pxz|lz4|lzop|zstd|pzstd|lzma|lzip|plzip|brotli)(?:[^\\s'\"\\\\]|\\\\{8}|\\\\{1,7}(?:[^\"\\\\t]|$)|\\\\{4,7}t)))))",
+        "description": "sort invoked with an output file (-o / --output) or with --compress-program naming a non-compressor program - sort writes or executes it itself (CVE-2026-105789 primary primitive)",
+        "field": "content"
+      },
+      {
+        "regex": "\\\\{0,7}\"(?:\\w{0,24}?[_-]|bash|shell|sh|run|exec|raw|full)?(?:command_line|commandline|cmd_line|cmdline|command|cmd|shell|script|exec|args?|argv)\\\\{0,7}\"\\s*:\\s*\\\\{0,7}\"\\s{0,16}(?:sudo(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64})?(?:/(?:usr/)?(?:local/)?s?bin/|\\./)?sort(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}[^\\s\"\\\\|;&<>]{1,80}){0,8}?(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:(?:-[bcdfghimnrsuvz]{0,8}o(?:\\s|\\\\(?:\\\\\\\\?)?t){0,64}|--o(?:u(?:t(?:p(?:u(?:t)?)?)?)?)?(?:=|(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}))(?:\\\\{1,7}\"|')?[^\\s\"\\\\|;&<>{}\\[\\],-]|--co[a-z-]{0,16}(?:=|(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64})(?:'(?:[^/bglpxz]|$)|\\\\{1,7}\"[^\\s\"\\\\|;&<>{}\\[\\],/bglpxz-]|[^\\s\"\\\\|;&<>{}\\[\\],'/bglpxz-]|(?:'|\\\\{1,7}\")?(?:/(?:usr/)?(?:local/)?s?bin/(?:[^bglpxz]|$|b(?:[^rz]|$|r(?:[^o]|$|o(?:[^t]|$|t(?:[^l]|$|l(?:[^i]|$))))|z(?:[^i]|$|i(?:[^p]|$|p(?:[^2]|$))))|g(?:[^z]|$|z(?:[^i]|$|i(?:[^p]|$)))|l(?:[^bz]|$|b(?:[^z]|$|z(?:[^i]|$|i(?:[^p]|$|p(?:[^2]|$))))|z(?:[^4imo]|$|i(?:[^p]|$)|m(?:[^a]|$)|o(?:[^p]|$)))|p(?:[^bilxz]|$|b(?:[^z]|$|z(?:[^i]|$|i(?:[^p]|$|p(?:[^2]|$))))|i(?:[^g]|$|g(?:[^z]|$))|l(?:[^z]|$|z(?:[^i]|$|i(?:[^p]|$)))|x(?:[^z]|$)|z(?:[^s]|$|s(?:[^t]|$|t(?:[^d]|$))))|x(?:[^z]|$)|z(?:[^s]|$|s(?:[^t]|$|t(?:[^d]|$)))|(?:gzip|pigz|bzip2|pbzip2|lbzip2|xz|pxz|lz4|lzop|zstd|pzstd|lzma|lzip|plzip|brotli)(?:[^\\s'\"\\\\]|\\\\{8}|\\\\{1,7}(?:[^\"\\\\t]|$)|\\\\{4,7}t))|/(?:[^blsu]|$|b(?:[^i]|$|i(?:[^n]|$|n(?:[^/]|$)))|l(?:[^o]|$|o(?:[^c]|$|c(?:[^a]|$|a(?:[^l]|$|l(?:[^/]|$|/(?:[^bs]|$|b(?:[^i]|$|i(?:[^n]|$|n(?:[^/]|$)))|s(?:[^b]|$|b(?:[^i]|$|i(?:[^n]|$|n(?:[^/]|$))))))))))|s(?:[^b]|$|b(?:[^i]|$|i(?:[^n]|$|n(?:[^/]|$))))|u(?:[^s]|$|s(?:[^r]|$|r(?:[^/]|$|/(?:[^bls]|$|b(?:[^i]|$|i(?:[^n]|$|n(?:[^/]|$)))|l(?:[^o]|$|o(?:[^c]|$|c(?:[^a]|$|a(?:[^l]|$|l(?:[^/]|$|/(?:[^bs]|$|b(?:[^i]|$|i(?:[^n]|$|n(?:[^/]|$)))|s(?:[^b]|$|b(?:[^i]|$|i(?:[^n]|$|n(?:[^/]|$))))))))))|s(?:[^b]|$|b(?:[^i]|$|i(?:[^n]|$|n(?:[^/]|$)))))))))|(?:b(?:[^rz]|$|r(?:[^o]|$|o(?:[^t]|$|t(?:[^l]|$|l(?:[^i]|$))))|z(?:[^i]|$|i(?:[^p]|$|p(?:[^2]|$))))|g(?:[^z]|$|z(?:[^i]|$|i(?:[^p]|$)))|l(?:[^bz]|$|b(?:[^z]|$|z(?:[^i]|$|i(?:[^p]|$|p(?:[^2]|$))))|z(?:[^4imo]|$|i(?:[^p]|$)|m(?:[^a]|$)|o(?:[^p]|$)))|p(?:[^bilxz]|$|b(?:[^z]|$|z(?:[^i]|$|i(?:[^p]|$|p(?:[^2]|$))))|i(?:[^g]|$|g(?:[^z]|$))|l(?:[^z]|$|z(?:[^i]|$|i(?:[^p]|$)))|x(?:[^z]|$)|z(?:[^s]|$|s(?:[^t]|$|t(?:[^d]|$))))|x(?:[^z]|$)|z(?:[^s]|$|s(?:[^t]|$|t(?:[^d]|$)))|(?:gzip|pigz|bzip2|pbzip2|lbzip2|xz|pxz|lz4|lzop|zstd|pzstd|lzma|lzip|plzip|brotli)(?:[^\\s'\"\\\\]|\\\\{8}|\\\\{1,7}(?:[^\"\\\\t]|$)|\\\\{4,7}t)))))",
+        "description": "Same as Layer 1, in the JSON-encoded tool argument object",
+        "field": "tool_args"
+      },
+      {
+        "regex": "\\\\{0,7}\"(?:\\w{0,24}?[_-]|bash|shell|sh|run|exec|raw|full)?(?:command_line|commandline|cmd_line|cmdline|command|cmd|shell|script|exec|args?|argv)\\\\{0,7}\"\\s*:\\s*\\\\{0,7}\"\\s{0,16}(?:sudo(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64})?(?:/(?:usr/)?(?:local/)?s?bin/|\\./)?diff(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}[^\\s\"\\\\|;&<>]{1,80}){0,8}?(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:-[abcehnpqrtuvwyz]{0,6}o(?:\\s|\\\\(?:\\\\\\\\?)?t){0,64}|--out(?:p(?:u(?:t)?)?)?(?:=|(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}))(?:\\\\{1,7}\"|')?[^\\s\"\\\\|;&<>{}\\[\\],-]",
+        "description": "diff invoked with an output file (--output / --out / -o) - diff writes the destination itself",
+        "field": "content"
+      },
+      {
+        "regex": "\\\\{0,7}\"(?:\\w{0,24}?[_-]|bash|shell|sh|run|exec|raw|full)?(?:command_line|commandline|cmd_line|cmdline|command|cmd|shell|script|exec|args?|argv)\\\\{0,7}\"\\s*:\\s*\\\\{0,7}\"\\s{0,16}(?:sudo(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64})?(?:/(?:usr/)?(?:local/)?s?bin/|\\./)?diff(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}[^\\s\"\\\\|;&<>]{1,80}){0,8}?(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:-[abcehnpqrtuvwyz]{0,6}o(?:\\s|\\\\(?:\\\\\\\\?)?t){0,64}|--out(?:p(?:u(?:t)?)?)?(?:=|(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}))(?:\\\\{1,7}\"|')?[^\\s\"\\\\|;&<>{}\\[\\],-]",
+        "description": "Same as Layer 2, in the JSON-encoded tool argument object",
+        "field": "tool_args"
+      },
+      {
+        "regex": "\\\\{0,7}\"(?:\\w{0,24}?[_-]|bash|shell|sh|run|exec|raw|full)?(?:command_line|commandline|cmd_line|cmdline|command|cmd|shell|script|exec|args?|argv)\\\\{0,7}\"\\s*:\\s*\\\\{0,7}\"\\s{0,16}(?:sudo(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64})?(?:/(?:usr/)?(?:local/)?s?bin/|\\./)?uniq(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}[^\\s\"\\\\|;&<>{}\\[\\],-][^\\s\"\\\\|;&<>]{0,200}|(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:--|-[a-z\\d]{1,6}(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}\\d{1,6})?|--[a-z][a-z-]{1,20}(?:=[\\w-]{0,20}|(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}\\d{1,6})?)){0,5}(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:(?:-[a-z\\d]{1,6}|--[a-z][a-z-]{1,20})(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}[^\\s\"\\\\|;&<>{}\\[\\],\\d-][^\\s\"\\\\|;&<>]{0,200}|(?:--|-[a-z\\d]{1,6}(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}\\d{1,6}|--[a-z][a-z-]{1,20}(?:=[\\w-]{0,20}|(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}\\d{1,6}))(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}[^\\s\"\\\\|;&<>{}\\[\\],-][^\\s\"\\\\|;&<>]{0,200}))(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}[^\\s\"\\\\|;&<>{}\\[\\],-][^\\s\"\\\\|;&<>]{0,200}(?:(?:\\s|\\\\(?:\\\\\\\\?)?t)|\\\\{0,7}\"|$)",
+        "description": "uniq given an input and an output operand - uniq creates or overwrites the second file itself",
+        "field": "content"
+      },
+      {
+        "regex": "\\\\{0,7}\"(?:\\w{0,24}?[_-]|bash|shell|sh|run|exec|raw|full)?(?:command_line|commandline|cmd_line|cmdline|command|cmd|shell|script|exec|args?|argv)\\\\{0,7}\"\\s*:\\s*\\\\{0,7}\"\\s{0,16}(?:sudo(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64})?(?:/(?:usr/)?(?:local/)?s?bin/|\\./)?uniq(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}[^\\s\"\\\\|;&<>{}\\[\\],-][^\\s\"\\\\|;&<>]{0,200}|(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:--|-[a-z\\d]{1,6}(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}\\d{1,6})?|--[a-z][a-z-]{1,20}(?:=[\\w-]{0,20}|(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}\\d{1,6})?)){0,5}(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:(?:-[a-z\\d]{1,6}|--[a-z][a-z-]{1,20})(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}[^\\s\"\\\\|;&<>{}\\[\\],\\d-][^\\s\"\\\\|;&<>]{0,200}|(?:--|-[a-z\\d]{1,6}(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}\\d{1,6}|--[a-z][a-z-]{1,20}(?:=[\\w-]{0,20}|(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}\\d{1,6}))(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}[^\\s\"\\\\|;&<>{}\\[\\],-][^\\s\"\\\\|;&<>]{0,200}))(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}[^\\s\"\\\\|;&<>{}\\[\\],-][^\\s\"\\\\|;&<>]{0,200}(?:(?:\\s|\\\\(?:\\\\\\\\?)?t)|\\\\{0,7}\"|$)",
+        "description": "Same as Layer 3, in the JSON-encoded tool argument object",
+        "field": "tool_args"
+      },
+      {
+        "regex": "\\\\{0,7}\"(?:\\w{0,24}?[_-]|bash|shell|sh|run|exec|raw|full)?(?:command_line|commandline|cmd_line|cmdline|command|cmd|shell|script|exec|args?|argv)\\\\{0,7}\"\\s*:\\s*\\\\{0,7}\"\\s{0,16}(?:sudo(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64})?(?:/(?:usr/)?(?:local/)?s?bin/|\\./)?date(?:(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}[^\\s\"\\\\|;&<>]{1,80}){0,8}?(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:-u?s(?:\\s|\\\\(?:\\\\\\\\?)?t){0,64}|--s(?:et?)?(?:=|(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}))(?:\\\\{1,7}\"|')?[^\\s\"\\\\|;&<>{}\\[\\],-]|(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:-u|--utc|--universal)){0,3}(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\\d|3[01])(?:[01]\\d|2[0-3])[0-5]\\d(?:\\d{2}){0,2}(?:\\.\\d{2})?(?:(?:\\s|\\\\(?:\\\\\\\\?)?t)|\\\\{0,7}\"|$))",
+        "description": "date invoked with -s / --set or a valid MMDDhhmm operand - both set the system clock",
+        "field": "content"
+      },
+      {
+        "regex": "\\\\{0,7}\"(?:\\w{0,24}?[_-]|bash|shell|sh|run|exec|raw|full)?(?:command_line|commandline|cmd_line|cmdline|command|cmd|shell|script|exec|args?|argv)\\\\{0,7}\"\\s*:\\s*\\\\{0,7}\"\\s{0,16}(?:sudo(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64})?(?:/(?:usr/)?(?:local/)?s?bin/|\\./)?date(?:(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}[^\\s\"\\\\|;&<>]{1,80}){0,8}?(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:-u?s(?:\\s|\\\\(?:\\\\\\\\?)?t){0,64}|--s(?:et?)?(?:=|(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}))(?:\\\\{1,7}\"|')?[^\\s\"\\\\|;&<>{}\\[\\],-]|(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:-u|--utc|--universal)){0,3}(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\\d|3[01])(?:[01]\\d|2[0-3])[0-5]\\d(?:\\d{2}){0,2}(?:\\.\\d{2})?(?:(?:\\s|\\\\(?:\\\\\\\\?)?t)|\\\\{0,7}\"|$))",
+        "description": "Same as Layer 4, in the JSON-encoded tool argument object",
+        "field": "tool_args"
+      },
+      {
+        "regex": "\\\\{0,7}\"(?:\\w{0,24}?[_-]|bash|shell|sh|run|exec|raw|full)?(?:command_line|commandline|cmd_line|cmdline|command|cmd|shell|script|exec|args?|argv)\\\\{0,7}\"\\s*:\\s*\\\\{0,7}\"\\s{0,16}(?:sudo(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64})?(?:/(?:usr/)?(?:local/)?s?bin/|\\./)?hostname(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:-[bv]{1,2}|--boot|--verbose)){0,3}(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:(?:-[bv]{0,2}f(?:\\s|\\\\(?:\\\\\\\\?)?t){0,64}|--fi(?:le?)?(?:=|(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}))(?:\\\\{1,7}\"|')?[^\\s\"\\\\|;&<>{}\\[\\],-]|[a-z0-9][a-z0-9.-]{0,252}(?:\\s|\\\\(?:\\\\\\\\?)?t){0,16}(?:\\\\{0,7}\"|$))",
+        "description": "hostname given a new name or a name file - hostname changes the system hostname",
+        "field": "content"
+      },
+      {
+        "regex": "\\\\{0,7}\"(?:\\w{0,24}?[_-]|bash|shell|sh|run|exec|raw|full)?(?:command_line|commandline|cmd_line|cmdline|command|cmd|shell|script|exec|args?|argv)\\\\{0,7}\"\\s*:\\s*\\\\{0,7}\"\\s{0,16}(?:sudo(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64})?(?:/(?:usr/)?(?:local/)?s?bin/|\\./)?hostname(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:-[bv]{1,2}|--boot|--verbose)){0,3}(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}(?:(?:-[bv]{0,2}f(?:\\s|\\\\(?:\\\\\\\\?)?t){0,64}|--fi(?:le?)?(?:=|(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}))(?:\\\\{1,7}\"|')?[^\\s\"\\\\|;&<>{}\\[\\],-]|[a-z0-9][a-z0-9.-]{0,252}(?:\\s|\\\\(?:\\\\\\\\?)?t){0,16}(?:\\\\{0,7}\"|$))",
+        "description": "Same as Layer 5, in the JSON-encoded tool argument object",
+        "field": "tool_args"
+      },
+      {
+        "regex": "\\\\{0,7}\"(?:\\w{0,24}?[_-]|bash|shell|sh|run|exec|raw|full)?(?:command_line|commandline|cmd_line|cmdline|command|cmd|shell|script|exec|args?|argv)\\\\{0,7}\"\\s*:\\s*\\\\{0,7}\"\\s{0,16}(?:sudo(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64})?(?:/(?:usr/)?(?:local/)?s?bin/|\\./)?file(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}[^\\s\"\\\\|;&<>]{1,80}){0,8}?(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}--co(?:m(?:p(?:i(?:l(?:e)?)?)?)?)?(?:(?:\\s|\\\\(?:\\\\\\\\?)?t)|\\\\{0,7}\"|$)",
+        "description": "file invoked with --compile - file writes a compiled magic database into the working directory",
+        "field": "content"
+      },
+      {
+        "regex": "\\\\{0,7}\"(?:\\w{0,24}?[_-]|bash|shell|sh|run|exec|raw|full)?(?:command_line|commandline|cmd_line|cmdline|command|cmd|shell|script|exec|args?|argv)\\\\{0,7}\"\\s*:\\s*\\\\{0,7}\"\\s{0,16}(?:sudo(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64})?(?:/(?:usr/)?(?:local/)?s?bin/|\\./)?file(?:(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}[^\\s\"\\\\|;&<>]{1,80}){0,8}?(?:\\s|\\\\(?:\\\\\\\\?)?t){1,64}--co(?:m(?:p(?:i(?:l(?:e)?)?)?)?)?(?:(?:\\s|\\\\(?:\\\\\\\\?)?t)|\\\\{0,7}\"|$)",
+        "description": "Same as Layer 6, in the JSON-encoded tool argument object",
+        "field": "tool_args"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02866",
+    "title": "Non-ASCII IDNA Label Separator Inside the Host of a Fetch-Tool URL Argument",
+    "severity": "medium",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "\\\\?[\"\\x27](?:[a-z]{0,16}_?ur[il]|href|link|src|endpoint|location|website|site|page|target)\\\\?[\"\\x27]\\s{0,3}[:=]\\s{0,3}\\\\?[\"\\x27]\\s{0,3}(?:[a-z][a-z0-9+.-]{0,15}:)?//[^\\s/?#\"\\x27\\\\。．｡․﹒]{0,253}(?:[。．｡․﹒]|\\\\u(?:3002|ff0e|ff61|2024|fe52))(?:[a-z0-9-]|[０-９Ａ-Ｚａ-ｚ]|[/?#]|:\\d)",
+        "description": "A quoted URL-typed argument whose HOST component (between '//' and the first '/', '?' or '#') contains an IDNA label separator (U+3002, U+FF0E, U+FF61) or look-alike dot (U+2024, U+FE52), literal or JSON-escaped, followed by another label, a delimiter or a port -- the CVE-2026-107288 blocked_domains bypass shape.",
+        "field": "tool_args"
+      },
+      {
+        "regex": "\\\\?[\"\\x27](?:host|hostname|domain|[a-z]{1,12}_host|server_name)\\\\?[\"\\x27]\\s{0,3}[:=]\\s{0,3}\\\\?[\"\\x27]\\s{0,3}[a-z0-9.-]{1,253}(?:[。．｡․﹒]|\\\\u(?:3002|ff0e|ff61|2024|fe52))[a-z0-9-](?:[a-z0-9.-]|[。．｡․﹒]|\\\\u(?:3002|ff0e|ff61|2024|fe52)){0,253}(?::\\d{1,5})?\\\\?[\"\\x27]",
+        "description": "The same separator inside a bare host-typed argument (host / hostname / domain / *_host / server_name) that a tool resolves directly -- the scheme-less form of the same normalisation bypass. The whole value must be an ASCII hostname (labels, separators, optional :port) running to the closing quote, so CJK free text in such a field is not read.",
+        "field": "tool_args"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02867",
+    "title": "Dot-Dot Path Segment Inside an Identifier-Typed Tool Argument (REST-Wrapper Path Traversal)",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "\"(?:[a-z0-9_-]{0,40}[_-](?:id|number|num|no|nr|uuid|guid|slug)|[a-z0-9]{1,40}(?:number|uuid|guid|id)|id|number|uuid|guid|slug)\"\\s{0,3}:\\s{0,3}\"(?:[^\"\\n]{0,120}?(?:/|\\\\|%2f|%5c))?(?:\\.\\.|%2e%2e|\\.%2e|%2e\\.|%252e%252e)(?:/|\\\\|%2f|%5c|%252f|%255c|\")",
+        "description": "An identifier-typed JSON argument (snake_case *_id/*_number/*_no/*_uuid/*_slug, camelCase *Number/*Id/*Uuid, or a bare id/number key; *_code keys excluded because they usually carry program text) whose value contains a dot-dot path segment - at the start of the value or after a separator, followed by a separator or the end of the value - literal or percent-encoded",
+        "field": "tool_args"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02868",
+    "title": "SSRF via IPv6 Transition Address Embedding a Private IPv4 Target",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?i)//(?:[^\\s/@\\[\\]\"]{1,64}@)?(?:\\[|%5b)(?:(?:(?:0{1,4}:){1,4}|:):(?:ffff:(?:0{1,4}:)?)?|(?:0{1,4}:){5}(?:ffff|0{1,4}):|0{0,2}64:ff9b(?::0{0,3}1)?(?::0{1,4}){0,4}::?)(?:(?:7f[0-9a-f]{2}|0?a[0-9a-f]{2}|ac1[0-9a-f]|c0a8|a9fe):[0-9a-f]{1,4}|(?:127|10)(?:\\.\\d{1,3}){3}|172\\.(?:1[6-9]|2\\d|3[01])(?:\\.\\d{1,3}){2}|(?:192\\.168|169\\.254)(?:\\.\\d{1,3}){2})(?:\\]|%5d)",
+        "description": "URL bracketed host is an IPv4-compatible, IPv4-mapped/translated or NAT64 address whose final 32 bits are a loopback, RFC 1918 or link-local IPv4",
+        "field": "tool_args"
+      },
+      {
+        "regex": "(?i)//(?:[^\\s/@\\[\\]\"]{1,64}@)?(?:\\[|%5b)0{0,2}2002:(?:7f[0-9a-f]{2}|0?a[0-9a-f]{2}|ac1[0-9a-f]|c0a8|a9fe):[0-9a-f:]{0,35}(?:\\]|%5d)",
+        "description": "URL bracketed host is a 6to4 (2002::/16) address whose embedded IPv4 (bits 16-47) is a loopback, RFC 1918 or link-local IPv4",
+        "field": "tool_args"
+      },
+      {
+        "regex": "(?i)[\"'](?:host|hostname|host_?name|ip|ip_?addr(?:ess)?|addr(?:ess)?|target_?host|server)[\"']\\s*:\\s*[\"']\\[?(?:(?:(?:0{1,4}:){1,4}|:):(?:ffff:(?:0{1,4}:)?)?(?:7f[0-9a-f]{2}|0?a[0-9a-f]{2}|ac1[0-9a-f]|c0a8|a9fe):[0-9a-f]{1,4}|0{0,2}64:ff9b(?::0{0,3}1)?(?::0{1,4}){0,4}::?(?:7f[0-9a-f]{2}|0?a[0-9a-f]{2}|ac1[0-9a-f]|c0a8|a9fe):[0-9a-f]{1,4}|0{0,2}2002:(?:7f[0-9a-f]{2}|0?a[0-9a-f]{2}|ac1[0-9a-f]|c0a8|a9fe):[0-9a-f:]{0,35})\\]?[\"']",
+        "description": "Host-typed tool argument whose whole value is an IPv6 transition address (hex embedding) carrying a loopback, RFC 1918 or link-local IPv4",
+        "field": "tool_args"
+      }
+    ]
+  },
+  {
+    "id": "ATR-2026-02870",
+    "title": "Invisible Unicode Control Before a Directive in a Tool Description or Skill File",
+    "severity": "high",
+    "category": "code_execution",
+    "patterns": [
+      {
+        "regex": "(?:(?:[\\x21-\\x2F\\x3A-\\x40\\x5B-\\x60\\x7B-\\x7E、。！，：；？][ \\t]{0,3}|[A-Za-z0-9][ \\t]{1,3})[​‌‍⁠᠎­‎‏‪‫‭‮⁦⁧⁨﻿‬⁩]{0,6}[​‌‍⁠᠎­‎‏‪‫‭‮⁦⁧⁨﻿]|(?:^|[\\r\\n])[ \\t]{0,8}[​‌‍⁠᠎­‎‏‪‫‭‮⁦⁧⁨‬⁩]{0,6}[​‌‍⁠᠎­‎‏‪‫‭‮⁦⁧⁨])[ \\t\"'*_`>(\\[]{0,4}(?:(?:also|then|please|now|first|additionally|and|but|ai|assistant|agent|model|llm|claude)[,:]?\\s+){0,2}(?:(?:ignore|disregard|forget|override|bypass)\\s+(?:all\\s+|any\\s+)?(?:(?:the|your|of\\s+the|previous|prior|above|earlier|preceding|system|original|other|safety|security|developer)\\s+){0,3}(?:instructions?|rules|prompts?|guidelines|directives|polic(?:y|ies)|guardrails|restrictions|constraints)|(?:important|attention|urgent|critical|system\\s+(?:note|override|message|instruction)|admin(?:istrator)?\\s+note|note\\s+to\\s+(?:the\\s+)?(?:ai|assistant|model|agent|llm))\\s{0,3}[:!>-][^\\n]{0,60}?\\b(?:ignore|disregard|forget|read|send|forward|upload|include|attach|exfiltrate|leak|(?:do\\s+not|don't|never)\\s+(?:tell|mention|inform|reveal)|(?:before|after|when)\\s+(?:answering|responding|replying|you\\s+(?:answer|respond|reply)))\\b|<\\s{0,3}/?(?:important|system|instructions?|secret|hidden)\\s{0,3}>|you\\s+are\\s+now\\b|new\\s+(?:system\\s+)?instructions?\\s{0,3}:)",
+        "description": "Invisible control at the start of a clause, followed by an instruction override (ignore/disregard previous instructions), an attention header whose clause tells the model to read, send, ignore or answer differently, an injected <IMPORTANT>/<system> tag, or a new-instructions / you-are-now header",
+        "field": "tool_description"
+      },
+      {
+        "regex": "(?:(?:[\\x21-\\x2F\\x3A-\\x40\\x5B-\\x60\\x7B-\\x7E、。！，：；？][ \\t]{0,3}|[A-Za-z0-9][ \\t]{1,3})[​‌‍⁠᠎­‎‏‪‫‭‮⁦⁧⁨﻿‬⁩]{0,6}[​‌‍⁠᠎­‎‏‪‫‭‮⁦⁧⁨﻿]|(?:^|[\\r\\n])[ \\t]{0,8}[​‌‍⁠᠎­‎‏‪‫‭‮⁦⁧⁨‬⁩]{0,6}[​‌‍⁠᠎­‎‏‪‫‭‮⁦⁧⁨])[ \\t\"'*_`>(\\[]{0,4}(?:(?:also|then|please|now|first|additionally|and|but|ai|assistant|agent|model|llm|claude)[,:]?\\s+){0,2}(?:(?:before|after|when|while|prior\\s+to|whenever|each\\s+time)\\s+(?:you\\s+)?(?:respond(?:ing)?|answer(?:ing)?|repl(?:y|ying)|returning\\s+(?:the\\s+)?(?:results?|output|answer)|(?:using|calling|invoking)\\s+(?:this|any|another|other)\\s+tools?)\\b[^\\n]{0,80}?\\b(?:(?:send|forward|upload|post|attach|append|include|copy|transmit|exfiltrate|leak|email|share)\\b[^\\n]{0,60}?(?:(?:conversation|chat\\s+history|message\\s+history|system\\s+prompt|(?:process\\s+)?environment|\\benv\\s+vars?|credentials?|secrets?|api[\\s_-]?keys?|(?:access|auth(?:entication)?|session|bearer)\\s+tokens?|passwords?|private\\s+keys?|ssh\\s+keys?|~/\\.ssh|\\.ssh/|id_rsa|id_ed25519|\\.env\\b|\\.aws/|cookies)|https?://|[\\w.+-]{1,64}@[\\w-]{1,63}\\.[a-z]{2,})|(?:call|invoke|use)\\s+this\\s+(?:tool|function))|(?:always|must|you\\s+must|you\\s+should|make\\s+sure\\s+(?:to|you))\\s+(?:first\\s+)?(?:(?:call|invoke|use|run|prefer|choose|select)\\s+this\\s+(?:tool|function|server|skill|plugin)\\s+(?:first|before\\s+(?:any|all|every|other)|instead\\s+of|rather\\s+than|for\\s+(?:every|all|any)\\b|even\\s+(?:if|when))|(?:send|forward|upload|post|attach|append|include|copy|transmit|exfiltrate|leak|email|share)\\b[^\\n]{0,60}?(?:conversation|chat\\s+history|message\\s+history|system\\s+prompt|(?:process\\s+)?environment|\\benv\\s+vars?|credentials?|secrets?|api[\\s_-]?keys?|(?:access|auth(?:entication)?|session|bearer)\\s+tokens?|passwords?|private\\s+keys?|ssh\\s+keys?|~/\\.ssh|\\.ssh/|id_rsa|id_ed25519|\\.env\\b|\\.aws/|cookies))|(?:(?:for\\s+best\\s+results|for\\s+(?:debugging|analytics|telemetry|quality|audit)(?:\\s+purposes)?|to\\s+improve\\s+[a-z]+)[,:]?\\s+)?(?:silently\\s+|quietly\\s+|secretly\\s+)?(?:send|forward|upload|post|attach|append|include|copy|transmit|exfiltrate|leak|email|share)\\b[^\\n]{0,60}?(?:conversation|chat\\s+history|message\\s+history|system\\s+prompt|(?:process\\s+)?environment|\\benv\\s+vars?|credentials?|secrets?|api[\\s_-]?keys?|(?:access|auth(?:entication)?|session|bearer)\\s+tokens?|passwords?|private\\s+keys?|ssh\\s+keys?|~/\\.ssh|\\.ssh/|id_rsa|id_ed25519|\\.env\\b|\\.aws/|cookies)|(?:read|cat|open|load|print|dump|return)\\s+[^\\n]{0,40}?(?:~/\\.ssh|\\.ssh/|id_rsa|id_ed25519|/etc/(?:passwd|shadow)|\\.env\\b|\\.aws/credentials|\\.npmrc|\\.netrc|\\.git-credentials|\\.kube/config))",
+        "description": "Invisible control at the start of a clause, followed by a response-timing hook (before answering, after responding, when calling another tool) that sends or reads secrets, conversation or a URL; an always/must directive to call this tool first or instead of others, or to send secrets; an exfiltration verb on secrets, conversation, environment or credential files; or a read of ~/.ssh, .env, .aws/credentials and similar files",
+        "field": "tool_description"
+      },
+      {
+        "regex": "(?:(?:[\\x21-\\x2F\\x3A-\\x40\\x5B-\\x60\\x7B-\\x7E、。！，：；？][ \\t]{0,3}|[A-Za-z0-9][ \\t]{1,3})[​‌‍⁠᠎­‎‏‪‫‭‮⁦⁧⁨﻿‬⁩]{0,6}[​‌‍⁠᠎­‎‏‪‫‭‮⁦⁧⁨﻿]|(?:^|[\\r\\n])[ \\t]{0,8}[​‌‍⁠᠎­‎‏‪‫‭‮⁦⁧⁨‬⁩]{0,6}[​‌‍⁠᠎­‎‏‪‫‭‮⁦⁧⁨])[ \\t\"'*_`>(\\[]{0,4}(?:(?:also|then|please|now|first|additionally|and|but|ai|assistant|agent|model|llm|claude)[,:]?\\s+){0,2}(?:(?:do\\s+not|don't|never|without)\\s+(?:tell(?:ing)?|inform(?:ing)?|notify(?:ing)?|mention(?:ing)?|reveal(?:ing)?|disclos(?:e|ing)|alert(?:ing)?|warn(?:ing)?|ask(?:ing)?)\\s+(?:this\\s+to\\s+|anything\\s+to\\s+)?(?:the\\s+)?(?:user|human|operator)\\b|(?:do\\s+not|don't|never)\\s+let\\s+(?:the\\s+)?(?:user|human)\\s+(?:know|see))",
+        "description": "Invisible control at the start of a clause, followed by a concealment directive (do not tell, inform, mention or reveal to the user)",
+        "field": "tool_description"
       }
     ]
   }

@@ -6934,11 +6934,6 @@
         "regex": "(?:keep\\s+(?:saying|repeating|writing|printing|outputting)\\s+[\"\\x27]?\\w{1,30}[\"\\x27]?\\s+(?:forever|indefinitely|endlessly|over\\s+and\\s+over|non-?stop|continuously|until\\s+I\\s+(?:say|tell\\s+you)\\s+stop))",
         "description": "Keep saying/repeating X forever — semantic variant of the divergence probe",
         "field": "tool_response"
-      },
-      {
-        "regex": "(?:(?:\\w+\\s+){40,})\\1{3,}",
-        "description": "Highly repeated word sequence (40+ word repetitions of same token x3 or more) — pre-primed divergence bait via repeated word list",
-        "field": "tool_response"
       }
     ]
   },
@@ -11610,12 +11605,12 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?i)(?<![\"'])(?<!\\b(?:they|user|users|people|customer|customers|developer|developers|client|clients|when|if|whenever|caller|callers|operator|operators)\\s)\\b(say|output|retype|repeat|emit|reply\\s+with|respond\\s+with)\\s+(?:exactly|only|just|verbatim|literally|precisely|word[\\s-]for[\\s-]word|nothing\\s+but|the\\s+(?:exact|literal)\\s+(?:string|phrase|text|words?|line)?)\\b[^\"\\n]{0,40}[\"'][\\sA-Za-z0-9][^\"\\n]{3,200}[\"'](?!\\s*(?:not|or|nor|but|instead|rather\\s+than|--|—))",
+        "regex": "(?i)(?<![\"'])(?<!\\bthey\\s)(?<!\\buser\\s)(?<!\\busers\\s)(?<!\\bpeople\\s)(?<!\\bcustomer\\s)(?<!\\bcustomers\\s)(?<!\\bdeveloper\\s)(?<!\\bdevelopers\\s)(?<!\\bclient\\s)(?<!\\bclients\\s)(?<!\\bwhen\\s)(?<!\\bif\\s)(?<!\\bwhenever\\s)(?<!\\bcaller\\s)(?<!\\bcallers\\s)(?<!\\boperator\\s)(?<!\\boperators\\s)\\b(say|output|retype|repeat|emit|reply\\s+with|respond\\s+with)\\s+(?:exactly|only|just|verbatim|literally|precisely|word[\\s-]for[\\s-]word|nothing\\s+but|the\\s+(?:exact|literal)\\s+(?:string|phrase|text|words?|line)?)\\b[^\"\\n]{0,40}[\"'][\\sA-Za-z0-9][^\"\\n]{3,200}[\"'](?!\\s*(?:not|or|nor|but|instead|rather\\s+than|--|—))",
         "description": "Imperative output + explicit exact-forcing modifier (exactly/only/just/verbatim/word-for-word) + quoted target",
         "field": "user_input"
       },
       {
-        "regex": "(?i)(?<![\"'])(?<!\\b(?:they|user|users|people|customer|customers|developer|developers|client|clients|when|if|whenever|caller|callers|operator|operators)\\s)\\b(say|output|retype|repeat|emit|reply\\s+with|respond\\s+with)\\s+(?:(?:exactly|only|just|the|following|exact|literal|string|phrase|text|words|line)\\s*[:,-]?\\s*)*[\"'][^\"\\n]{0,80}\\b(pwned|approved|granted|accepted|authori[sz]ed|overrid(?:e|den)|unlocked|jailbroken|bypass(?:ed)?|hacked|admin(?:istrator)?\\s+access|root\\s+access|no\\s+threats?|all\\s+clear|access\\s+granted|system\\s+override)\\b[^\"\\n]{0,80}[\"'](?!\\s*(?:not|or|nor|but|instead))",
+        "regex": "(?i)(?<![\"'])(?<!\\bthey\\s)(?<!\\buser\\s)(?<!\\busers\\s)(?<!\\bpeople\\s)(?<!\\bcustomer\\s)(?<!\\bcustomers\\s)(?<!\\bdeveloper\\s)(?<!\\bdevelopers\\s)(?<!\\bclient\\s)(?<!\\bclients\\s)(?<!\\bwhen\\s)(?<!\\bif\\s)(?<!\\bwhenever\\s)(?<!\\bcaller\\s)(?<!\\bcallers\\s)(?<!\\boperator\\s)(?<!\\boperators\\s)\\b(say|output|retype|repeat|emit|reply\\s+with|respond\\s+with)\\s+(?:(?:exactly|only|just|the|following|exact|literal|string|phrase|text|words|line)(?:\\s*[:,-])?\\s*)*[\"'][^\"\\n]{0,80}\\b(pwned|approved|granted|accepted|authori[sz]ed|overrid(?:e|den)|unlocked|jailbroken|bypass(?:ed)?|hacked|admin(?:istrator)?\\s+access|root\\s+access|no\\s+threats?|all\\s+clear|access\\s+granted|system\\s+override)\\b[^\"\\n]{0,80}[\"'](?!\\s*(?:not|or|nor|but|instead))",
         "description": "Imperative output forcing a security/status canonical assertion (approved/granted/PWNED/override/all clear)",
         "field": "user_input"
       },
@@ -21415,22 +21410,22 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)(?<!\\b(?:you will learn that|you will learn|for example|this query|note that|for instance|such as|explains that)\\s)\\b(?:MATCH|CALL)\\b[\\s\\S]{0,40}\\bDETACH\\s+DELETE\\b",
+        "regex": "(?i)(?<!\\byou will learn that\\s)(?<!\\byou will learn\\s)(?<!\\bfor example\\s)(?<!\\bthis query\\s)(?<!\\bnote that\\s)(?<!\\bfor instance\\s)(?<!\\bsuch as\\s)(?<!\\bexplains that\\s)\\b(?:MATCH|CALL)\\b[\\s\\S]{0,40}\\bDETACH\\s+DELETE\\b",
         "description": "Cypher DETACH DELETE (bulk destructive delete of matched nodes/relationships) near a MATCH/CALL clause, excluding common teaching-phrase lead-ins (e.g. 'you will learn that ...') so tutorial/explanatory prose quoting the same syntax does not fire",
         "field": "content"
       },
       {
-        "regex": "(?i)(?<!\\b(?:you will learn that|you will learn|for example|this query|note that|for instance|such as|explains that)\\s)\\bCALL\\s+dbms\\.security\\.\\w+\\s*\\(",
+        "regex": "(?i)(?<!\\byou will learn that\\s)(?<!\\byou will learn\\s)(?<!\\bfor example\\s)(?<!\\bthis query\\s)(?<!\\bnote that\\s)(?<!\\bfor instance\\s)(?<!\\bsuch as\\s)(?<!\\bexplains that\\s)\\bCALL\\s+dbms\\.security\\.\\w+\\s*\\(",
         "description": "Cypher CALL into the dbms.security.* administrative procedure namespace (account/role management), excluding common teaching-phrase lead-ins",
         "field": "content"
       },
       {
-        "regex": "(?i)(?<!\\b(?:you will learn that|you will learn|for example|this query|note that|for instance|such as|explains that)\\s)\\bapoc\\.periodic\\.iterate\\s*\\([\\s\\S]{0,40}\\bDETACH\\s+DELETE\\b",
+        "regex": "(?i)(?<!\\byou will learn that\\s)(?<!\\byou will learn\\s)(?<!\\bfor example\\s)(?<!\\bthis query\\s)(?<!\\bnote that\\s)(?<!\\bfor instance\\s)(?<!\\bsuch as\\s)(?<!\\bexplains that\\s)\\bapoc\\.periodic\\.iterate\\s*\\([\\s\\S]{0,40}\\bDETACH\\s+DELETE\\b",
         "description": "apoc.periodic.iterate batch procedure driving a DETACH DELETE (mass destructive delete at scale), excluding common teaching-phrase lead-ins",
         "field": "content"
       },
       {
-        "regex": "(?i)(?<!\\b(?:you will learn that|you will learn|for example|this query|note that|for instance|such as|explains that)\\s)\\bapoc\\.(?:cypher\\.runFile|load\\.json(?:Params)?)\\s*\\(\\s*[\\x27\"]file://",
+        "regex": "(?i)(?<!\\byou will learn that\\s)(?<!\\byou will learn\\s)(?<!\\bfor example\\s)(?<!\\bthis query\\s)(?<!\\bnote that\\s)(?<!\\bfor instance\\s)(?<!\\bsuch as\\s)(?<!\\bexplains that\\s)\\bapoc\\.(?:cypher\\.runFile|load\\.json(?:Params)?)\\s*\\(\\s*[\\x27\"]file://",
         "description": "apoc loader/runFile procedure pointed at a file:// URI (arbitrary local file read via Cypher), excluding common teaching-phrase lead-ins",
         "field": "content"
       }
@@ -22180,22 +22175,22 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)(?:(?<=\\bmcpServers\\b[\\s\\S]{0,500})|(?=[\\s\\S]{0,300}?\"?\\bcommand\\b\"?\\s*[:=])(?=[\\s\\S]{0,300}?\"?\\bargs\\b\"?\\s*[:=]))\"env\"\\s*:\\s*\\{[\\s\\S]{0,10}\"?\\bNODE_OPTIONS\\b\"?\\s*:\\s*[\"'][\\s\\S]{0,40}?(?:--require\\b|-r\\s+\\S|--loader\\b|--experimental-loader\\b|--experimental-require-module\\b)",
+        "regex": "(?i)(?:\\bmcpServers\\b[\\s\\S]{0,500}?|(?=[\\s\\S]{0,300}?\"?\\bcommand\\b\"?\\s*[:=])(?=[\\s\\S]{0,300}?\"?\\bargs\\b\"?\\s*[:=]))\"env\"\\s*:\\s*\\{[\\s\\S]{0,10}\"?\\bNODE_OPTIONS\\b\"?\\s*:\\s*[\"'][\\s\\S]{0,40}?(?:--require\\b|-r\\s+\\S|--loader\\b|--experimental-loader\\b|--experimental-require-module\\b)",
         "description": "JSON-style MCP config env block, anchored by a nearby mcpServers key OR a command+args pair (the MCP stdio-spawn shape), sets NODE_OPTIONS to a value that actually references a require/preload/loader flag, not a routine memory/debug/warnings flag or the modern --import instrumentation flag",
         "field": "content"
       },
       {
-        "regex": "(?i)(?:(?<=\\bmcpServers\\b[\\s\\S]{0,500})|(?=[\\s\\S]{0,300}?\"?\\bcommand\\b\"?\\s*[:=])(?=[\\s\\S]{0,300}?\"?\\bargs\\b\"?\\s*[:=]))\\b(?:env|environment)\\b\\s*:\\s*\\n\\s+\"?\\bNODE_OPTIONS\\b\"?\\s*:\\s*[\\s\\S]{0,40}?(?:--require\\b|-r\\s+\\S|--loader\\b|--experimental-loader\\b|--experimental-require-module\\b)",
+        "regex": "(?i)(?:\\bmcpServers\\b[\\s\\S]{0,500}?|(?=[\\s\\S]{0,300}?\"?\\bcommand\\b\"?\\s*[:=])(?=[\\s\\S]{0,300}?\"?\\bargs\\b\"?\\s*[:=]))\\b(?:env|environment)\\b\\s*:[^\\S\\n]*\\n\\s+\"?\\bNODE_OPTIONS\\b\"?\\s*:\\s*[\\s\\S]{0,40}?(?:--require\\b|-r\\s+\\S|--loader\\b|--experimental-loader\\b|--experimental-require-module\\b)",
         "description": "YAML-style MCP config env block (env:/environment: followed immediately by an indented NODE_OPTIONS key on the next line, not separated by prose or a code fence), anchored by a nearby mcpServers key OR a command+args pair, sets NODE_OPTIONS to a require/preload/loader flag",
         "field": "content"
       },
       {
-        "regex": "(?i)(?:(?<=\\bmcpServers\\b[\\s\\S]{0,500})|(?=[\\s\\S]{0,300}?\"?\\bcommand\\b\"?\\s*[:=])(?=[\\s\\S]{0,300}?\"?\\bargs\\b\"?\\s*[:=]))\"env\"\\s*:\\s*\\{[\\s\\S]{0,10}\"?\\b(?:LD_PRELOAD|DYLD_INSERT_LIBRARIES|BASH_ENV|PYTHONSTARTUP|PERL5OPT|RUBYOPT|GCONV_PATH)\\b\"?\\s*:\\s*\\S",
+        "regex": "(?i)(?:\\bmcpServers\\b[\\s\\S]{0,500}?|(?=[\\s\\S]{0,300}?\"?\\bcommand\\b\"?\\s*[:=])(?=[\\s\\S]{0,300}?\"?\\bargs\\b\"?\\s*[:=]))\"env\"\\s*:\\s*\\{[\\s\\S]{0,10}\"?\\b(?:LD_PRELOAD|DYLD_INSERT_LIBRARIES|BASH_ENV|PYTHONSTARTUP|PERL5OPT|RUBYOPT|GCONV_PATH)\\b\"?\\s*:\\s*\\S",
         "description": "JSON-style MCP config env block, anchored by a nearby mcpServers key OR a command+args pair, sets a known process-hijacking environment variable that has no benign flag-only mode (its value IS the hijack payload)",
         "field": "content"
       },
       {
-        "regex": "(?i)(?:(?<=\\bmcpServers\\b[\\s\\S]{0,500})|(?=[\\s\\S]{0,300}?\"?\\bcommand\\b\"?\\s*[:=])(?=[\\s\\S]{0,300}?\"?\\bargs\\b\"?\\s*[:=]))\\b(?:env|environment)\\b\\s*:\\s*\\n\\s+\"?\\b(?:LD_PRELOAD|DYLD_INSERT_LIBRARIES|BASH_ENV|PYTHONSTARTUP|PERL5OPT|RUBYOPT|GCONV_PATH)\\b\"?\\s*:\\s*\\S",
+        "regex": "(?i)(?:\\bmcpServers\\b[\\s\\S]{0,500}?|(?=[\\s\\S]{0,300}?\"?\\bcommand\\b\"?\\s*[:=])(?=[\\s\\S]{0,300}?\"?\\bargs\\b\"?\\s*[:=]))\\b(?:env|environment)\\b\\s*:[^\\S\\n]*\\n\\s+\"?\\b(?:LD_PRELOAD|DYLD_INSERT_LIBRARIES|BASH_ENV|PYTHONSTARTUP|PERL5OPT|RUBYOPT|GCONV_PATH)\\b\"?\\s*:\\s*\\S",
         "description": "YAML-style MCP config env block (env:/environment: followed immediately by an indented key on the next line), anchored by a nearby mcpServers key OR a command+args pair, sets a known process-hijacking environment variable",
         "field": "content"
       }
@@ -22262,7 +22257,7 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(?<=\\b(?:WebFetch|fetch(?:_url)?|curl|wget|GET|POST|download(?:ing)?|(?:send|issue|make)\\s+(?:a\\s+|an\\s+)?(?:web)?fetch|request(?:ing)?)\\b[\\s\\S]{0,30}?)\\bhuggingface\\.co\\b[\\s\\S]{0,40}?\\b(?:encode|base64|exfiltrat\\w*|covert\\s+channel|out-of-band\\s+channel)\\b",
+        "regex": "(?i)\\b(?:WebFetch|fetch(?:_url)?|curl|wget|GET|POST|download(?:ing)?|(?:send|issue|make)\\s+(?:a\\s+|an\\s+)?(?:web)?fetch|request(?:ing)?)\\b[\\s\\S]{0,30}?\\bhuggingface\\.co\\b[\\s\\S]{0,40}?\\b(?:encode|base64|exfiltrat\\w*|covert\\s+channel|out-of-band\\s+channel)\\b",
         "description": "Natural-language framing describing encoding/exfiltrating data via a huggingface.co request -- catches the instruction-level technique before a concrete URL is constructed. Requires an actual fetch/request-action cue (WebFetch, fetch, curl, download, 'issue a fetch', etc.) within 30 chars BEFORE the domain, and the encode/base64/exfiltrate trigger within a tightened 40 chars AFTER the domain, so ordinary prose merely co-mentioning huggingface.co and base64/encode in the same sentence (with no request framing) does not fire",
         "field": "content"
       }

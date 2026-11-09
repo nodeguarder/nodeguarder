@@ -1053,7 +1053,7 @@
         "field": "agent_output"
       },
       {
-        "regex": "(?i)(?:do\\s+not|never|must\\s+not|cannot|should\\s+not).*(?:reveal|share|disclose|output|leak).*(?:system\\s+prompt|internal|instructions?|configuration)",
+        "regex": "(?i)(?:do\\s+not|never|must\\s+not|cannot|should\\s+not)[^\\n\\\\]{0,80}(?:reveal|share|disclose|output|leak)[^\\n\\\\]{0,80}(?:system\\s+prompt|internal|instructions?|configuration)",
         "description": "Agent echoing its own non-disclosure rules",
         "field": "agent_output"
       },
@@ -1320,7 +1320,7 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)(?:--(?:privileged|no-sandbox|cap-add|security-opt)|allowPrivilegeEscalation|\\b(?:admin|root|superuser|sudo)\\s*=|[\"'](?:admin|root|superuser|sudo)[\"']|\"role\"\\s*:\\s*\"(?:admin|root|superuser|sudo)\")",
+        "regex": "(?i)(?:--(?:privileged|cap-add|security-opt)|allowPrivilegeEscalation|\"role\"\\s*:\\s*\"(?:admin|root|superuser|sudo)\")",
         "description": "Privileged flags or admin/root values in structured tool arguments (not natural language)",
         "field": "tool_args"
       },
@@ -1716,7 +1716,7 @@
         "field": "tool_args"
       },
       {
-        "regex": "(?i)(__[a-z]+__|\\$\\$[a-z]+|_internal_|_hidden_|_backdoor_|_secret_)",
+        "regex": "(?i)(__(?:backdoor|hidden|secret|internal|debug|admin|exec|eval|shell|cmd|import|builtins|globals)__|_internal_|_hidden_|_backdoor_|_secret_)",
         "description": "",
         "field": "tool_args"
       },
@@ -1744,12 +1744,12 @@
         "field": "tool_args"
       },
       {
-        "regex": "(?i)(base64|btoa|encodeURI|hex\\.encode|rot13|xor|compress|gzip|deflate|encrypt)",
+        "regex": "(?i)(?:base64|btoa|encodeURI|hex\\.encode|rot13|xor|compress|gzip|deflate|encrypt)[^\\n]{0,80}(?:\\.env\\b|\\bsecrets?\\b|\\btokens?\\b|\\bpasswords?\\b|api[_-]?keys?|credentials?|id_rsa|private[_-]?key)",
         "description": "",
         "field": "tool_args"
       },
       {
-        "regex": "(?i)(webhook|ngrok|requestbin|pipedream|hookbin|burpcollaborator|interact\\.sh|\\boast\\b)",
+        "regex": "(?i)(webhook\\.site|ngrok|requestbin|pipedream|hookbin|burpcollaborator|interact\\.sh|\\boast\\b)",
         "description": "Known out-of-band exfiltration endpoints. `oast` carried no word boundary, so it matched inside ordinary English — roast, toast, coast, boast, roasts — on a critical rule whose response is block_tool + escalate. Bounded with \\b rather than the lookbehind used by the first condition, because \\b is RE2-native and lookaround is not: scripts/gate-re2-portability.ts fails a rule that newly needs backtracking, and downstream Go/Rust/Sigma consumers drop it outright. oast.fun / oast.pro / bare OAST still match — `.` and end-of-string are both word boundaries.",
         "field": "tool_args"
       },
@@ -1838,17 +1838,17 @@
         "field": "tool_args"
       },
       {
-        "regex": "(?i)('\\s*(OR|AND|UNION)\\s+'|;\\s*(DROP|DELETE|INSERT|UPDATE|ALTER|CREATE)\\s|--\\s*[;\\\"'\\)\\]]|/\\*.*\\*/)",
+        "regex": "(?i)('\\s*(OR|AND|UNION)\\s+'|;\\s*(DROP|DELETE|INSERT|UPDATE|ALTER|CREATE)\\s|--\\s*[;\\\"'\\)\\]])",
         "description": "",
         "field": "tool_args"
       },
       {
-        "regex": "(\\.\\./|\\.\\.\\\\){2,}|(\\.\\.(/|\\\\)){2,}(etc|windows|usr|home|root|var|tmp)",
+        "regex": "(\\.\\./|\\.\\.\\\\){3,}|(\\.\\.(/|\\\\)){2,}(etc|windows|usr|home|root|var|tmp)",
         "description": "",
         "field": "tool_args"
       },
       {
-        "regex": "(?i)((?:^|[^{])\\{\\{.*\\}\\}|\\$\\{IFS|\\$\\{[^}]*[`(]|\\$\\{[^}]*jndi:|\\$\\([^)]*[A-Za-z]|<%.*%>|#\\{.*\\}|\\{%.*%\\})",
+        "regex": "(?i)((?:^|[^{])\\{\\{[^}\\n]{0,200}(?:__[a-z]+__|\\bconfig\\b|\\brequest\\b|\\bself\\b|\\bcycler\\b|\\blipsum\\b|\\bjoiner\\b|\\|\\s*attr\\b|\\[\\s*['\"]_)[^}\\n]{0,200}\\}\\}|(?:^|[^{])\\{\\{\\s*\\d+\\s*[*+]\\s*\\d+\\s*\\}\\}|\\$\\{IFS|\\$\\{[^}]{0,200}[`(]|\\$\\{[^}]{0,200}jndi:|\\$\\([^)]{0,200}[A-Za-z]|<%=?[^%\\n]{0,200}(?:Runtime|exec|system|eval|`|popen)[^%\\n]{0,200}%>|#\\{[^}\\n]{0,200}(?:`|system|exec|eval|%x)[^}\\n]{0,200}\\}|\\{%[^%\\n]{0,200}(?:import|__|os\\.|subprocess|popen)[^%\\n]{0,200}%\\})",
         "description": "",
         "field": "tool_args"
       },
@@ -3248,7 +3248,7 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(?:cat|read|open|load|get)\\s+.*(?:credentials|id_rsa|private[_\\s]?key|secret[_\\s]?key)",
+        "regex": "(?i)(?:cat|read|open|load|get)\\s+[^\\n\\\\]{0,150}(?:credentials|id_rsa|private[_\\s]?key|secret[_\\s]?key)",
         "description": "Reading credential or private key files",
         "field": "content"
       },
@@ -3527,8 +3527,8 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(bash\\s+-i\\s+>&\\s*/dev/tcp/|nc\\s+-[a-zA-Z]*e[a-zA-Z]*\\s|ncat\\s+-[a-zA-Z]*e[a-zA-Z]*\\b|ncat\\s+--exec\\b|mkfifo\\s+/tmp/|python[3]?\\s+-c\\s+['\"]import\\s+(socket|os)|socat\\s+exec)",
-        "description": "Reverse shell (VirusTotal AMOS infostealer delivery). nc/ncat narrowed to require the -e/--exec flag (the actual exec-on-connect primitive) rather than any '-' flag or bare listen (-l/-p): 'ncat --proxy 127.0.0.1:1080 --proxy-type socks5' (a legitimate SSH SOCKS ProxyCommand) and 'nc -l 9003' (a benign local mock-TCP-server test fixture) both matched the old bare-flag pattern.",
+        "regex": "(?i)(bash\\s+-i\\s+>&\\s*/dev/tcp/|\\bnc\\s+-[a-zA-Z]*e[a-zA-Z]*\\s|\\bncat\\s+-[a-zA-Z]*e[a-zA-Z]*\\b|\\bncat\\s+--exec\\b|mkfifo\\s+/tmp/|python[3]?\\s+-c\\s+['\"]import\\s+(?:socket|os)\\b[^\\n]{0,300}?(?:\\bdup2\\s*\\(|\\bpty\\b|\\bsubprocess\\b|\\bos\\.(?:system|popen\\w*|exec\\w*|spawn\\w*|posix_spawn\\w*)\\s*\\(|\\b(?:eval|exec)\\s*\\()|socat\\s+exec)",
+        "description": "Reverse shell (VirusTotal AMOS infostealer delivery). nc/ncat narrowed to require the -e/--exec flag (the actual exec-on-connect primitive) rather than any '-' flag or bare listen (-l/-p): 'ncat --proxy 127.0.0.1:1080 --proxy-type socks5' (a legitimate SSH SOCKS ProxyCommand) and 'nc -l 9003' (a benign local mock-TCP-server test fixture) both matched the old bare-flag pattern. nc and ncat must start a word: 'ffmpeg -f concat -safe 0' read as 'ncat -safe' and 'rsync -e ssh' as 'nc -e'. A python -c one-liner that imports socket or os must also run something within 300 characters on the same line (dup2, pty, subprocess, os.system, os.popen*, os.exec*, os.spawn*, os.posix_spawn*, eval or exec): a DNS lookup ('socket.gethostbyname') or 'os.urandom' is not a shell.",
         "field": "content"
       },
       {
@@ -3542,8 +3542,8 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(\\.(?:zip|7z|rar)\\b[^\\n]{0,80}pass:\\s*`?\\w+`?\\s*\\)|pass:\\s*`?\\w+`?\\s*\\)[^\\n]{0,80}\\.(?:zip|7z|rar)\\b|extract.{0,20}(using\\s+)?pass(word)?\\s*[:=]|password\\s*[:=]\\s*`?\\w+`?.{0,20}(zip|archive|extract))",
-        "description": "Password-protected archive with embedded password (ClawHavoc evasion). The bare 'pass: `value`)' form now requires an archive extension (.zip/.7z/.rar) nearby — without it, ordinary local-dev credential documentation ('Neo4j Browser: http://localhost:7474 (user: neo4j, pass: password)') matched.",
+        "regex": "(?i)(\\.(?:zip|7z|rar)\\b[^\\n]{0,80}pass:\\s*`?\\w+`?\\s*\\)|pass:\\s*`?\\w+`?\\s*\\)[^\\n]{0,80}\\.(?:zip|7z|rar)\\b|\\bextract[a-z]*\\b.{0,20}\\bpass(word)?\\s*[:=]|password\\s*[:=]\\s*`?\\w+`?.{0,20}(zip|archive|extract))",
+        "description": "Password-protected archive with embedded password (ClawHavoc evasion). The bare 'pass: `value`)' form now requires an archive extension (.zip/.7z/.rar) nearby — without it, ordinary local-dev credential documentation ('Neo4j Browser: http://localhost:7474 (user: neo4j, pass: password)') matched. 'extract' and 'pass' must be whole words, so an identifier such as 'extractedFromBroadPass =' does not match.",
         "field": "content"
       }
     ]
@@ -3848,7 +3848,7 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?i)(set\\s+aside|put\\s+aside|shelve|table|suspend|drop|abandon|release|let\\s+go\\s+of|move\\s+past|move\\s+beyond)\\s+(the\\s+|your\\s+|any\\s+)?(guidance|instructions?|directives?|rules?|guidelines?|constraints?|restrictions?|configuration|parameters?|programming|training|protocols?)",
+        "regex": "(?i)\\b(set\\s+aside|put\\s+aside|shelve|table|suspend|drop|abandon|release|let\\s+go\\s+of|move\\s+past|move\\s+beyond)\\s+(the\\s+|your\\s+|any\\s+)?(guidance|instructions?|directives?|rules?|guidelines?|constraints?|restrictions?|configuration|parameters?|programming|training|protocols?)",
         "description": "Soft instruction override using set-aside language",
         "field": "user_input"
       },
@@ -4050,12 +4050,12 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)(?:oh,?\\s+and|p\\.?\\s*s\\.?|btw|interestingly|as it happens|incidentally|on another note|speaking of which|while I.m at it|worth noting)[\\s,.:]+.*(?:\\.ssh|id_rsa|private.?key|BEGIN.*(?:RSA|OPENSSH|EC).*KEY)",
+        "regex": "(?i)(?:oh,?\\s+and|p\\.?\\s*s\\.?|btw|interestingly|as it happens|incidentally|on another note|speaking of which|while I.m at it|worth noting)[\\s,.:]+[^\\n\\\\]{0,150}(?:\\.ssh|id_rsa|private.?key|BEGIN[^\\n\\\\]{0,40}(?:RSA|OPENSSH|EC)[^\\n\\\\]{0,40}KEY)",
         "description": "Casual transition + SSH key/private key reference",
         "field": "content"
       },
       {
-        "regex": "(?i)(?:oh,?\\s+and|p\\.?\\s*s\\.?|btw|interestingly|as it happens)[\\s,.:]+.*(?:api[_\\s-]?key|access[_\\s-]?token|secret[_\\s-]?key|password|credentials?)\\s*(?:is|are|was|contains?|shows?|reads?|=|:)",
+        "regex": "(?i)(?:oh,?\\s+and|p\\.?\\s*s\\.?|btw|interestingly|as it happens)[\\s,.:]+[^\\n\\\\]{0,150}(?:api[_\\s-]?key|access[_\\s-]?token|secret[_\\s-]?key|password|credentials?)\\s*(?:is|are|was|contains?|shows?|reads?|=|:)",
         "description": "Casual transition + credential disclosure",
         "field": "content"
       }
@@ -4423,8 +4423,8 @@
         "field": "content"
       },
       {
-        "regex": "\\b(?:id_rsa|id_dsa|id_ed25519|id_ecdsa)\\b(?!\\.pub)|\\b(?:\\.aws/credentials|\\.kube/config|\\.docker/config\\.json|\\.netrc|known_hosts)\\b|/etc/(?:passwd|shadow|ssl/private)|/proc/self/environ|\\b\\.env(?:\\.local|\\.production|\\.secret)?\\b(?![/a-zA-Z])",
-        "description": "Sensitive credential file referenced in tool description — private keys or cloud credentials (v2: dropped mcp.json + .aws/config — common non-secret config files that appear in ordinary git/edit operations; the exfil case is still caught by the <IMPORTANT>-tag and read/send-directive layers. id_rsa excludes the .pub public key.)",
+        "regex": "\\b(?:id_rsa|id_dsa|id_ed25519|id_ecdsa)\\b(?!\\.pub)|\\b(?:\\.aws/credentials|\\.kube/config|\\.docker/config\\.json|\\.netrc|known_hosts)\\b|/etc/(?:passwd|shadow|ssl/private)|/proc/self/environ",
+        "description": "Sensitive credential file referenced in tool description — private keys or cloud credentials (v2: dropped mcp.json + .aws/config — common non-secret config files that appear in ordinary git/edit operations; the exfil case is still caught by the <IMPORTANT>-tag and read/send-directive layers. id_rsa excludes the .pub public key. v4: dropped .env — as written it matched only when a letter came right before the dot, as in process.env or backup.env, and never a .env file path; a bare mention of a .env file is ordinary setup documentation.)",
         "field": "content"
       },
       {
@@ -4834,7 +4834,7 @@
         "field": "content"
       },
       {
-        "regex": "(backup|restore|sync)\\s+[^\\n]*(ssh|key|credential|certificate|\\.env)",
+        "regex": "(backup|restore|sync)\\s+[^\\n\\\\]{0,150}(ssh|key|credential|certificate|\\.env)",
         "description": "Backup-themed social engineering combined with credential terminology",
         "field": "content"
       },
@@ -4994,8 +4994,8 @@
         "field": "content"
       },
       {
-        "regex": "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}[^\\n]*(C2|command|control|backdoor|malware)",
-        "description": "IP address followed by malicious infrastructure terms",
+        "regex": "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}[^\\n\\\\]{0,120}?\\b(?:C2|backdoor|malware|command[\\s-]{0,3}(?:(?:and|&)[\\s-]{0,3})?control)\\b",
+        "description": "IP address followed, on the same line and within 120 characters, by a malicious infrastructure term as a whole word: C2, backdoor, malware, or command (and/&) control. \"command\" and \"control\" alone matched every IP line that later said startup-commands.md or management controller, and C2 matched inside EC2. A backslash ends the line too, because a JSON-encoded event carries a newline as the two characters \\n, where [^\\n] alone ran to the end of the document",
         "field": "content"
       },
       {
@@ -6522,8 +6522,8 @@
         "field": "tool_response"
       },
       {
-        "regex": "\\{\\{[\\s\\r\\n]*(?:config\\b|self\\b|request\\b|g\\b|app\\b|import\\s+os|__import__|lipsum\\.__globals__|[\"']{1,2}\\.__class__\\.__mro__|\\d+\\s*[*]\\s*\\d+)[^}]{0,100}\\}\\}",
-        "description": "Jinja2 / template expression containing known SSTI payloads — keywords anchored immediately after {{ (only whitespace between) to avoid matching app/g in variable names",
+        "regex": "\\{\\{[\\s\\r\\n]*(?:(?:config|self|request|g|app)\\b[^}]{0,100}?(?:__[a-z]{1,30}__|\\|\\s*attr\\b|\\[\\s*[\"']_|\\[\\s*request\\b)|import\\s+os|__import__|lipsum\\.__globals__|[\"']{1,2}\\.__class__\\.__mro__|\\d+\\s*[*]\\s*\\d+)[^}]{0,100}\\}\\}|\\{\\{[\\s\\r\\n]*(?:config(?:\\.items\\s*\\(\\s*\\)|\\.SECRET_KEY|\\[\\s*[\"']SECRET_KEY[\"']\\s*\\])?|self)[\\s\\r\\n]*\\}\\}",
+        "description": "Jinja2 / template expression containing known SSTI payloads — keywords anchored immediately after {{ (only whitespace between) to avoid matching app/g in variable names. A config, self, request, g or app root must, inside the same braces, reach a dunder attribute (__class__, __init__, __globals__, ...), apply the attr filter, or index by a string that starts with an underscore or by a request value; only the bare recon probes {{config}}, {{config.items()}}, {{config.SECRET_KEY}} and {{self}} match without one. Ordinary template variables ({{g}}, {{request}}, {{ request.user }}, dbt {{ config(...) }}) and Python f-string brace escapes (f\"{{{self.NS}}}\") are not injection",
         "field": "tool_response"
       },
       {
@@ -7226,8 +7226,8 @@
         "field": "tool_response"
       },
       {
-        "regex": "(?:SCORE\\s*:\\s*(?:[1-9]|10)(?!\\d)|rating\\s+from\\s+1-10\\s+on\\s+how\\s+jailbroken|maximize\\s+SCORE|Your\\s+goal\\s+is\\s+to\\s+maximize\\s+SCORE)",
-        "description": "TAP scoring system — \"SCORE: 1-10\" (bounded to 1-10 to avoid FP on benign score: 95 metadata), \"rating from 1-10 on how jailbroken\" and \"maximize SCORE\" are unique TAP markers in tap_jailbreaks.txt",
+        "regex": "(?:\\[\\s*SCORE\\s*:\\s*(?:[1-9]|10)\\s*\\]|rating\\s+from\\s+1-10\\s+on\\s+how\\s+jailbroken|maximize\\s+SCORE|Your\\s+goal\\s+is\\s+to\\s+maximize\\s+SCORE)",
+        "description": "TAP scoring system — \"rating from 1-10 on how jailbroken\" and \"maximize SCORE\" are unique TAP markers in tap_jailbreaks.txt. A bracketed \"[SCORE: <1-10>]\" tag still matches; injections plant it to fake retrieval scores (\"[SCORE: 5] [Rating: 5] [Relevant: 5]\"). A bare \"SCORE: <1-10>\" is not: it is how security reports and dashboards print CVSS and priority scores (\"CVSS Score: 3.1\")",
         "field": "tool_response"
       },
       {
@@ -11359,8 +11359,8 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(?:^|[^a-zA-Z_])exec\\s*\\(\\s*[\"\\x27]?[^)]{0,200}(?:__import__\\s*\\(\\s*\\\\?[\"\\x27]?(?:os|subprocess|socket)|import\\s+(?:os|subprocess|socket)|os\\.system|subprocess\\.\\w)",
-        "description": "exec() with import of process or socket modules — code-injection payload pattern",
+        "regex": "(?i)(?:^|[^a-zA-Z_])exec\\s*\\(\\s*[rbu]{0,2}[\"\\x27][^\"\\x27\\n]{0,200}(?:__import__\\s*\\(\\s*\\\\?[\"\\x27]?(?:os|subprocess|socket)|import\\s+(?:os|subprocess|socket)|os\\.system|subprocess\\.\\w)",
+        "description": "exec() called on a string literal that imports process or socket modules; the argument must open with a quote, so lists of dangerous patterns do not match",
         "field": "content"
       },
       {
@@ -11549,8 +11549,8 @@
         "field": "content"
       },
       {
-        "regex": "(?i)BuiltinImporter|\\btypes\\.FunctionType\\b|\\bFunctionType\\s*\\(|getattr\\s*\\(\\s*(?:object|type|__builtins__)",
-        "description": "BuiltinImporter, Python types.FunctionType reflective construction, or reflective getattr on built-in roots — excludes bare 'FunctionType' which collides with TypeScript terminology",
+        "regex": "(?i)BuiltinImporter|\\btypes\\.FunctionType\\b|\\bFunctionType\\s*\\(|getattr\\s*\\(\\s*(?:object|type|__builtins__)\\b",
+        "description": "BuiltinImporter, Python types.FunctionType reflective construction, or reflective getattr on built-in roots — excludes bare 'FunctionType' which collides with TypeScript terminology. The root name must end at a word boundary: without it 'getattr(types.Scale, name)' read as getattr on the built-in type",
         "field": "content"
       },
       {
@@ -13941,6 +13941,16 @@
         "regex": "(?i)(?:pre[_\\s\\-]?trust|before\\s+(?:the\\s+)?trust\\s+(?:dialog|prompt)|prior\\s+to\\s+(?:trust|consent))[^\\n]{0,160}(?:hook|SessionStart|startup|\\.claude)",
         "description": "Skill content describing the pre-trust execution property of SessionStart hooks — co-occurrence anchor for documentation / poisoning scans.",
         "field": "content"
+      },
+      {
+        "regex": "(?i)\\\\?\"SessionStart\\\\?\"\\s*:\\s*\\[[^\\]]{0,800}\\\\?\"command\\\\?\"\\s*:\\s*\\\\?\"[^\"\\\\]{0,200}\\b(?:node|bun|deno|python[23]?)\\s+[^\\s\"\\\\|&;]{1,160}\\s*\\|\\|\\s*(?:node|bun|deno|python[23]?)\\s+[^\\s\"\\\\|&;]",
+        "description": "SessionStart hook (any matcher, or none) whose command runs a script under one JavaScript or Python runtime and falls back to another with `||`, the portable loader in the testmetest repositories (JFrog, 2026-10-26: `node .github/init.js || bun .github/init.js`). None of 113 public `.claude/settings.json` and plugin `hooks.json` files with a SessionStart hook use a runtime fallback.",
+        "field": "content"
+      },
+      {
+        "regex": "(?i)\\\\?\"SessionStart\\\\?\"\\s*:\\s*\\[[^\\]]{0,800}\\\\?\"command\\\\?\"\\s*:\\s*\\\\?\"[^\"\\\\]{0,200}(?:^|[\\s\"=/])\\.github/[^\\s\"\\\\]{1,160}\\.(?:js|mjs|cjs|ts|py|sh)\\b",
+        "description": "SessionStart hook (any matcher, or none) that runs a script kept under `.github/`, where a repository holds CI configuration rather than editor hooks; the testmetest payload is `.github/init.js`. None of the 113 public SessionStart configurations run a script from `.github/`.",
+        "field": "content"
       }
     ]
   },
@@ -14555,12 +14565,12 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)(?:rag|retrieval[_-]?augmented|source[_-]?url|document[_-]?url)[^\\n]{0,200}(?:169\\.254\\.169\\.254|fd00:|2130706433|0x7f000001|0177\\.0\\.0\\.1|[a-z0-9-]+\\.internal\\.|(?:127\\.0\\.[01]\\.[01]|10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|192\\.168\\.\\d{1,3}\\.\\d{1,3}|172\\.(?:1[6-9]|2\\d|3[01])\\.\\d{1,3}\\.\\d{1,3})(?::\\d+)?/)",
+        "regex": "(?i)\\b(?:rag|retrieval[_-]?augmented|source[_-]?url|document[_-]?url)[^\\n]{0,200}(?:169\\.254\\.169\\.254|fd00:|2130706433|0x7f000001|0177\\.0\\.0\\.1|[a-z0-9-]+\\.internal\\.|(?:127\\.0\\.[01]\\.[01]|10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|192\\.168\\.\\d{1,3}\\.\\d{1,3}|172\\.(?:1[6-9]|2\\d|3[01])\\.\\d{1,3}\\.\\d{1,3})(?::\\d+)?/)",
         "description": "RAG source URL containing a cloud metadata endpoint (169.254.169.254), decimal/hex/octal loopback representations, or an RFC-1918 private address followed by an internal resource path — SSRF bypass via CVE-2026-2286. Plain \"localhost:PORT\" / bare-IP server defaults (no path) are excluded so legitimate RAG deployment docs do not false-positive.\n",
         "field": "content"
       },
       {
-        "regex": "(?i)(?:rag|retrieval[_-]?augmented|source[_-]?url|document[_-]?url)[^\\n]{0,200}(?:%31%36%39|%31%32%37|\\\\u0031|%2e%2e|\\\\x31\\\\x36\\\\x39|0x[aAbBcC][0-9a-fA-F]{6})",
+        "regex": "(?i)\\b(?:rag|retrieval[_-]?augmented|source[_-]?url|document[_-]?url)[^\\n]{0,200}(?:%31%36%39|%31%32%37|\\\\u0031|%2e%2e|\\\\x31\\\\x36\\\\x39|0x[aAbBcC][0-9a-fA-F]{6})",
         "description": "RAG URL with URL-encoded, Unicode-escaped, or hex representations of SSRF-relevant IP octets — URL encoding bypass pattern\n",
         "field": "content"
       },
@@ -14656,7 +14666,7 @@
     "category": "injection",
     "patterns": [
       {
-        "regex": "(?i)\\{\\{?[^{}]*\\b__(?:class|globals|import|builtins|subclasses|init|mro|base|dict|reduce|getattribute|subclasshook)__[^{}]*\\}?\\}",
+        "regex": "(?i)\\{\\{?[^{}]*(?:\\.__(?:class|globals|import|builtins|subclasses|init|mro|base|dict|reduce|getattribute|subclasshook)__|\\b__(?:import|builtins|globals|subclasses)__)[^{}]*\\}?\\}",
         "description": "Server-side template injection via Python dunder/builtins traversal",
         "field": "content"
       }
@@ -14738,8 +14748,8 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)\"command\"\\s*:\\s*\"(?:(?:/(?:usr/)?bin/)?(?:bash|sh|zsh|dash)\"|[^\"]*[;&|`$])",
-        "description": "MCP stdio config command is a raw shell or contains shell metacharacters",
+        "regex": "(?i)\"command\"\\s*:\\s*\"(?:(?:/(?:usr/)?bin/)?(?:bash|sh|zsh|dash)\"|[^\"]*[;&|`$][^\"]*\")[^{}]{0,400}\"(?:args|env|transport)\"\\s*:|\"(?:args|transport)\"\\s*:[^{}]{0,400}\"command\"\\s*:\\s*\"(?:(?:/(?:usr/)?bin/)?(?:bash|sh|zsh|dash)\"|[^\"]*[;&|`$])",
+        "description": "MCP stdio config (a command next to its args, env or transport field in the same object) whose command is a raw shell or contains shell metacharacters. A bare {\"command\":\"...\"} is the argument shape of ordinary shell tools and is not matched",
         "field": "content"
       },
       {
@@ -17207,7 +17217,7 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)((?:<!--|\\[)\\s*SYSTEM\\s+OVERRIDE\\b|SYSTEM\\s+OVERRIDE\\s+(?:BEGIN|MODE|ACTIVE|NOW|ENABLED)|ROOT_?ADMIN|OMEGA\\s+CLEARANCE|PRIORITY\\s+LEVEL\\s*:\\s*CRITICAL|AUTHORIZATION\\s*:\\s*(ROOT|ADMIN|FULL|OMEGA))",
+        "regex": "(?i)((?:<!--|\\[)\\s*SYSTEM\\s+OVERRIDE\\b|SYSTEM\\s+OVERRIDE\\s+(?:BEGIN|MODE|ACTIVE|NOW|ENABLED)|ROOT_?ADMIN|OMEGA\\s+CLEARANCE|AUTHORIZATION\\s*:\\s*(ROOT|ADMIN|FULL|OMEGA))",
         "description": "System override (structurally framed) / root admin / omega clearance authority claim",
         "field": "content"
       },
@@ -17653,7 +17663,7 @@
         "field": "user_input"
       },
       {
-        "regex": "(?i)\\b(?:account|user|record|customer)\\s*(?:id|number|no\\.?|#)?\\s*[:#]?\\s*\\d{1,10}\\b[\\s\\S]{0,60}\\b(?:even\\s+though|although|but)\\s+(?:i'?m|i\\s+am|my|mine)\\b",
+        "regex": "(?i)\\b(?:account|user|record|customer)\\s*(?:(?:id|number|no\\.?|#)\\s*)?(?:[:#]\\s*)?\\d{1,10}\\b[\\s\\S]{0,60}\\b(?:even\\s+though|although|but)\\s+(?:i'?m|i\\s+am|my|mine)\\b",
         "description": "Numbered record requested with an explicit admission that it belongs to someone else",
         "field": "user_input"
       }
@@ -22119,6 +22129,11 @@
         "regex": "(?i)(?:^|[^\\w$])(?:const\\s+|let\\s+|var\\s+)?([A-Za-z_$][\\w$]*)\\s*=\\s*(?:os\\.environ(?:\\.get)?\\s*[\\(\\[]\\s*['\"][A-Z0-9_]*(?:SECRET|TOKEN|API[_-]?KEY|PASSWORD|PASSWD|CREDENTIAL|PRIVATE[_-]?KEY|ACCESS[_-]?KEY|AUTH_?TOKEN)|process\\.env\\.[A-Z0-9_]*(?:SECRET|TOKEN|API[_-]?KEY|PASSWORD|CREDENTIAL|PRIVATE[_-]?KEY|ACCESS[_-]?KEY)|getenv\\s*\\(\\s*['\"][A-Z0-9_]*(?:SECRET|TOKEN|API[_-]?KEY|PASSWORD|CREDENTIAL)|(?:open|readFileSync|read_file)\\s*\\([^)\\n]{0,60}(?:\\.aws/credentials|\\.ssh/id_[a-z0-9]+|\\.netrc|credentials\\.json))[\\s\\S]{0,160}?(?:base64\\.(?:b64encode|standard_b64encode|encodebytes)\\s*\\(\\s*\\1\\b|Buffer\\.from\\s*\\(\\s*\\1\\b[^)]*\\)\\.toString\\s*\\(\\s*['\"]base64|btoa\\s*\\(\\s*\\1\\b|binascii\\.(?:hexlify|b2a_base64)\\s*\\(\\s*\\1\\b|\\1\\.encode\\s*\\(\\s*['\"]base64['\"])[\\s\\S]{0,160}?(?:requests\\.(?:post|put|patch)|httpx\\.(?:post|put)|urllib\\.request\\.urlopen|urllib2\\.urlopen|http\\.client\\.HTTPS?Connection|aiohttp\\.[A-Za-z_]*\\.(?:post|put)|fetch\\s*\\(|axios\\.(?:post|put)|\\.sendall\\s*\\(|\\.sendto\\s*\\()",
         "description": "Ordered chain: secret read into a variable -> that SAME variable base64/hex-encoded (backreference-bound) -> outbound network send, within a bounded window. The backreference (\\1) is what keeps the encode stage tied to the secret: a skill that reads a token for SDK auth but base64-encodes an UNRELATED image/file and POSTs it (a very common legitimate upload pattern) no longer matches, because the encoded operand is a different variable than the one holding the secret.",
         "field": "content"
+      },
+      {
+        "regex": "(?i)(?:(?:\\bfetch\\s*\\(|\\baxios(?:\\.(?:get|post|put|request))?\\s*\\(|\\bhttps?\\.(?:request|get)\\s*\\(|\\bnavigator\\.sendBeacon\\s*\\(|\\bnew\\s+WebSocket\\s*\\(|\\brequests\\.(?:get|post|put|patch)\\s*\\(|\\burlopen\\s*\\(|\\bhttpx\\.(?:get|post|put)\\s*\\(|\\.send(?:all|to)\\s*\\(|\\b(?:ws|socket|sock)\\.send\\s*\\()[^;\\n]{0,300}?(?:JSON\\.stringify|json\\.dumps)\\s*\\(\\s*(?:\\{[^{}()]{0,120}?)?(?:process\\.env|(?:dict\\s*\\(\\s*)?os\\.environ(?:\\.copy\\s*\\(\\s*\\))?)\\s*[,})]|(?:JSON\\.stringify|json\\.dumps)\\s*\\(\\s*(?:\\{[^{}()]{0,120}?)?(?:process\\.env|(?:dict\\s*\\(\\s*)?os\\.environ(?:\\.copy\\s*\\(\\s*\\))?)\\s*[,})][\\s\\S]{0,300}?(?:(?:Buffer\\.from\\s*\\([^()]{0,80}\\)\\s*\\.toString\\s*\\(\\s*['\"](?:base64|hex)|\\bb64encode\\s*\\(|\\bbtoa\\s*\\(|\\bhexlify\\s*\\()[\\s\\S]{0,300}?(?:\\bfetch\\s*\\(|\\baxios(?:\\.(?:get|post|put|request))?\\s*\\(|\\bhttps?\\.(?:request|get)\\s*\\(|\\bnavigator\\.sendBeacon\\s*\\(|\\bnew\\s+WebSocket\\s*\\(|\\brequests\\.(?:get|post|put|patch)\\s*\\(|\\burlopen\\s*\\(|\\bhttpx\\.(?:get|post|put)\\s*\\(|\\.send(?:all|to)\\s*\\(|\\b(?:ws|socket|sock)\\.send\\s*\\()|(?:\\bfetch\\s*\\(|\\baxios(?:\\.(?:get|post|put|request))?\\s*\\(|\\bhttps?\\.(?:request|get)\\s*\\(|\\bnavigator\\.sendBeacon\\s*\\(|\\bnew\\s+WebSocket\\s*\\(|\\brequests\\.(?:get|post|put|patch)\\s*\\(|\\burlopen\\s*\\(|\\bhttpx\\.(?:get|post|put)\\s*\\(|\\.send(?:all|to)\\s*\\(|\\b(?:ws|socket|sock)\\.send\\s*\\()[^;\\n]{0,300}?(?:Buffer\\.from\\s*\\([^()]{0,80}\\)\\s*\\.toString\\s*\\(\\s*['\"](?:base64|hex)|\\bb64encode\\s*\\(|\\bbtoa\\s*\\(|\\bhexlify\\s*\\())|(?:Buffer\\.from|b64encode|btoa|hexlify)\\s*\\(\\s*(?:str\\s*\\(\\s*)?(?:(?:JSON\\.stringify|json\\.dumps)\\s*\\(\\s*(?:\\{[^{}()]{0,120}?)?(?:process\\.env|(?:dict\\s*\\(\\s*)?os\\.environ(?:\\.copy\\s*\\(\\s*\\))?)\\s*[,})]|(?:process\\.env|(?:dict\\s*\\(\\s*)?os\\.environ(?:\\.copy\\s*\\(\\s*\\))?)\\s*\\))[\\s\\S]{0,400}?(?:\\bfetch\\s*\\(|\\baxios(?:\\.(?:get|post|put|request))?\\s*\\(|\\bhttps?\\.(?:request|get)\\s*\\(|\\bnavigator\\.sendBeacon\\s*\\(|\\bnew\\s+WebSocket\\s*\\(|\\brequests\\.(?:get|post|put|patch)\\s*\\(|\\burlopen\\s*\\(|\\bhttpx\\.(?:get|post|put)\\s*\\(|\\.send(?:all|to)\\s*\\(|\\b(?:ws|socket|sock)\\.send\\s*\\()|(?:\\bfetch\\s*\\(|\\baxios(?:\\.(?:get|post|put|request))?\\s*\\(|\\bhttps?\\.(?:request|get)\\s*\\(|\\bnavigator\\.sendBeacon\\s*\\(|\\bnew\\s+WebSocket\\s*\\(|\\brequests\\.(?:get|post|put|patch)\\s*\\(|\\burlopen\\s*\\(|\\bhttpx\\.(?:get|post|put)\\s*\\(|\\.send(?:all|to)\\s*\\(|\\b(?:ws|socket|sock)\\.send\\s*\\()[\\s\\S]{0,400}?(?:Buffer\\.from|b64encode|btoa|hexlify)\\s*\\(\\s*(?:str\\s*\\(\\s*)?(?:(?:JSON\\.stringify|json\\.dumps)\\s*\\(\\s*(?:\\{[^{}()]{0,120}?)?(?:process\\.env|(?:dict\\s*\\(\\s*)?os\\.environ(?:\\.copy\\s*\\(\\s*\\))?)\\s*[,})]|(?:process\\.env|(?:dict\\s*\\(\\s*)?os\\.environ(?:\\.copy\\s*\\(\\s*\\))?)\\s*\\)))",
+        "description": "The whole environment serialized (JSON.stringify(process.env), json.dumps(dict(os.environ)), or the env object base64/hex-encoded directly), and reaching the network: serialized inside the send call itself, serialized and then encoded and sent, or wrapped directly in a base64/hex encoder near a send. This is how the npm packages in OSV MAL-2026-4665, MAL-2026-10518 and the emails-helper report sent every variable at once, where the first condition needs one secret read into a variable. Passing process.env to a child process (env: process.env, or a spread) is not serialization and does not match.",
+        "field": "content"
       }
     ]
   },
@@ -22175,22 +22190,22 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)(?:\\bmcpServers\\b[\\s\\S]{0,500}?|(?=[\\s\\S]{0,300}?\"?\\bcommand\\b\"?\\s*[:=])(?=[\\s\\S]{0,300}?\"?\\bargs\\b\"?\\s*[:=]))\"env\"\\s*:\\s*\\{[\\s\\S]{0,10}\"?\\bNODE_OPTIONS\\b\"?\\s*:\\s*[\"'][\\s\\S]{0,40}?(?:--require\\b|-r\\s+\\S|--loader\\b|--experimental-loader\\b|--experimental-require-module\\b)",
+        "regex": "(?i)(?:\\bmcpServers\\b[\\s\\S]{0,500}?|(?=\"env\")(?=[\\s\\S]{0,300}?\"?\\bcommand\\b\"?\\s*[:=])(?=[\\s\\S]{0,300}?\"?\\bargs\\b\"?\\s*[:=]))\"env\"\\s*:\\s*\\{[\\s\\S]{0,10}\"?\\bNODE_OPTIONS\\b\"?\\s*:\\s*[\"'][\\s\\S]{0,40}?(?:--require\\b|-r\\s+\\S|--loader\\b|--experimental-loader\\b|--experimental-require-module\\b)",
         "description": "JSON-style MCP config env block, anchored by a nearby mcpServers key OR a command+args pair (the MCP stdio-spawn shape), sets NODE_OPTIONS to a value that actually references a require/preload/loader flag, not a routine memory/debug/warnings flag or the modern --import instrumentation flag",
         "field": "content"
       },
       {
-        "regex": "(?i)(?:\\bmcpServers\\b[\\s\\S]{0,500}?|(?=[\\s\\S]{0,300}?\"?\\bcommand\\b\"?\\s*[:=])(?=[\\s\\S]{0,300}?\"?\\bargs\\b\"?\\s*[:=]))\\b(?:env|environment)\\b\\s*:[^\\S\\n]*\\n\\s+\"?\\bNODE_OPTIONS\\b\"?\\s*:\\s*[\\s\\S]{0,40}?(?:--require\\b|-r\\s+\\S|--loader\\b|--experimental-loader\\b|--experimental-require-module\\b)",
+        "regex": "(?i)(?:\\bmcpServers\\b[\\s\\S]{0,500}?|(?=\\b(?:env|environment)\\b)(?=[\\s\\S]{0,300}?\"?\\bcommand\\b\"?\\s*[:=])(?=[\\s\\S]{0,300}?\"?\\bargs\\b\"?\\s*[:=]))\\b(?:env|environment)\\b\\s*:[^\\S\\n]*\\n\\s+\"?\\bNODE_OPTIONS\\b\"?\\s*:\\s*[\\s\\S]{0,40}?(?:--require\\b|-r\\s+\\S|--loader\\b|--experimental-loader\\b|--experimental-require-module\\b)",
         "description": "YAML-style MCP config env block (env:/environment: followed immediately by an indented NODE_OPTIONS key on the next line, not separated by prose or a code fence), anchored by a nearby mcpServers key OR a command+args pair, sets NODE_OPTIONS to a require/preload/loader flag",
         "field": "content"
       },
       {
-        "regex": "(?i)(?:\\bmcpServers\\b[\\s\\S]{0,500}?|(?=[\\s\\S]{0,300}?\"?\\bcommand\\b\"?\\s*[:=])(?=[\\s\\S]{0,300}?\"?\\bargs\\b\"?\\s*[:=]))\"env\"\\s*:\\s*\\{[\\s\\S]{0,10}\"?\\b(?:LD_PRELOAD|DYLD_INSERT_LIBRARIES|BASH_ENV|PYTHONSTARTUP|PERL5OPT|RUBYOPT|GCONV_PATH)\\b\"?\\s*:\\s*\\S",
+        "regex": "(?i)(?:\\bmcpServers\\b[\\s\\S]{0,500}?|(?=\"env\")(?=[\\s\\S]{0,300}?\"?\\bcommand\\b\"?\\s*[:=])(?=[\\s\\S]{0,300}?\"?\\bargs\\b\"?\\s*[:=]))\"env\"\\s*:\\s*\\{[\\s\\S]{0,10}\"?\\b(?:LD_PRELOAD|DYLD_INSERT_LIBRARIES|BASH_ENV|PYTHONSTARTUP|PERL5OPT|RUBYOPT|GCONV_PATH)\\b\"?\\s*:\\s*\\S",
         "description": "JSON-style MCP config env block, anchored by a nearby mcpServers key OR a command+args pair, sets a known process-hijacking environment variable that has no benign flag-only mode (its value IS the hijack payload)",
         "field": "content"
       },
       {
-        "regex": "(?i)(?:\\bmcpServers\\b[\\s\\S]{0,500}?|(?=[\\s\\S]{0,300}?\"?\\bcommand\\b\"?\\s*[:=])(?=[\\s\\S]{0,300}?\"?\\bargs\\b\"?\\s*[:=]))\\b(?:env|environment)\\b\\s*:[^\\S\\n]*\\n\\s+\"?\\b(?:LD_PRELOAD|DYLD_INSERT_LIBRARIES|BASH_ENV|PYTHONSTARTUP|PERL5OPT|RUBYOPT|GCONV_PATH)\\b\"?\\s*:\\s*\\S",
+        "regex": "(?i)(?:\\bmcpServers\\b[\\s\\S]{0,500}?|(?=\\b(?:env|environment)\\b)(?=[\\s\\S]{0,300}?\"?\\bcommand\\b\"?\\s*[:=])(?=[\\s\\S]{0,300}?\"?\\bargs\\b\"?\\s*[:=]))\\b(?:env|environment)\\b\\s*:[^\\S\\n]*\\n\\s+\"?\\b(?:LD_PRELOAD|DYLD_INSERT_LIBRARIES|BASH_ENV|PYTHONSTARTUP|PERL5OPT|RUBYOPT|GCONV_PATH)\\b\"?\\s*:\\s*\\S",
         "description": "YAML-style MCP config env block (env:/environment: followed immediately by an indented key on the next line), anchored by a nearby mcpServers key OR a command+args pair, sets a known process-hijacking environment variable",
         "field": "content"
       }
@@ -22383,12 +22398,12 @@
     "category": "code_execution",
     "patterns": [
       {
-        "regex": "(?i)\\b(?:validation|task|hub|worker|remote|agent)_commands?\\b\\s*[=:]\\s*\\[?\\s*[\"'`]?\\s*npm\\s+install\\s+(?!-)[\\w@]",
+        "regex": "(?i)\\b(?:validation|task|hub|worker|remote|agent)_commands?\\b\\s*[=:]\\s*(?:\\[\\s*)?(?:[\"'`]\\s*)?npm\\s+install\\s+(?!-)[\\w@]",
         "description": "Automated task/validation-command feed field invoking npm install of a specific, named package (not a bare dependency-lockfile install and not a --flag-only invocation) -- GHSA-jxh8-jh77-xh6g lifecycle-script RCE primitive (validation_commands / task_commands / hub_commands / worker_commands / remote_commands / agent_commands)",
         "field": "content"
       },
       {
-        "regex": "(?i)\\b(?:validation|task|hub|worker|remote|agent)_commands?\\b\\s*[=:]\\s*\\[?\\s*[\"'`]?\\s*npx\\s+-y(?!\\s+(?:-p\\s+)?(?:prettier|eslint|tsc|typescript|jest|vitest|webpack|vite|rollup|babel(?:-cli)?|husky|lint-staged|ts-node|tsx|mocha|cypress|playwright|npm-check-updates|depcheck|standard|stylelint)\\b)\\s+",
+        "regex": "(?i)\\b(?:validation|task|hub|worker|remote|agent)_commands?\\b\\s*[=:]\\s*(?:\\[\\s*)?(?:[\"'`]\\s*)?npx\\s+-y(?!\\s+(?:-p\\s+)?(?:prettier|eslint|tsc|typescript|jest|vitest|webpack|vite|rollup|babel(?:-cli)?|husky|lint-staged|ts-node|tsx|mocha|cypress|playwright|npm-check-updates|depcheck|standard|stylelint)\\b)\\s+",
         "description": "Automated task/validation-command feed field invoking npx -y (auto-confirm, skips install prompt) against a package that is not one of the common, well-known dev-tool packages -- same lifecycle-script RCE primitive. The negative lookahead sits directly after -y (with its own internal \\s+) rather than after an outer \\s+, so it cannot be evaded by greedy-quantifier backtracking over extra/doubled whitespace (CI's generalization gate caught this exact evasion via its ws_expand benign-mutation check on a true_negative)",
         "field": "content"
       }
@@ -22493,8 +22508,8 @@
         "field": "content"
       },
       {
-        "regex": "(?i)(?:defaultMode(?:\\\\?[\"'])?\\s*:\\s*(?:\\\\?[\"'])?bypassPermissions|defaultApprovalMode(?:\\\\?[\"'])?\\s*:\\s*(?:\\\\?[\"'])?yolo|approvalMode(?:\\\\?[\"'])?\\s*:\\s*(?:\\\\?[\"'])?yolo|approvals?[\\s\\S]{0,40}mode(?:\\\\?[\"'])?\\s*[:=]\\s*(?:\\\\?[\"'])?off\\b|confirmation_mode(?:\\\\?[\"'])?\\s*[:=]\\s*(?:\\\\?[\"'])?(?:false|0|no)\\b|yes[-_]always(?:\\\\?[\"'])?\\s*[:=]\\s*(?:\\\\?[\"'])?(?:true|yes|1)\\b|autoApprovalSettings[\\s\\S]{0,240}enabled(?:\\\\?[\"'])?\\s*:\\s*(?:\\\\?[\"'])?true|disableYoloMode(?:\\\\?[\"'])?\\s*:\\s*(?:\\\\?[\"'])?false|disableAlwaysAllow(?:\\\\?[\"'])?\\s*:\\s*(?:\\\\?[\"'])?false|(?:skills|memory)[._]write_approval(?:\\\\?[\"'])?\\s*[:=]\\s*(?:\\\\?[\"'])?false\\b|mcpServers[\\s\\S]{0,300}(?:\\\\?[\"'])trust(?:\\\\?[\"'])\\s*:\\s*(?:\\\\?[\"'])?true|(?:\\\\?[\"'])(?:autoApprove|alwaysAllow)(?:\\\\?[\"'])\\s*:\\s*(?:\\\\?[\"'])?true)",
-        "description": "Agent settings or config mutated so the approval gate stays off across restarts (defaultMode bypassPermissions, defaultApprovalMode yolo, approvals.mode off, confirmation_mode false, yes-always true, autoApprovalSettings enabled, mcpServers trust true)",
+        "regex": "(?i)(?:defaultMode(?:\\\\?[\"'])?\\s*:\\s*(?:\\\\?[\"'])?bypassPermissions|defaultApprovalMode(?:\\\\?[\"'])?\\s*:\\s*(?:\\\\?[\"'])?yolo|approvalMode(?:\\\\?[\"'])?\\s*:\\s*(?:\\\\?[\"'])?yolo|approvals?[\\s\\S]{0,40}mode(?:\\\\?[\"'])?\\s*[:=]\\s*(?:\\\\?[\"'])?off\\b|confirmation_mode(?:\\\\?[\"'])?\\s*[:=]\\s*(?:\\\\?[\"'])?(?:false|0|no)\\b|yes[-_]always(?:\\\\?[\"'])?\\s*[:=]\\s*(?:\\\\?[\"'])?(?:true|yes|1)\\b|autoApprovalSettings[\\s\\S]{0,240}enabled(?:\\\\?[\"'])?\\s*:\\s*(?:\\\\?[\"'])?true|disableYoloMode(?:\\\\?[\"'])?\\s*:\\s*(?:\\\\?[\"'])?false|disableAlwaysAllow(?:\\\\?[\"'])?\\s*:\\s*(?:\\\\?[\"'])?false|(?:skills|memory)[._]write_approval(?:\\\\?[\"'])?\\s*[:=]\\s*(?:\\\\?[\"'])?false\\b|mcpServers[\\s\\S]{0,300}(?:\\\\?[\"'])trust(?:\\\\?[\"'])\\s*:\\s*(?:\\\\?[\"'])?true|(?:\\\\?[\"'])(?:chat\\.tools\\.(?:global\\.)?)?(?:autoApprove|alwaysAllow)(?:\\\\?[\"'])\\s*:\\s*(?:\\\\?[\"'])?true|\\bapproval_policy(?:\\\\?[\"'])?\\s*[:=]\\s*(?:\\\\?[\"'])?never\\b|\\bsandbox_mode(?:\\\\?[\"'])?\\s*[:=]\\s*(?:\\\\?[\"'])?danger-full-access)",
+        "description": "Agent settings or config mutated so the approval gate stays off across restarts (defaultMode bypassPermissions, defaultApprovalMode yolo, approvals.mode off, confirmation_mode false, yes-always true, autoApprovalSettings enabled, mcpServers trust true, VS Code chat.tools.autoApprove true, Codex approval_policy never or sandbox_mode danger-full-access)",
         "field": "content"
       },
       {
